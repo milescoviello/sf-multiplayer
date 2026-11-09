@@ -112,6 +112,15 @@ namespace SFHeadlessHost
                     SendBridgeJson(from, "{\"reply\":\"ack\",\"cmd\":\"loadMap\",\"ok\":false,\"err\":\"missing or invalid scene\"}");
                 }
             }
+            else if (cmd == "forceNextMap")
+            {
+                // Test tool (the bridge is loopback-only): the next round plays
+                // this scene, e.g. a laser map to check the spin on a client.
+                int scene = ExtractIntField(body, "scene", -1);
+                _forcedNextScene = scene >= 0 && scene <= 124 ? scene : -1;
+                Log.LogInfo($"Bridge: forceNextMap({scene}) → next round scene {_forcedNextScene}");
+                SendBridgeJson(from, $"{{\"reply\":\"ack\",\"cmd\":\"forceNextMap\",\"scene\":{_forcedNextScene}}}");
+            }
             else if (cmd == "teleport")
             {
                 // Direct teleport command — no scene load. Useful when you

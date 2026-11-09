@@ -295,6 +295,8 @@ namespace SFHeadlessHost
             return string.IsNullOrEmpty(ex) ? "102 (stats)" : ("102 (stats), " + ex);
         }
 
+        private int _forcedNextScene = -1;   // bridge "forceNextMap" (test tool)
+
         private void AdvanceRound()
         {
             if (_allLandfallMaps.Length == 0)
@@ -324,6 +326,7 @@ namespace SFHeadlessHost
                 _recentMaps.Enqueue(nextScene);
                 while (_recentMaps.Count > _recentMapsAvoidWindow) _recentMaps.Dequeue();
             }
+            if (_forcedNextScene >= 0) { nextScene = _forcedNextScene; _forcedNextScene = -1; }
             _currentSceneIndex = nextScene;
             _roundAdvanceBlockedUntil = Time.realtimeSinceStartup + RoundMinPlaySec;
             bool solo = IsSoloTestLobby();

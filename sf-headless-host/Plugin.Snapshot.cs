@@ -14,6 +14,15 @@ namespace SFHeadlessHost
 {
     public partial class Plugin
     {
+        // Sub-timings of one snapshot, reported with the heartbeat's hot list.
+        private readonly System.Diagnostics.Stopwatch _snapSw = new System.Diagnostics.Stopwatch();
+        private void SnapLap(System.Diagnostics.Stopwatch sw, string name)
+        {
+            double v; _profMs.TryGetValue(name, out v);
+            _profMs[name] = v + sw.Elapsed.TotalMilliseconds;
+            sw.Reset(); sw.Start();
+        }
+
         private void TickWorldStateSnapshot()
         {
             if (!_matchStarted) return;
@@ -37,6 +46,7 @@ namespace SFHeadlessHost
                 // rigidbody is non-kinematic (i.e. currently allowed to move).
                 // Pre-placed static crates/chains stay kinematic until struck
                 // and don't need bandwidth.
+                var sw = _snapSw; sw.Reset(); sw.Start();
                 bool periodicKeyframe = Time.realtimeSinceStartup >= _nsoPeriodicKeyframeNextAt;
                 if (periodicKeyframe)
                     _nsoPeriodicKeyframeNextAt = Time.realtimeSinceStartup + NsoPeriodicKeyframeSec;
@@ -48,13 +58,17 @@ namespace SFHeadlessHost
                 // platforms, pressure pillars, ghost platforms) so the
                 // oracle is authoritative for these too. Without this they
                 // drift independently on each client.
+                SnapLap(sw, "snap.nso");
                 var mapSyncEntries = CollectMapSyncSnapshot();
+                SnapLap(sw, "snap.mapSync");
                 var mapStateEntries = CollectMapStateSnapshot();
+                SnapLap(sw, "snap.mapState");
                 LogMapSyncDiagnostics(mapSyncEntries.Count, mapStateEntries.Count);
 
                 if (n == 0 && nsoEntries.Count == 0 && mapSyncEntries.Count == 0 && mapStateEntries.Count == 0) return;
 
                 byte[] body = BuildWorldStateBody(nsoEntries, mapSyncEntries, mapStateEntries);
+                SnapLap(sw, "snap.build");
 
                 // Broadcast to ALL spawned clients on their v26 endpoint. Once
                 // a client has sent a PlayerInput packet we know its actual
@@ -69,6 +83,7 @@ namespace SFHeadlessHost
                         v26Ep = new IPEndPoint(kv.Value.Addr.Address, V26_CLIENT_PORT);
                     SendSfPacket(v26Ep, PktWorldStateSnapshot, body, 0, 0);
                 }
+                SnapLap(sw, "snap.send");
                 if (_serverTick == 1 || _serverTick % 90 == 0)
                     Log.LogInfo($"[P6.10/14/v26.6] Snapshot tick={_serverTick} players={n} nsos={nsoEntries.Count} mapSync={mapSyncEntries.Count} mapState={mapStateEntries.Count} fallResets={_nsoFallthroughResetCount} keyframe={periodicKeyframe} bytes={body.Length}");
             }

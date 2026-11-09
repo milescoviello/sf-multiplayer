@@ -166,7 +166,7 @@ namespace SFHeadlessHost
             var list = new List<KeyValuePair<string, double>>(_profMs);
             list.Sort((a, b) => b.Value.CompareTo(a.Value));
             var sb = new System.Text.StringBuilder();
-            for (int i = 0; i < list.Count && i < 4; i++)
+            for (int i = 0; i < list.Count && i < 7; i++)
                 sb.Append($" {list[i].Key}={list[i].Value / frames:0.00}");
             _profMs.Clear();
             return sb.ToString();

@@ -110,10 +110,8 @@ namespace SFHeadlessHost
         }
 
         // ---------------- map rotation from the stock map-select list ----------------
-        // MapSelectionHandler.m_Categories[*].CategoryMaps[*] (SingleMapUI: MapName,
-        // CategoryName, MapIndex = the Landfall scene index, IsLocallyActive,
-        // MapTypeEnum). The old hardcoded rotation ("scenes 6-124 minus 102") also
-        // contained scenes that are not maps in the stock list (e.g. 10).
+        // The old hardcoded rotation ("scenes 6-124 minus 102") also contained
+        // scenes that are not maps in the stock list (e.g. 10).
         private static bool _mapRotationBuilt;
 
         internal static void BuildMapRotationFromGame()
@@ -122,45 +120,68 @@ namespace SFHeadlessHost
             _mapRotationBuilt = true;
             try
             {
-                var mshType = CachedType("MapSelectionHandler");
-                if ((object)mshType == null) { Log.LogWarning("[maps] MapSelectionHandler type not found; keeping the default rotation."); return; }
-                UnityEngine.Object handler = UnityEngine.Object.FindObjectOfType(mshType);
-                if (handler == null)
-                {
-                    var all = Resources.FindObjectsOfTypeAll(mshType);
-                    if (all != null && all.Length > 0) handler = all[0];
-                }
-                var cats = handler != null ? AccessTools.Field(mshType, "m_Categories")?.GetValue(handler) as System.Collections.IList : null;
-                if (cats == null || cats.Count == 0) { Log.LogWarning("[maps] map-select list empty; keeping the default rotation."); return; }
+                var table = ReadLandfallMapTable();
+                if (table == null || table.Count == 0) { Log.LogWarning("[maps] no stock map table; keeping the default rotation."); return; }
                 var wanted = ParseNameList("SF_MAPS");
                 var rotation = new List<int>();
-                var table = new System.Text.StringBuilder();
-                foreach (var cat in cats)
+                var sb = new System.Text.StringBuilder();
+                foreach (var m in table)
                 {
-                    var maps = AccessTools.Field(cat.GetType(), "CategoryMaps")?.GetValue(cat) as System.Collections.IList;
-                    if (maps == null) continue;
-                    foreach (var m in maps)
-                    {
-                        if (m == null) continue;
-                        var t = m.GetType();
-                        string name = AccessTools.Field(t, "MapName")?.GetValue(m) as string;
-                        string category = AccessTools.Field(t, "CategoryName")?.GetValue(m) as string;
-                        string index = AccessTools.Field(t, "MapIndex")?.GetValue(m) as string;
-                        object type = AccessTools.Field(t, "MapTypeEnum")?.GetValue(m);
-                        bool active = AccessTools.Field(t, "IsLocallyActive")?.GetValue(m) is bool b && b;
-                        int scene;
-                        if (type == null || type.ToString() != "Landfall" || !int.TryParse(index, out scene)) continue;
-                        table.Append($" {name}={scene}{(active ? "" : "(off)")}");
-                        bool use = wanted != null ? NameListContains(wanted, category, name) : active;
-                        if (use && scene != 102) rotation.Add(scene);
-                    }
+                    sb.Append($" {m.Name}={m.Scene}");
+                    bool use = wanted != null ? NameListContains(wanted, m.World, m.Name) : true;
+                    if (use && m.Scene != 102 && !rotation.Contains(m.Scene)) rotation.Add(m.Scene);
                 }
-                Log.LogInfo($"[maps] stock Landfall maps:{table}");
+                Log.LogInfo($"[maps] stock Landfall maps:{sb}");
                 if (rotation.Count == 0) { Log.LogWarning("[maps] no maps matched; keeping the default rotation."); return; }
                 _allLandfallMaps = rotation.ToArray();
                 Log.LogInfo($"[maps] rotation: {rotation.Count} maps ({(wanted != null ? "SF_MAPS" : "stock defaults")}).");
             }
             catch (Exception e) { Log.LogWarning($"[maps] rotation build failed: {e.Message}"); }
+        }
+
+        private struct LandfallMap { public string World, Name; public int Scene; }
+
+        // The map-select screen's list as every client builds it
+        // (MapSelectionHandler.InitMapList): each category gets a world (the
+        // presets list is empty in this build, so FindFreeWorldEnum hands them
+        // out and renames the category to the world's name), its maps are
+        // LevelSelection.GetLevelsWithWorld(world), and map k is "<World><k+1>".
+        // So "Laser2" is laserLevels[1], the name DSF's pool and the in-game
+        // title use. Built straight from LevelSelection so it doesn't depend on
+        // the map-select UI having initialised (headless, it may not have).
+        private static readonly string[] LandfallWorlds = { "Woods", "Desert", "Factory", "Castle", "Winter", "Laser", "Western", "Lava", "Xmas", "Halloween" };
+        private static List<LandfallMap> ReadLandfallMapTable()
+        {
+            var lsType = CachedType("LevelSelection");
+            var worldType = CachedType("MapWorldsEnum");
+            if ((object)lsType == null || (object)worldType == null) return null;
+            UnityEngine.Object ls = FirstObjectOfType(lsType);
+            var getLevels = AccessTools.Method(lsType, "GetLevelsWithWorld");
+            if (ls == null || (object)getLevels == null) { Log.LogWarning("[maps] LevelSelection not found."); return null; }
+            var list = new List<LandfallMap>();
+            foreach (var w in LandfallWorlds)
+            {
+                object world;
+                try { world = Enum.Parse(worldType, w); } catch { continue; }
+                var levels = getLevels.Invoke(ls, new object[] { world }) as int[];
+                if (levels == null) continue;
+                for (int k = 0; k < levels.Length; k++)
+                    list.Add(new LandfallMap { World = w, Name = w + (k + 1), Scene = levels[k] });
+            }
+            return list;
+        }
+
+        private static UnityEngine.Object FirstObjectOfType(Type t)
+        {
+            UnityEngine.Object o = UnityEngine.Object.FindObjectOfType(t);
+            if (o != null) return o;
+            var all = Resources.FindObjectsOfTypeAll(t);
+            foreach (var a in all)
+            {
+                var c = a as Component;
+                if (c != null && c.gameObject.scene.IsValid()) return a;   // a scene object, not a prefab asset
+            }
+            return all != null && all.Length > 0 ? all[0] : null;
         }
     }
 }
