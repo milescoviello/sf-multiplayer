@@ -128,10 +128,11 @@ namespace SFHeadlessHost
 
         // Score / match messages: chat for the players, plus the top-of-screen
         // banner (msgType 42, drawn by SFClientRecon) for everyone. Spectators
-        // have no player of their own, so chat never shows for them.
+        // get the banner only (chat to them is turned into the same banner).
         private void Announce(string text)
         {
-            BroadcastChatToAll(text);
+            foreach (var kv in _sfClients)
+                if (kv.Value.Initialized && !kv.Value.IsSpectator) SendChatToPlayer(kv.Value, text);
             byte[] body = System.Text.Encoding.UTF8.GetBytes(text.Length > 200 ? text.Substring(0, 200) : text);
             foreach (var kv in _sfClients)
             {
