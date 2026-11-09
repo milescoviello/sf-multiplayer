@@ -8,6 +8,7 @@
 #   lobby  — lobby code to join via the router (default MAIN)
 # env:
 #   SF_HEADLESS=1   run hidden: xvfb-run + -batchmode -nographics (no window)
+#   SF_HEADLESS=render  hidden virtual display :5<n>, rendered (screenshots)
 #   SF_PROTON       path to Proton's `proton` script
 #   SF_STEAM_ROOT   STEAM_COMPAT_CLIENT_INSTALL_PATH (default ~/.local/share/Steam)
 set -u
@@ -29,6 +30,13 @@ if [ "$BOT" = "1" ]; then
   export SFGYM_BOT_SLOTS=0 SFGYM_BOT_FOLLOW_LOCAL=1 SFGYM_BOT_PROFILE="${SFGYM_BOT_PROFILE:-aggressive}"
 fi
 cd "$DIR"
+if [ "${SF_HEADLESS:-0}" = "render" ]; then
+  # Hidden but RENDERED (software Vulkan on a virtual display :<50+n>), for
+  # screenshots: DISPLAY=:5N xwd -root | convert xwd:- shot.png
+  export SFCLIENTRECON_HEADLESS_CLIENT=0
+  exec xvfb-run -n $((50 + N)) --server-args="-screen 0 960x540x24 -ac" "$PROTON" run "$DIR/StickFight.exe" \
+    -address "$HOST" -port 1338 -screen-width 960 -screen-height 540 -screen-fullscreen 0 ${SF_RENDER_ARGS:-} -logFile "/tmp/sf-test-unity-c$N.log"
+fi
 if [ "${SF_HEADLESS:-0}" = "1" ]; then
   export SFCLIENTRECON_HEADLESS_CLIENT=1
   exec xvfb-run -a --server-args="-screen 0 320x240x24" "$PROTON" run "$DIR/StickFight.exe" \

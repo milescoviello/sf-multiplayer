@@ -321,6 +321,7 @@ namespace SFHeadlessHost
             body[0] = winner;
             body[1] = 0;
             WriteU32LE(body, 2, (uint)nextScene);
+            SendRoundSpawns();   // COMP: shuffled spawn points, before the clients start moving players
             BroadcastSfPacket(PktMapChange, body, 0, 0);
             // Stock host: StartMatch once every client has re-readied (each
             // sends ClientReadyUp after its map load + intro). Never earlier
@@ -402,6 +403,7 @@ namespace SFHeadlessHost
             }
             ResetDeathTrackingForNewRound();
             Log.LogInfo($"[SF] FireMatchStart({source}) — MapChange now; StartMatch to clients after load window.");
+            SendRoundSpawns();
             BroadcastMapChange(_currentSceneIndex);
             ArmStartMatchAfterLoad(Mathf.Max(5f, NextMatchDelaySec + 2f));
             _matchStarted = true;

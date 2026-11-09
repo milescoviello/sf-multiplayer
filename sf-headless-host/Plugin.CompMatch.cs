@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Net;
 using UnityEngine;
 
 namespace SFHeadlessHost
@@ -92,6 +93,43 @@ namespace SFHeadlessHost
             BroadcastChatToAll("A player left: this round doesn't count and will be replayed on the same map.");
             _pendingRoundAdvanceAt = Time.realtimeSinceStartup + RoundEndDelaySec;
             Log.LogInfo("[comp] player left mid-round → round voided, same map will be replayed.");
+        }
+
+        // ---------------- COMP random spawns ----------------
+        // Stock: every client moves player #k to spawnPoints[k] each round, so the
+        // same player always gets the same side, which favours one player on
+        // lopsided maps. COMP shuffles which stock spawn point each player gets,
+        // per round; clients apply it in GameManager.MovePlayer (SFClientRecon).
+        private static readonly System.Random _spawnRng = new System.Random();
+        private void SendRoundSpawns()
+        {
+            if (!CompMode) return;
+            var slots = new List<int>();
+            foreach (var kv in _sfClients)
+                if (kv.Value.Initialized && kv.Value.Slot >= 0 && !slots.Contains(kv.Value.Slot)) slots.Add(kv.Value.Slot);
+            if (slots.Count == 0) return;
+            slots.Sort();
+            var spawn = new List<int>();
+            for (int i = 0; i < slots.Count; i++) spawn.Add(i);
+            for (int i = spawn.Count - 1; i > 0; i--) { int j = _spawnRng.Next(i + 1); int t = spawn[i]; spawn[i] = spawn[j]; spawn[j] = t; }
+            byte[] body = new byte[1 + slots.Count * 2];
+            body[0] = (byte)slots.Count;
+            var desc = new List<string>();
+            for (int i = 0; i < slots.Count; i++)
+            {
+                body[1 + i * 2] = (byte)slots[i];
+                body[2 + i * 2] = (byte)spawn[i];
+                desc.Add($"{SlotName(slots[i])}->spawn{spawn[i]}");
+            }
+            foreach (var kv in _sfClients)
+            {
+                if (!kv.Value.Initialized) continue;
+                IPEndPoint v26Ep;
+                if (!_slotV26Endpoint.TryGetValue(kv.Value.Slot, out v26Ep))
+                    v26Ep = new IPEndPoint(kv.Value.Addr.Address, V26_CLIENT_PORT);
+                SendSfPacket(v26Ep, PktRoundSpawns, body, 0, 0);
+            }
+            Log.LogInfo("[comp] round spawns: " + string.Join(", ", desc.ToArray()));
         }
 
         // ---------------- COMP score ----------------

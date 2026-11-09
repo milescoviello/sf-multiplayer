@@ -97,6 +97,8 @@ namespace SFClientRecon
                 return;
             }
 
+            if (msgType == PktRoundSpawns) { HandleRoundSpawnsPacket(pkt); return; }
+
             if (msgType != 39) return;
 
             int bodyOff = 5;

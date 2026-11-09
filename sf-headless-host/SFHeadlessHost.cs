@@ -674,7 +674,8 @@ namespace SFHeadlessHost
         private const byte PktWorldStateSnapshot            = 39;  // server → all clients, 30Hz
         private const byte PktPlayerInput                   = 40;  // client → server, 60Hz (Phase 6.12)
         private const byte PktClientFireWeapon              = 41;  // client → server, on Weapon.ActuallyShoot (Phase 6.17)
-        private const byte PktV26Announce                   = 42;  // server → all clients, UTF-8 banner text (recon plugin draws it 3s)
+        private const byte PktV26Announce                   = 42;
+        private const byte PktRoundSpawns                   = 44;  // server → clients (v26): COMP spawn assignment for the next map  // server → all clients, UTF-8 banner text (recon plugin draws it 3s)
         // === Patched-DLL extensions (kit's patched Assembly-CSharp.dll has
         // these beyond stock SF's 0-38 range). We don't synthesize them, but
         // we relay so peer clients see each other. From ALKA's
