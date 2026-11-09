@@ -146,41 +146,30 @@ namespace SFHeadlessHost
             // locally rather than rely on that far-away invariant — match them so a
             // future slot-allocation change can't turn this into an IndexOutOfRange
             // that silently drops a client's damage.
-            if (attackerIdx != 255 && sender.Slot >= 0 && sender.Slot <= 3)
+            // Range plausibility, on the positions the two players themselves last
+            // reported (their PlayerUpdates: what everyone else actually sees).
+            // It used the server's own rigs plus a rewind buffer, and those can sit
+            // far from the real players, so legit hits were dropped (seen live:
+            // "122.5u > 50u"). The cap only catches absurd cross-map claims (a
+            // long snipe on a big map must never be refused), and the check only
+            // DROPS where anti-cheat is enforced (COMP); elsewhere it logs.
+            if (attackerIdx != 255 && attackerIdx != sender.Slot && sender.Slot >= 0 && sender.Slot <= 3 && attackerIdx <= 3)
             {
-                Vector3 attPos, vicPos;
-                bool gotHistoric = false;
-                if (_serverTick >= 2)
+                Vector3 attPos, vicPos; float attAt, vicAt;
+                float now = Time.realtimeSinceStartup;
+                if (_reportedPos.TryGetValue(attackerIdx, out attPos) && _reportedAt.TryGetValue(attackerIdx, out attAt)
+                    && _reportedPos.TryGetValue(sender.Slot, out vicPos) && _reportedAt.TryGetValue(sender.Slot, out vicAt)
+                    && now - attAt < 1f && now - vicAt < 1f)
                 {
-                    var sample = LookupTickSample(_serverTick - 2);
-                    if (sample != null && sample.Alive[attackerIdx] && sample.Alive[sender.Slot])
+                    float dist = Vector3.Distance(attPos, vicPos);
+                    const float MaxPlausibleReach = 150f;
+                    if (dist > MaxPlausibleReach)
                     {
-                        attPos = sample.Positions[attackerIdx];
-                        vicPos = sample.Positions[sender.Slot];
-                        gotHistoric = true;
+                        _damagePacketsDropped++;
+                        bool enforce = AnticheatEnforce;
+                        Log.LogWarning($"[anticheat damage] {(enforce ? "Reject" : "Suspicious (not enforced)")} — reported distance {dist:0.0}u > {MaxPlausibleReach}u (attacker slot {attackerIdx}, victim slot {sender.Slot}). #{_damagePacketsDropped}");
+                        if (enforce) return false;
                     }
-                    else { attPos = vicPos = Vector3.zero; }
-                }
-                else { attPos = vicPos = Vector3.zero; }
-
-                if (!gotHistoric)
-                {
-                    if (SlotToRig.TryGetValue(attackerIdx, out var attRig) && (object)attRig != null
-                        && SlotToRig.TryGetValue(sender.Slot, out var vicRig) && (object)vicRig != null)
-                    {
-                        attPos = attRig.transform.position;
-                        vicPos = vicRig.transform.position;
-                    }
-                    else return true;  // not enough info to validate; trust
-                }
-
-                float dist = Vector3.Distance(attPos, vicPos);
-                const float MaxPlausibleReach = 50f;
-                if (dist > MaxPlausibleReach)
-                {
-                    _damagePacketsDropped++;
-                    Log.LogWarning($"[anticheat damage] Reject — distance {dist:0.0}u > {MaxPlausibleReach}u (attacker slot {attackerIdx}, victim slot {sender.Slot}, {(gotHistoric ? "rewind" : "live")}). Dropped #{_damagePacketsDropped}");
-                    return false;
                 }
             }
             // Future (Phase 6.16+): weapon-specific max-reach (sword=3.5u,

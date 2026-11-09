@@ -551,6 +551,13 @@ namespace SFHeadlessHost
             float py = rawY / 100f;
             float pz = rawZ / 100f;
             UpdateGhostRigPosition(cli.Slot, new Vector3(0f, py, pz));
+            _reportedPos[cli.Slot] = new Vector3(0f, py, pz);
+            _reportedAt[cli.Slot] = Time.realtimeSinceStartup;
         }
+
+        // Each player's last self-reported position (PlayerUpdate), for checks
+        // that must match what players actually see (not the server's rigs).
+        private readonly Dictionary<int, Vector3> _reportedPos = new Dictionary<int, Vector3>();
+        private readonly Dictionary<int, float> _reportedAt = new Dictionary<int, float>();
     }
 }
