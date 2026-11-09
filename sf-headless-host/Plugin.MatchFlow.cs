@@ -307,6 +307,7 @@ namespace SFHeadlessHost
             }
             byte winner = DecideRoundWinner();
             RecordRoundPoint(winner);
+            RotateRecordingIfDue();   // before this round's MapChange, so a new file starts with it
             bool replay = _replaySameMap;
             _roundVoid = false;
             _replaySameMap = false;
@@ -410,9 +411,9 @@ namespace SFHeadlessHost
         // while a match is in progress just logs and returns.
         private void FireMatchStart(string source)
         {
-            if (_matchStarted)
+            if (_matchStarted || ReplayMode)
             {
-                Log.LogInfo($"[SF] FireMatchStart({source}) — already started, no-op.");
+                Log.LogInfo($"[SF] FireMatchStart({source}) — {(ReplayMode ? "replay lobby" : "already started")}, no-op.");
                 return;
             }
             ResetDeathTrackingForNewRound();
@@ -424,6 +425,7 @@ namespace SFHeadlessHost
                 _recentMaps.Enqueue(_currentSceneIndex);
             }
             Log.LogInfo($"[SF] FireMatchStart({source}) — MapChange now (scene {_currentSceneIndex}); StartMatch to clients after load window.");
+            StartRecording();
             SendRoundSpawns();
             BroadcastMapChange(_currentSceneIndex);
             ArmStartMatchAfterLoad(Mathf.Max(5f, NextMatchDelaySec + 2f));

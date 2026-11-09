@@ -269,8 +269,10 @@ namespace SFHeadlessHost
                 if (evict != null) foreach (var k in evict) _sfClients.Remove(k);
             }
 
-            // Assign a slot only if eviction didn't reuse one.
-            int slot = cli.Slot >= 0 ? cli.Slot : AllocSlot(cli);
+            // Assign a slot only if eviction didn't reuse one. A replay lobby
+            // seats every joiner as a viewer on a slot the recording doesn't use.
+            Dictionary<int, ulong> replayRoster = null;
+            int slot = ReplayMode ? PrepareReplayViewer(cli, out replayRoster) : cli.Slot >= 0 ? cli.Slot : AllocSlot(cli);
             if (slot < 0)
             {
                 // H-P1-2 — all 4 slots taken: don't send ClientInit (the client
@@ -291,7 +293,7 @@ namespace SFHeadlessHost
             {
                 bw.Write((byte)1);            // accept
                 bw.Write((byte)slot);         // playerIndex
-                bw.Write((byte)(MaxPlayers + SpectatorSlots));   // slot count incl. spectators (a spectator's index must fit the client's arrays)
+                bw.Write((byte)(ReplayMode ? 4 : MaxPlayers + SpectatorSlots));   // slot count incl. spectators (a spectator's index must fit the client's arrays)
                 bw.Write((byte)0);            // mapType 0=Landfall
                 bw.Write((int)4);             // mapSize
                 bw.Write((int)sceneIndex);    // mapData (sceneIndex)
@@ -305,12 +307,13 @@ namespace SFHeadlessHost
                     }
                     else
                     {
-                        // Find any other connected client in slot s.
-                        SfClient other = null;
-                        foreach (var kv in _sfClients) if (kv.Value.Slot == s) { other = kv.Value; break; }
-                        if (other != null)
+                        // Find any other connected client in slot s (replay: the recorded player).
+                        ulong otherSid = 0;
+                        if (replayRoster != null) replayRoster.TryGetValue(s, out otherSid);
+                        else foreach (var kv in _sfClients) if (kv.Value.Slot == s) { otherSid = kv.Value.SteamID; break; }
+                        if (otherSid != 0)
                         {
-                            bw.Write(other.SteamID);
+                            bw.Write(otherSid);
                             // 13 × int32 stats (zeros for now)
                             for (int i = 0; i < 13; i++) bw.Write((int)0);
                             bw.Write((int)0); // colorCount (patched-only) — 0 = default
@@ -322,10 +325,11 @@ namespace SFHeadlessHost
                     }
                 }
                 bw.Write((ushort)0);          // weaponCount
-                bw.Write((byte)0);            // mapToggle
-                bw.Write((byte)100);          // health
-                bw.Write((byte)1);            // regen
-                bw.Write((byte)1);            // weaponSpawnRate
+                // [mapToggle][HP index][regen][weapon spawn rate]: the lobby's
+                // rules. These were hardcoded (HP byte 100, regen ON, spawn rate
+                // 1 = high) — the OptionsChanged right after overrode them, but
+                // the client ran on the wrong rules until it arrived.
+                bw.Write(ReplayMode ? ReplayOptionsFor(cli) : LobbyOptionsBody());
 
                 byte[] body = ms.ToArray();
                 SendSfPacket(cli.Addr, PktClientInit, body, cli.SteamID, 0);
@@ -341,7 +345,7 @@ namespace SFHeadlessHost
             // lobby's rules, as the stock host sends them. (This used to send
             // regen=1, i.e. health regeneration ON for everyone; stock and comp
             // play with it off.)
-            SendSfPacket(cli.Addr, PktOptionsChanged, LobbyOptionsBody(), cli.SteamID, 0);
+            SendSfPacket(cli.Addr, PktOptionsChanged, ReplayMode ? ReplayOptionsFor(cli) : LobbyOptionsBody(), cli.SteamID, 0);
             Log.LogInfo($"[SF] Post-init bundle sent (WorkshopMapsLoaded + OptionsChanged).");
         }
 
@@ -365,6 +369,12 @@ namespace SFHeadlessHost
                 // The slot comes from the client; it may only spawn itself.
                 Log.LogWarning($"[SF] spawn request for slot {pIdx} from slot {cli.Slot} — using {cli.Slot}.");
                 pIdx = (byte)cli.Slot;
+            }
+            if (ReplayMode)
+            {
+                cli.Spawned = true;   // a viewer has no body
+                BeginReplayForViewer(cli);
+                return;
             }
             if (cli.IsSpectator)
             {

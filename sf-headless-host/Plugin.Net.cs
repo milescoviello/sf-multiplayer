@@ -199,6 +199,7 @@ namespace SFHeadlessHost
 
         private void ResetMatchStateForLobby()
         {
+            StopRecording("lobby empty");
             _matchStarted = false;
             _autoStartAt = -1f;
             _startMatchEarliestAt = -1f;
@@ -580,6 +581,12 @@ namespace SFHeadlessHost
         private void SendSfPacket(IPEndPoint to, byte msgType, byte[] body, ulong steamID, byte channel)
         {
             if ((object)_sfServer == null) return;
+            if (_replay != null)
+            {
+                // Recording must never break sending.
+                try { RecordOutgoing(msgType, body, steamID, channel); }
+                catch (Exception e) { Log.LogWarning($"[replay] recorder failed, recording off: {e.Message}"); try { StopRecording("error"); } catch { _replay = null; } }
+            }
             int totalLen = 5 + (body?.Length ?? 0) + 9;
             byte[] pkt = new byte[totalLen];
             uint ts = (uint)(System.DateTime.UtcNow - new System.DateTime(1970, 1, 1)).TotalSeconds;

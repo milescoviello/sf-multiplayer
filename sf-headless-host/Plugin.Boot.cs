@@ -601,6 +601,7 @@ namespace SFHeadlessHost
                     ProfBegin(); TickServerPings(); ProfEnd("TickServerPings");
                     TickBoxProbe();
                     TickTestAutostart();
+                    ProfBegin(); TickReplayPlayback(); ProfEnd("TickReplayPlayback");
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;

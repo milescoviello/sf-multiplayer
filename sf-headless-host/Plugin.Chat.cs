@@ -106,6 +106,7 @@ namespace SFHeadlessHost
                 string cmd = (space < 0 ? text : text.Substring(0, space)).ToLowerInvariant();
                 // Don't echo /admin arguments (the password) into the log.
                 Log.LogInfo($"[chat] slot={sender.Slot} command='{(cmd == "/admin" ? "/admin ***" : text)}'");
+                if (ReplayMode) { HandleReplayChat(sender, cmd, space < 0 ? "" : text.Substring(space + 1).Trim()); return; }
                 switch (cmd)
                 {
                     case "/code":

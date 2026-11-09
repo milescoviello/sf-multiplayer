@@ -203,6 +203,7 @@ namespace SFHeadlessHost
             Announce($"{result}! " + string.Join(", ", summary.ToArray()) + ". New match starting.");
             Log.LogInfo($"[comp] MATCH OVER: {result}. " + string.Join(", ", summary.ToArray()));
             ResetCompMatch();
+            _recordingSplitPending = true;   // one replay file per COMP match
         }
 
         private void ResetCompMatch()
