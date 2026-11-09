@@ -125,6 +125,7 @@ namespace SFClientRecon
         private const float SelectResendInterval = 0.2f;   // 5Hz while not connected
         private uint  _selectNonce;
         private float _lastSelectAt = -1f;
+        private static long _selectAckTicks;   // UTC ticks of the last router SELECT-ACK (set on the RX thread)
         private uint  _lastSeenSnapCount;
         private float _lastSnapGrowAt = -1f;
         private int   _selectLogs;
@@ -272,6 +273,7 @@ namespace SFClientRecon
             InstallOracleLobbyConnectPatches();
             InstallRoundSpawnPatch();
             InstallServerChatCommandPatch();
+            InstallGameSocketFixes();
             InstallNsoClientPushPatches();
             // Defensive NetworkSyncableObject burst/NaN guard (credit: z7572/NaNFixer).
             // Runs regardless of connect mode; SF_NANGUARD=0 disables it.
@@ -394,6 +396,7 @@ namespace SFClientRecon
             // No FPS / vSync overrides: the player's own Game Settings decide, as in
             // stock (FPS changes how the game plays, so forcing it is not fair play).
             try { ApplyServerPings(); } catch { }
+            try { ApplyPlayersLeft(); } catch { }
             try { TickViewerLink(); } catch { }
             try { TickOracleAutoConnect(); } catch { }
             try { TickDebugConsole(); } catch { }
@@ -450,7 +453,11 @@ namespace SFClientRecon
                 float nowSel = Time.realtimeSinceStartup;
                 if (_snapsReceived != _lastSeenSnapCount) { _lastSeenSnapCount = _snapsReceived; _lastSnapGrowAt = nowSel; }
                 bool snapsFlowing = _lastSnapGrowAt > 0f && (nowSel - _lastSnapGrowAt) < 1f;
-                if (!snapsFlowing && nowSel - _lastSelectAt >= SelectResendInterval)
+                // The server sends no snapshots in the lobby: a router ACK in the
+                // last 5 s also means we're pinned (else lobby clients re-SELECT
+                // 5x a second forever, ~600 router log lines a minute for two).
+                bool acked = DateTime.UtcNow.Ticks - System.Threading.Interlocked.Read(ref _selectAckTicks) < TimeSpan.TicksPerSecond * 5;
+                if (!snapsFlowing && !acked && nowSel - _lastSelectAt >= SelectResendInterval)
                 {
                     _lastSelectAt = nowSel;
                     SendSelectLobbyPacket();

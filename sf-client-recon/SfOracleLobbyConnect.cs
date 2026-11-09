@@ -388,6 +388,7 @@ namespace SFClientRecon
                 inst._lastSeenSnapCount = inst._snapsReceived;
                 inst._lastSnapGrowAt = -1f;
                 inst._lastSelectAt = -1f;
+                System.Threading.Interlocked.Exchange(ref _selectAckTicks, 0L);   // a new lobby needs its own ACK
                 // Drop any slot discovered in the PREVIOUS lobby. FindLocalSlot
                 // short-circuits on a cached _localSlot >= 0, so without this the
                 // 60Hz input loop keeps sending under the old lobby's slot number

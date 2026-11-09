@@ -265,6 +265,83 @@ namespace SFHeadlessHost
                 _rigLerpStart[slot] = Time.time;
             }
             ApplyDummyMovementState(rig, body);
+            ReplayDummyFight(rig, body);
+        }
+
+        // The rest of SyncClientState: fight state, the shots fired since the
+        // last update, and the weapon held. A stock host replays every remote
+        // player's shots this way, and that copy is what makes a grenade blast
+        // push the host's crates and what spawns a snake-gun snake on the
+        // host (registered under the shooter's sync index), the snake the host
+        // then aims (SnakeAIUpdatePrefix). The server never replayed them, so
+        // snake-gun snakes never chased anyone. The replayed shots can't hurt
+        // or push anything over the network: every such path is gated on the
+        // shooter's Controller.HasControl, which a dummy doesn't have.
+        // Body after the movement byte: [u8 fightState][u16 n] n x [i16 posY]
+        // [i16 posZ][s8 dirY][s8 dirZ][u16 syncIndex], then [u8 weapon+1].
+        private static readonly bool ReplayShots = Environment.GetEnvironmentVariable("SFHEADLESS_REPLAY_SHOTS") != "0";
+        private const int MaxReplayedShots = 24;
+        private static Type _pkgT, _svT, _bvT, _fightingT;
+        private static FieldInfo _pkgPosF, _pkgVecF, _pkgSyncF;
+        private static MethodInfo _fSetStateM, _fFireM, _fPickM;
+        private static bool _replayReflTried;
+        private int _replayedShots;
+
+        private void ReplayDummyFight(GameObject rig, byte[] body)
+        {
+            if (!ReplayShots || body == null || body.Length < 12) return;
+            try
+            {
+                if (!_replayReflTried)
+                {
+                    _replayReflTried = true;
+                    _pkgT = CachedType("ProjectilePackageStruct"); _svT = CachedType("ShortVector2"); _bvT = CachedType("ByteVector2");
+                    _fightingT = CachedType("Fighting");
+                    if ((object)_pkgT != null)
+                    {
+                        _pkgPosF = AccessTools.Field(_pkgT, "shootPosition"); _pkgVecF = AccessTools.Field(_pkgT, "shootVector"); _pkgSyncF = AccessTools.Field(_pkgT, "syncIndex");
+                    }
+                    if ((object)_fightingT != null)
+                    {
+                        _fSetStateM = AccessTools.Method(_fightingT, "SetFightState");
+                        _fFireM = AccessTools.Method(_fightingT, "FirePackages");
+                        _fPickM = AccessTools.Method(_fightingT, "NetworkPickUpWeapon");
+                    }
+                    if ((object)_pkgPosF == null || (object)_fFireM == null || (object)_fPickM == null || (object)_fSetStateM == null || (object)_svT == null || (object)_bvT == null)
+                        Log.LogWarning("[P6.9 dummy] shot replay: reflection incomplete, off.");
+                }
+                if ((object)_fFireM == null || (object)_fPickM == null || (object)_fSetStateM == null || (object)_pkgPosF == null) return;
+                byte state = body[8];
+                int n = body[9] | (body[10] << 8);
+                if (n > MaxReplayedShots || body.Length < 11 + n * 8 + 1) return;
+                byte weapon = body[11 + n * 8];
+                var fighting = rig.GetComponent(_fightingT);
+                if ((object)fighting == null) return;
+                var shots = Array.CreateInstance(_pkgT, n);
+                for (int i = 0; i < n; i++)
+                {
+                    int o = 11 + i * 8;
+                    object pkg = Activator.CreateInstance(_pkgT);
+                    _pkgPosF.SetValue(pkg, Activator.CreateInstance(_svT, new object[] { (short)(body[o] | (body[o + 1] << 8)), (short)(body[o + 2] | (body[o + 3] << 8)) }));
+                    _pkgVecF.SetValue(pkg, Activator.CreateInstance(_bvT, new object[] { (sbyte)body[o + 4], (sbyte)body[o + 5] }));
+                    _pkgSyncF.SetValue(pkg, (ushort)(body[o + 6] | (body[o + 7] << 8)));
+                    shots.SetValue(pkg, i);
+                }
+                _fSetStateM.Invoke(fighting, new object[] { state });
+                if (state == 1)
+                {
+                    _fFireM.Invoke(fighting, new object[] { shots, weapon });
+                    _replayedShots += n;
+                    if (n > 0 && (_replayedShots <= 5 || _replayedShots % 200 == 0))
+                        Log.LogInfo($"[P6.9 dummy] replayed {n} shot(s), weapon {weapon} (total {_replayedShots})");
+                }
+                if ((state == 1 && weapon != 0) || state == 0)
+                    _fPickM.Invoke(fighting, new object[] { weapon });
+            }
+            catch (Exception e)
+            {
+                if (_replayedShots++ < 3) Log.LogWarning($"[P6.9 dummy] shot replay: {(e.InnerException ?? e).Message}");
+            }
         }
 
         // PlayerUpdate body (NetworkPlayer.SendNewClientStatePackage):

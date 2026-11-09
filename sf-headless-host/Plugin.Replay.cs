@@ -46,7 +46,7 @@ namespace SFHeadlessHost
         private const float ReplayRotateSec = 30f * 60f;
 
         // v26-socket message types (everything else goes to the game socket).
-        private static bool IsV26Type(byte t) => t == PktWorldStateSnapshot || t == PktV26Announce || t == PktRoundSpawns || t == PktPlayerPings;
+        private static bool IsV26Type(byte t) => t == PktWorldStateSnapshot || t == PktV26Announce || t == PktRoundSpawns || t == PktPlayerPings || t == PktPlayerLeft;
 
         // Per-client handshake/one-off types that are not part of the match stream.
         private static bool IsReplayExcluded(byte t) =>

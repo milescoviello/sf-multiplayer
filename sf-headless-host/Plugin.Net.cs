@@ -123,61 +123,10 @@ namespace SFHeadlessHost
                 foreach (var k in toRemove)
                 {
                     var cli = _sfClients[k];
-                    // Only a joined player leaving matters to the round; health-check
-                    // probes and half-open connections are swept here too.
-                    if (IsParticipant(cli)) participantLeft = true;
                     Log.LogInfo($"[SF] Dropping stale client {k} (slot={cli.Slot} steamID={cli.SteamID}, last seen {Time.realtimeSinceStartup - cli.LastSeen:0.0}s ago)");
-                    _sfClients.Remove(k);
-                    // Also forget the v26 endpoint + death-tracking for the slot,
-                    // otherwise we'd keep sending snapshots into the void. (A2)
-                    // Only clear slot-keyed state if no LIVE client has since taken
-                    // this slot — a reconnect reuses the slot, and clearing then
-                    // would delete the live client's endpoint and mark its slot
-                    // already-dead. (cli is already removed from _sfClients above.)
-                    if (cli.Slot >= 0)
-                    {
-                        bool slotReused = false;
-                        foreach (var kv2 in _sfClients) if (kv2.Value.Slot == cli.Slot) { slotReused = true; break; }
-                        if (!slotReused)
-                        {
-                            _slotV26Endpoint.Remove(cli.Slot);
-                            _deathSlotsHandled.Remove(cli.Slot);
-                            // Destroy this slot's authoritative rig and drop its last
-                            // input. Otherwise the rig lingers until the next round
-                            // advance: still serialized into snapshots (a frozen
-                            // phantom), still tested by projectile hit-reg, and still
-                            // driven by the stale SlotInputs frame (a held move/fire/
-                            // throw keeps applying). A disconnect that leaves a single
-                            // player alive advances no round, so it would otherwise
-                            // persist indefinitely. (Mirrors the reconnect-eviction
-                            // cleanup above, plus a Destroy since no one reuses it.)
-                            if (SlotToRig.TryGetValue(cli.Slot, out var staleRig))
-                            {
-                                if ((object)staleRig != null) UnityEngine.Object.Destroy(staleRig);
-                                SlotToRig.Remove(cli.Slot);
-                            }
-                            SlotInputs.Remove(cli.Slot);
-                        }
-                    }
-                    _rateGuards.Remove(k);
+                    if (DropClient(k, cli)) participantLeft = true;
                 }
-                // A player leaving can end the round (last one standing wins);
-                // in COMP it voids the round instead (replayed on the same map).
-                if (_matchStarted && participantLeft)
-                {
-                    if (CompMode) OnCompPlayerLeftMidRound();
-                    else CheckRoundEnd("player left");
-                }
-                // Lobby emptied out: clear the match flag so the next player's
-                // /start fires a fresh MapChange. _matchStarted was a one-way
-                // latch — once a match started it never reset, so any later
-                // /start hit the "already in progress" no-op and the client
-                // sat in the lobby forever.
-                if (_sfClients.Count == 0 && _matchStarted)
-                {
-                    Log.LogInfo("[SF] Lobby empty — resetting match state for next /start.");
-                    ResetMatchStateForLobby();
-                }
+                AfterClientsLeft(participantLeft);
             }
             // H-P0-2 — prune rate guards by their own last-touch, independent of
             // _sfClients membership. Guards are keyed per source ENDPOINT and are
@@ -195,6 +144,72 @@ namespace SFHeadlessHost
             }
             if (guardsToRemove != null)
                 foreach (var k in guardsToRemove) _rateGuards.Remove(k);
+        }
+
+        // Forget a client (timed out, or it said ClientLeft). Returns true if it
+        // was a joined player. Only a joined player leaving matters to the
+        // round; health-check probes and half-open connections end up here too.
+        private bool DropClient(string key, SfClient cli)
+        {
+            bool participant = IsParticipant(cli);
+            _sfClients.Remove(key);
+            _rateGuards.Remove(key);
+            if (cli.Slot < 0) return participant;
+            // Only clear slot-keyed state if no LIVE client has since taken
+            // this slot: a reconnect reuses the slot, and clearing then would
+            // delete the live client's endpoint and mark its slot already-dead.
+            foreach (var kv2 in _sfClients) if (kv2.Value.Slot == cli.Slot) return participant;
+            _slotV26Endpoint.Remove(cli.Slot);
+            _deathSlotsHandled.Remove(cli.Slot);
+            // Destroy this slot's server rig and drop its last input, or the rig
+            // lingers (frozen phantom in snapshots and hit tests, driven by the
+            // stale input) until the next round.
+            if (SlotToRig.TryGetValue(cli.Slot, out var staleRig))
+            {
+                if ((object)staleRig != null) UnityEngine.Object.Destroy(staleRig);
+                SlotToRig.Remove(cli.Slot);
+            }
+            SlotInputs.Remove(cli.Slot);
+            // Tell everyone else, so their game removes this player's body.
+            // Stock learns it from the Steam lobby; without this the body stood
+            // there until the next map and a rejoin added a second one.
+            if (participant) BroadcastPlayerLeft(cli);
+            return participant;
+        }
+
+        // msgType 47 (v26, server → clients): [u8 slot][u64 steamId].
+        private void BroadcastPlayerLeft(SfClient gone)
+        {
+            byte[] body = new byte[9];
+            body[0] = (byte)gone.Slot;
+            for (int b = 0; b < 8; b++) body[1 + b] = (byte)(gone.SteamID >> (8 * b));
+            foreach (var kv in _sfClients)
+            {
+                if (!kv.Value.Initialized) continue;
+                IPEndPoint v26Ep;
+                if (!_slotV26Endpoint.TryGetValue(kv.Value.Slot, out v26Ep))
+                    v26Ep = new IPEndPoint(kv.Value.Addr.Address, V26_CLIENT_PORT);
+                SendSfPacket(v26Ep, PktPlayerLeft, body, 0, 0);
+            }
+            Log.LogInfo($"[SF] slot {gone.Slot} left: told {_sfClients.Count} client(s).");
+        }
+
+        private void AfterClientsLeft(bool participantLeft)
+        {
+            // A player leaving can end the round (last one standing wins);
+            // in COMP it voids the round instead (replayed on the same map).
+            if (_matchStarted && participantLeft)
+            {
+                if (CompMode) OnCompPlayerLeftMidRound();
+                else CheckRoundEnd("player left");
+            }
+            // Lobby emptied out: clear the match flag so the next player's
+            // /start fires a fresh MapChange.
+            if (_sfClients.Count == 0 && _matchStarted)
+            {
+                Log.LogInfo("[SF] Lobby empty — resetting match state for next /start.");
+                ResetMatchStateForLobby();
+            }
         }
 
         private void ResetMatchStateForLobby()
@@ -459,6 +474,18 @@ namespace SFHeadlessHost
                 // syncableObjectSpawnID and broadcasts as WeaponThrown (20).
                 case PktRequestingWeaponThrow:
                     HandleThrowRequest(cli, data, bodyOffset, bodyLen);
+                    break;
+
+                // The game sends ClientLeft when it leaves the lobby (back to
+                // the menu, another lobby). Drop the player now instead of
+                // after the 30 s timeout.
+                case PktClientLeft:
+                    {
+                        SfClient tracked;
+                        if (!_sfClients.TryGetValue(key, out tracked) || tracked != cli) break;
+                        Log.LogInfo($"[SF] ClientLeft from {from} (slot={cli.Slot} steamID={cli.SteamID}).");
+                        AfterClientsLeft(DropClient(key, cli));
+                    }
                     break;
 
                 default:

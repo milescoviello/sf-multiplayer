@@ -74,7 +74,11 @@ namespace SFClientRecon
                     _bannerUntilUtc = DateTime.UtcNow.AddSeconds(3);
                     if (_selectLogs < 8) { _selectLogs++; Log.LogWarning($"[SELECT-ACK] lobby={SelectedLobbyCode} not found (status={ackStatus})"); }
                 }
-                else if (_selectLogs < 8) { _selectLogs++; Log.LogInfo($"[SELECT-ACK] lobby={SelectedLobbyCode} accepted"); }
+                else
+                {
+                    System.Threading.Interlocked.Exchange(ref _selectAckTicks, DateTime.UtcNow.Ticks);
+                    if (_selectLogs < 8) { _selectLogs++; Log.LogInfo($"[SELECT-ACK] lobby={SelectedLobbyCode} accepted"); }
+                }
                 return;
             }
 
@@ -100,6 +104,7 @@ namespace SFClientRecon
 
             if (msgType == PktRoundSpawns) { HandleRoundSpawnsPacket(pkt); return; }
             if (msgType == PktPlayerPings) { HandlePlayerPingsPacket(pkt); return; }
+            if (msgType == PktPlayerLeft) { HandlePlayerLeftPacket(pkt); return; }
 
             if (msgType != 39) return;
 

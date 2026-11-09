@@ -383,13 +383,27 @@ namespace SFHeadlessHost
                 return;
             }
 
+            // Stock host (OnPlayerRequestingToSpawn): someone joining while a
+            // round is being played with 2+ others spawns dead and plays from
+            // the next round; with one other player they join the round alive.
+            int others = 0;
+            var seenSlots = new HashSet<int>();
+            foreach (var kv in _sfClients)
+                if (kv.Value != cli && IsParticipant(kv.Value) && kv.Value.Slot != cli.Slot && seenSlots.Add(kv.Value.Slot)) others++;
+            bool spawnDead = _matchStarted && _startMatchSentThisRound && others > 1;
+            if (spawnDead)
+            {
+                _deadThisRound.Add(cli.Slot);
+                Log.LogInfo($"[SF] slot {cli.Slot} joined mid-round with {others} others: spawns dead until the next round (stock).");
+            }
+
             using (var ms = new System.IO.MemoryStream())
             using (var bw = new System.IO.BinaryWriter(ms))
             {
                 bw.Write(pIdx);
                 bw.Write(px); bw.Write(py); bw.Write(pz);
                 bw.Write(rx); bw.Write(ry); bw.Write(rz);
-                bw.Write((byte)0);    // spawnFlag false = RevivePlayer at pos
+                bw.Write((byte)(spawnDead ? 1 : 0));    // 1 = ForcedDie (spectate this round), 0 = RevivePlayer at pos
                 bw.Write((int)0);     // colorCount (patched-only)
                 byte[] spawnBody = ms.ToArray();
 
@@ -422,6 +436,7 @@ namespace SFHeadlessHost
             }
             cli.Spawned = true;
             SendCachedGroundWeaponsToClient(cli);
+            CheckCompLateJoiner();
 
             // Match no longer auto-starts. Players spawn into the lobby and
             // wait for /start in chat. Host can type /start to begin.

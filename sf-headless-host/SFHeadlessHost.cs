@@ -685,6 +685,8 @@ namespace SFHeadlessHost
         // (no v26 plugin loaded) receive these and ignore via default case
         // in P2PPackageHandler.CheckMessageType.
         private const byte PktWorldStateSnapshot            = 39;  // server → all clients, 30Hz
+        private const byte PktClientLeft                    = 39;  // client → server on the game socket (stock MsgType.ClientLeft)
+        private const byte PktPlayerLeft                    = 47;  // server → clients (v26): a player left, remove their body
         private const byte PktPlayerInput                   = 40;  // client → server, 60Hz (Phase 6.12)
         private const byte PktClientFireWeapon              = 41;  // client → server, on Weapon.ActuallyShoot (Phase 6.17)
         private const byte PktV26Announce                   = 42;  // server → all clients, UTF-8 banner text (recon plugin draws it 3s)

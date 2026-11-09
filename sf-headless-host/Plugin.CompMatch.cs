@@ -105,8 +105,9 @@ namespace SFHeadlessHost
 
         private byte DecideRoundWinner()
         {
-            if (_roundVoid || _roundParticipantsAtStart < 2) return 255;
+            if (_roundVoid) return 255;
             CountAlive(out int participants, out int alive, out int lastAlive);
+            if (Math.Max(_roundParticipantsAtStart, participants) < 2) return 255;   // solo round: nobody wins
             if (alive == 1) return (byte)lastAlive;
             if (alive > 1) return 255;   // e.g. /next
             int best = -1; float bestT = float.MinValue;
@@ -124,6 +125,27 @@ namespace SFHeadlessHost
             Announce("A player left: this round doesn't count and will be replayed on the same map.");
             _pendingRoundAdvanceAt = Time.realtimeSinceStartup + RoundEndDelaySec;
             Log.LogInfo("[comp] player left mid-round → round voided, same map will be replayed.");
+        }
+
+        // COMP: a player is in this round but wasn't there when it started or
+        // got no spawn for it: they came back after a disconnect while the
+        // map was loading or being played. Restart the round on the same map once it has begun,
+        // so both start it together from shuffled spawns; it doesn't count.
+        // Runs when a player spawns and when StartMatch goes out.
+        private void CheckCompLateJoiner()
+        {
+            if (!CompMode || !_matchStarted || !_startMatchSentThisRound || _pendingRoundAdvanceAt >= 0f) return;
+            CountAlive(out int participants, out int _, out int __);
+            if (participants < 2) return;
+            int late = -1;
+            foreach (var kv in _sfClients)
+                if (IsParticipant(kv.Value) && (!_roundSpawnSlots.Contains(kv.Value.Slot) || !_roundStartSlots.Contains(kv.Value.Slot))) { late = kv.Value.Slot; break; }
+            if (late < 0) return;
+            _roundVoid = true;
+            _replaySameMap = true;
+            Announce("Both players are here: restarting the round.");
+            _pendingRoundAdvanceAt = Time.realtimeSinceStartup + RoundEndDelaySec;
+            Log.LogInfo($"[comp] slot {late} is in a round it got no spawn for → restart on the same map.");
         }
 
         // Score / match messages: chat for the players, plus the top-of-screen
@@ -150,6 +172,7 @@ namespace SFHeadlessHost
         // lopsided maps. COMP shuffles which stock spawn point each player gets,
         // per round; clients apply it in GameManager.MovePlayer (SFClientRecon).
         private static readonly System.Random _spawnRng = new System.Random();
+        private readonly HashSet<int> _roundSpawnSlots = new HashSet<int>();   // slots given a spawn this round
         private void SendRoundSpawns()
         {
             if (!CompMode) return;
@@ -161,6 +184,8 @@ namespace SFHeadlessHost
             var spawn = new List<int>();
             for (int i = 0; i < slots.Count; i++) spawn.Add(i);
             for (int i = spawn.Count - 1; i > 0; i--) { int j = _spawnRng.Next(i + 1); int t = spawn[i]; spawn[i] = spawn[j]; spawn[j] = t; }
+            _roundSpawnSlots.Clear();
+            foreach (var sl in slots) _roundSpawnSlots.Add(sl);
             byte[] body = new byte[1 + slots.Count * 2];
             body[0] = (byte)slots.Count;
             var desc = new List<string>();

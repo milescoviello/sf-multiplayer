@@ -1234,7 +1234,14 @@ namespace SFHeadlessHost
             {
                 EnsureMapReflection();
                 if (RefOk(_mapSyncStartPosField))
-                    sp = (Vector2)_mapSyncStartPosField.GetValue(comp);
+                {
+                    var field = (Vector2)_mapSyncStartPosField.GetValue(comp);
+                    // (0,0) = stock Awake never set it (woke outside a network
+                    // match); every such object would share that key and clients
+                    // log "Could not find MapObject with pos: (0.0, 0.0)". The
+                    // current position is the best key left.
+                    if (field != Vector2.zero) sp = field;
+                }
             }
             catch { }
             return QuantizeMapSyncKey(sp);

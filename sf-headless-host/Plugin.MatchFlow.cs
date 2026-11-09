@@ -42,6 +42,7 @@ namespace SFHeadlessHost
         // just before the client processed MapChange) and must not count.
         private bool _startMatchSentThisRound;
         private int _roundParticipantsAtStart;
+        private readonly HashSet<int> _roundStartSlots = new HashSet<int>();   // participants present at StartMatch
         // Ready-up gate: StartMatch goes out once every participant has sent
         // ClientReadyUp (sent by the client after its map load + intro), never
         // before _startMatchEarliestAt, and at the latest at _startMatchDeadline.
@@ -153,7 +154,8 @@ namespace SFHeadlessHost
             // Started as a real match (2+): last one standing wins (this also
             // covers the opponent disconnecting). Solo QA lobby: your own death
             // moves to the next map.
-            bool over = _roundParticipantsAtStart >= 2 ? alive <= 1 : alive == 0;
+            // (Someone who joined a solo round makes it a real one.)
+            bool over = Math.Max(_roundParticipantsAtStart, participants) >= 2 ? alive <= 1 : alive == 0;
             if (!over) return;
             // The winner is decided when the round advances (DecideRoundWinner),
             // so near-simultaneous deaths are ordered by ping-corrected time.
@@ -472,12 +474,14 @@ namespace SFHeadlessHost
             BroadcastSfPacket(PktStartMatch, new byte[0], 0, 0);
             _startMatchSentThisRound = true;
             _roundParticipantsAtStart = 0;
+            _roundStartSlots.Clear();
             foreach (var kv in _sfClients)
-                if (IsParticipant(kv.Value)) _roundParticipantsAtStart++;
+                if (IsParticipant(kv.Value) && _roundStartSlots.Add(kv.Value.Slot)) _roundParticipantsAtStart++;
             // Clear per-round spawn flag so next ClientRequestingToSpawn
             // is treated as a fresh round-start rather than a respawn.
             foreach (var kv in _sfClients) kv.Value.Spawned = false;
             Log.LogInfo("[SF] Broadcast StartMatch");
+            CheckCompLateJoiner();
             // Weapons/combat re-arm only after PostMapLoad pre-combat grace (RunOraclePreCombatStart).
             _pendingRearmCombatAt = -1f;
         }
