@@ -386,20 +386,12 @@ namespace SFClientRecon
         private static FieldInfo _ctrlHasControlField;
         private static bool _ctrlHasCtrlLookupTried;
 
-        private static float _nextFpsReapplyAt;
         private void Update()
         {
             if (!_running) return;
-            // KEEP FPS UNCAPPED. Stock SF (and some menu transitions) re-assert
-            // Application.targetFrameRate = 60 / vSyncCount = 1 after our Awake,
-            // re-capping the game to 60 ("limitado a 60 fps"). Re-apply the uncap
-            // ~once a second so it always sticks. Cheap (two field writes).
-            if (Time.unscaledTime >= _nextFpsReapplyAt)
-            {
-                _nextFpsReapplyAt = Time.unscaledTime + 1f;
-                if (Application.targetFrameRate != -1) Application.targetFrameRate = -1;
-                if (QualitySettings.vSyncCount != 0) QualitySettings.vSyncCount = 0;
-            }
+            // No FPS / vSync overrides: the player's own Game Settings decide, as in
+            // stock (FPS changes how the game plays, so forcing it is not fair play).
+            try { ApplyServerPings(); } catch { }
             try { TickOracleAutoConnect(); } catch { }
             try { TickDebugConsole(); } catch { }
             try { TickChannelNullFill(); } catch { }

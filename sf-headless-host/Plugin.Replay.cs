@@ -46,7 +46,7 @@ namespace SFHeadlessHost
         private const float ReplayRotateSec = 30f * 60f;
 
         // v26-socket message types (everything else goes to the game socket).
-        private static bool IsV26Type(byte t) => t == PktWorldStateSnapshot || t == PktV26Announce || t == PktRoundSpawns;
+        private static bool IsV26Type(byte t) => t == PktWorldStateSnapshot || t == PktV26Announce || t == PktRoundSpawns || t == PktPlayerPings;
 
         // Per-client handshake/one-off types that are not part of the match stream.
         private static bool IsReplayExcluded(byte t) =>
@@ -280,6 +280,7 @@ namespace SFHeadlessHost
             public Dictionary<int, ulong> Roster;          // slot -> steamId as this viewer's client knows it
             public Dictionary<ulong, ulong> SidSwap;       // recorded steamId -> what this viewer is sent
             public bool Streaming, PlayersSpawned;
+            public bool Paused, ReadySincePause; public float PauseStart;   // held at a MapChange until the viewer has loaded
             public string LastPath;
         }
         private readonly Dictionary<string, ReplayViewer> _viewers = new Dictionary<string, ReplayViewer>();
@@ -364,6 +365,7 @@ namespace SFHeadlessHost
                 v.PlayersSpawned = true;
             }
             v.LastPath = v.Reader.Path;
+            v.Paused = false;
             v.T0 = Time.realtimeSinceStartup;
             v.Pending = v.Reader.Next();
             v.Streaming = true;
@@ -382,6 +384,14 @@ namespace SFHeadlessHost
                 var v = kv.Value;
                 if (!_sfClients.ContainsKey(kv.Key)) { (gone ?? (gone = new List<string>())).Add(kv.Key); continue; }
                 if (!v.Streaming || v.Reader == null) continue;
+                if (v.Paused)
+                {
+                    // Recorded time stands still while the viewer loads the map, so
+                    // StartMatch and the round play with the original timing after it.
+                    if (!v.ReadySincePause && now - v.PauseStart < ReplayLoadWaitSec) continue;
+                    v.T0 += now - v.PauseStart;
+                    v.Paused = false;
+                }
                 uint elapsed = (uint)((now - v.T0) * 1000f);
                 int sent = 0;
                 while (v.Pending != null && v.Pending.Ms <= elapsed && sent < 400)
@@ -395,6 +405,7 @@ namespace SFHeadlessHost
                     SendSfPacket(to, r.Type, r.Body, sid, r.Ch);
                     sent++;
                     v.Pending = v.Reader.Next();
+                    if (r.Type == PktMapChange) { v.Paused = true; v.ReadySincePause = false; v.PauseStart = now; break; }
                 }
                 if (v.Pending == null)
                 {
@@ -403,6 +414,14 @@ namespace SFHeadlessHost
                 }
             }
             if (gone != null) foreach (var k in gone) { _viewers[k].Reader?.Close(); _viewers.Remove(k); }
+        }
+
+        private const float ReplayLoadWaitSec = 12f;
+
+        private void OnReplayViewerReady(SfClient cli)
+        {
+            ReplayViewer v;
+            if (_viewers.TryGetValue(cli.Addr.ToString(), out v) && v.Paused) v.ReadySincePause = true;
         }
 
         private static bool SameRoster(Dictionary<int, ulong> a, Dictionary<int, ulong> b)

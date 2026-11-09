@@ -98,6 +98,7 @@ namespace SFClientRecon
             }
 
             if (msgType == PktRoundSpawns) { HandleRoundSpawnsPacket(pkt); return; }
+            if (msgType == PktPlayerPings) { HandlePlayerPingsPacket(pkt); return; }
 
             if (msgType != 39) return;
 

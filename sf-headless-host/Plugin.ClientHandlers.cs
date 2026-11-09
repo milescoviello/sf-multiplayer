@@ -441,6 +441,7 @@ namespace SFHeadlessHost
             // Sent by the client after its map load + intro (PrepareMapForTravel).
             // Feeds the StartMatch gate; a late one gets StartMatch to itself only.
             Log.LogInfo($"[SF] ClientReadyUp from slot {cli.Slot} (round live={_startMatchSentThisRound}).");
+            if (ReplayMode) { OnReplayViewerReady(cli); return; }
             OnClientReadyUp(cli);
         }
         private void HandlePlayerInput(byte[] data, int off, int len, IPEndPoint from)

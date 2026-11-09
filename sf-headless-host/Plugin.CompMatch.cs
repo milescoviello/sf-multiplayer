@@ -50,6 +50,37 @@ namespace SFHeadlessHost
             byte[] body = { PingMagic0, PingMagic1, (byte)ms, (byte)(ms >> 8), (byte)(ms >> 16), (byte)(ms >> 24) };
             foreach (var kv in _sfClients)
                 if (kv.Value.Initialized) SendSfPacket(kv.Value.Addr, PktPing, body, kv.Value.SteamID, 0);
+            if ((_pingRound++ & 1) == 0) BroadcastPlayerPings();
+        }
+
+        // "Display ping": stock shows each remote player's ping beside their name
+        // (OnlinePlayerUI, ConnectedClientData.Ping), measured peer to peer. Here
+        // players only talk to the server, so every 2 s the server sends each
+        // player's measured RTT to it: [u8 count] + count x [u8 slot][u16 ms].
+        private int _pingRound;
+        private void BroadcastPlayerPings()
+        {
+            var list = new List<SfClient>();
+            foreach (var kv in _sfClients)
+                if (IsParticipant(kv.Value) && kv.Value.RttMs > 0f && list.Count < 4) list.Add(kv.Value);
+            if (list.Count == 0) return;
+            byte[] body = new byte[1 + list.Count * 3];
+            body[0] = (byte)list.Count;
+            for (int i = 0; i < list.Count; i++)
+            {
+                int ms = Mathf.Clamp(Mathf.RoundToInt(list[i].RttMs), 0, 65535);
+                body[1 + i * 3] = (byte)list[i].Slot;
+                body[2 + i * 3] = (byte)ms;
+                body[3 + i * 3] = (byte)(ms >> 8);
+            }
+            foreach (var kv in _sfClients)
+            {
+                if (!kv.Value.Initialized) continue;
+                IPEndPoint v26Ep;
+                if (!_slotV26Endpoint.TryGetValue(kv.Value.Slot, out v26Ep))
+                    v26Ep = new IPEndPoint(kv.Value.Addr.Address, V26_CLIENT_PORT);
+                SendSfPacket(v26Ep, PktPlayerPings, body, 0, 0);
+            }
         }
 
         private void HandleServerPingResponse(SfClient cli, byte[] data, int off, int len)
