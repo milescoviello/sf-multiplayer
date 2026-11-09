@@ -184,7 +184,7 @@ namespace SFHeadlessHost
             {
                 if ((object)_nsoType == null)
                 {
-                    _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoType = CachedType("NetworkSyncableObject");
                     if ((object)_nsoType == null) return result;
                     _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
                     _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");

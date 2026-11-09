@@ -166,7 +166,7 @@ namespace SFHeadlessHost
             _lastPeriodicRearmAt = now;
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if ((object)gmType == null) return;
                 object gmInst = null;
                 var ig = AccessTools.PropertyGetter(gmType, "Instance");
@@ -233,7 +233,7 @@ namespace SFHeadlessHost
             if ((object)rig == null) return false;
             try
             {
-                var ctrlType = AccessTools.TypeByName("Controller");
+                var ctrlType = CachedType("Controller");
                 if ((object)ctrlType == null) return false;
                 var ctrl = rig.GetComponent(ctrlType);
                 if ((object)ctrl == null) return false;
@@ -409,7 +409,7 @@ namespace SFHeadlessHost
             _sceneLoadRealtime = Time.realtimeSinceStartup;
             try
             {
-                var mhType = AccessTools.TypeByName("MatchmakingHandler");
+                var mhType = CachedType("MatchmakingHandler");
                 if ((object)mhType != null)
                 {
                     var setNetMatch = AccessTools.Method(mhType, "SetNetworkMatch");

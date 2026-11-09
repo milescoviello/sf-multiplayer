@@ -39,7 +39,7 @@ namespace SFClientRecon
                 // NSO stay kinematic on client (stock SF). Skipping DisableAllRigidBodies
                 // caused NSO-on-NSO collisions → lag + ice breaking alone (P0-5 regression).
                 var harmony = new Harmony(PluginGuid + ".terrain-client");
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mmType = CachedType("MultiplayerManager");
                 if ((object)mmType != null)
                 {
                     var pick = AccessTools.Method(mmType, "RequestWeaponPickUp");
@@ -68,7 +68,7 @@ namespace SFClientRecon
                 // flag stays true and the throw button "breaks" — you can't throw
                 // again ("a veces se rompe el botón para tirar"). After a throw, if
                 // the weapon is still held a moment later, clear the stuck flag.
-                var fightingType = AccessTools.TypeByName("Fighting");
+                var fightingType = CachedType("Fighting");
                 if ((object)fightingType != null)
                 {
                     var tw = AccessTools.Method(fightingType, "ThrowWeapon", new[] { typeof(bool) });
@@ -117,7 +117,7 @@ namespace SFClientRecon
                         Log.LogInfo("[v0.3.3] Patched OnMapInfoRecieved (fan-out MapInfo to all tags).");
                     }
                 }
-                var codeAnimType = AccessTools.TypeByName("CodeAnimation");
+                var codeAnimType = CachedType("CodeAnimation");
                 if ((object)codeAnimType != null)
                 {
                     var recv = AccessTools.Method(codeAnimType, "RecieveMapInfo");
@@ -137,7 +137,7 @@ namespace SFClientRecon
             if (data == null || data.Length < 1) return true;
             try
             {
-                var tagType = AccessTools.TypeByName("MapInfoOnlineTag");
+                var tagType = CachedType("MapInfoOnlineTag");
                 if ((object)tagType == null) return true;
                 var tags = UnityEngine.Object.FindObjectsOfType(tagType);
                 if (tags == null || tags.Length == 0) return true;
@@ -165,7 +165,7 @@ namespace SFClientRecon
 
         private static IEnumerator PlayCodeAnimationWhenFightReady(object animInstance)
         {
-            var gmType = AccessTools.TypeByName("GameManager");
+            var gmType = CachedType("GameManager");
             var loadingF = RefOk(gmType) ? AccessTools.Field(gmType, "isLoading") : null;
             var inFightF = RefOk(gmType) ? AccessTools.Field(gmType, "inFight") : null;
             for (int i = 0; i < 80; i++)
@@ -237,7 +237,7 @@ namespace SFClientRecon
         // isLoading stays true forever and the view never switches. Force the load.
         private IEnumerator ForceMapLoadWatchdog(byte[] data)
         {
-            var gmType = AccessTools.TypeByName("GameManager");
+            var gmType = CachedType("GameManager");
             if ((object)gmType == null) yield break;
             var instProp = AccessTools.Property(gmType, "Instance");
             var loadingF = AccessTools.Field(gmType, "isLoading");
@@ -264,7 +264,7 @@ namespace SFClientRecon
                 byte[] mapData = new byte[(data != null ? data.Length : 0) - 2 < 0 ? 0 : (data.Length - 2)];
                 if (data != null && data.Length > 2) Array.Copy(data, 2, mapData, 0, data.Length - 2);
 
-                var mwType = AccessTools.TypeByName("MapWrapper");
+                var mwType = CachedType("MapWrapper");
                 object mw = Activator.CreateInstance(mwType);
                 AccessTools.Field(mwType, "MapType").SetValue(mw, mapType);
                 AccessTools.Field(mwType, "MapData").SetValue(mw, mapData);
@@ -296,7 +296,7 @@ namespace SFClientRecon
             {
                 if ((object)_mapSyncBaseType == null)
                 {
-                    _mapSyncBaseType = AccessTools.TypeByName("MapInfoSyncableBase");
+                    _mapSyncBaseType = CachedType("MapInfoSyncableBase");
                     if ((object)_mapSyncBaseType == null) return;
                     _mapSyncStartPosField = AccessTools.Field(_mapSyncBaseType, "m_StartPos");
                 }
@@ -331,8 +331,8 @@ namespace SFClientRecon
         {
             try
             {
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
-                var wpType = AccessTools.TypeByName("WeaponPickUp");
+                var mmType = CachedType("MultiplayerManager");
+                var wpType = CachedType("WeaponPickUp");
                 if ((object)mmType == null || (object)wpType == null) return;
                 var mm = UnityEngine.Object.FindObjectOfType(mmType);
                 if ((object)mm == null) return;
@@ -381,8 +381,8 @@ namespace SFClientRecon
 
         private void ApplyGroundWeaponsFuzzy(byte[] data)
         {
-            var mmType = AccessTools.TypeByName("MultiplayerManager");
-            var wpType = AccessTools.TypeByName("WeaponPickUp");
+            var mmType = CachedType("MultiplayerManager");
+            var wpType = CachedType("WeaponPickUp");
             if ((object)mmType == null || (object)wpType == null) return;
             var mm = UnityEngine.Object.FindObjectOfType(mmType);
             if ((object)mm == null) return;
@@ -465,7 +465,7 @@ namespace SFClientRecon
             _mapSyncQuantizeClientInstalled = true;
             try
             {
-                var mgrType = AccessTools.TypeByName("MultiplayerManager");
+                var mgrType = CachedType("MultiplayerManager");
                 if ((object)mgrType == null) return;
                 var harmony = new Harmony(PluginGuid + ".mapsync-quantize-client");
                 var addM = AccessTools.Method(mgrType, "AddMapDataObject");
@@ -589,7 +589,7 @@ namespace SFClientRecon
             {
                 if ((object)_mapSyncBaseType == null)
                 {
-                    _mapSyncBaseType = AccessTools.TypeByName("MapInfoSyncableBase");
+                    _mapSyncBaseType = CachedType("MapInfoSyncableBase");
                     if ((object)_mapSyncBaseType == null) return;
                     _mapSyncStartPosField = AccessTools.Field(_mapSyncBaseType, "m_StartPos");
                     _mapSetDataMethod = AccessTools.Method(_mapSyncBaseType, "SetData");
@@ -651,7 +651,7 @@ namespace SFClientRecon
             if ((object)piece == null) return false;
             if ((object)_clientDpType == null)
             {
-                _clientDpType = AccessTools.TypeByName("DestructiblePiece");
+                _clientDpType = CachedType("DestructiblePiece");
                 if ((object)_clientDpType != null)
                 {
                     _clientDpSimpleField = AccessTools.Field(_clientDpType, "simpleDestruction");
@@ -672,7 +672,7 @@ namespace SFClientRecon
             if ((object)piece == null) return false;
             if ((object)_clientDpType == null)
             {
-                _clientDpType = AccessTools.TypeByName("DestructiblePiece");
+                _clientDpType = CachedType("DestructiblePiece");
                 if ((object)_clientDpType != null)
                 {
                     _clientDpSimpleField = AccessTools.Field(_clientDpType, "simpleDestruction");
@@ -727,7 +727,7 @@ namespace SFClientRecon
                         Log.LogWarning($"[winner-guard] can't credit round winner (slot {data[0]}): {missing} missing on this client; playing the round as no-winner so the map change completes.");
                     data[0] = 255;
                 }
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 var gm = RefOk(gmType) ? AccessTools.Property(gmType, "Instance")?.GetValue(null, null) : null;
                 var setter = RefOk(gmType) ? AccessTools.PropertySetter(gmType, "LastWinner") : null;
                 if (RefOk(gm) && RefOk(setter)) setter.Invoke(gm, new object[] { null });
@@ -748,7 +748,7 @@ namespace SFClientRecon
         {
             try
             {
-                var wcType = AccessTools.TypeByName("WinCounterUI");
+                var wcType = CachedType("WinCounterUI");
                 if (!RefOk(wcType)) return false;
                 if (!_winCounterDiagDone)
                 {
@@ -777,26 +777,26 @@ namespace SFClientRecon
         // null when crediting is safe (or the stock code would skip it anyway).
         private static string WinnerCreditMissing(byte winner)
         {
-            var mmType = AccessTools.TypeByName("MultiplayerManager");
+            var mmType = CachedType("MultiplayerManager");
             var mm = RefOk(mmType) ? UnityEngine.Object.FindObjectOfType(mmType) : null;
             if (mm == null) return null;
             var players = AccessTools.Property(mmType, "PlayerControllers")?.GetValue(mm, null) as System.Collections.IList;
             if (players == null || winner >= players.Count) return null;          // stock: no LastWinner set
             var ctrl = players[winner] as Component;
             if (ctrl == null) return null;                                          // stock: skipped
-            var statsType = AccessTools.TypeByName("CharacterStats");
+            var statsType = CachedType("CharacterStats");
             if (!RefOk(statsType) || ctrl.GetComponent(statsType) == null) return "winner's CharacterStats";
-            var wcType = AccessTools.TypeByName("WinCounterUI");
+            var wcType = CachedType("WinCounterUI");
             if (!RefOk(wcType) || UnityEngine.Object.FindObjectOfType(wcType) == null) return "WinCounterUI";
             var hasControl = AccessTools.Property(ctrl.GetType(), "HasControl");
             bool local = RefOk(hasControl) && (bool)hasControl.GetValue(ctrl, null);
             if (local)
             {
-                var ssType = AccessTools.TypeByName("SteamStatsAndAchievements");
+                var ssType = CachedType("SteamStatsAndAchievements");
                 var ss = RefOk(ssType) ? AccessTools.Property(ssType, "Instance")?.GetValue(null, null) : null;
                 if (!RefOk(ss) || (ss as UnityEngine.Object) == null) return "SteamStatsAndAchievements";
                 if (!RefOk(AccessTools.Field(ssType, "TransientMemory")?.GetValue(ss))) return "SteamStats TransientMemory";
-                var chType = AccessTools.TypeByName("ControllerHandler");
+                var chType = CachedType("ControllerHandler");
                 var ch = RefOk(chType) ? AccessTools.Property(chType, "Instance")?.GetValue(null, null) : null;
                 if (!RefOk(ch) || (ch as UnityEngine.Object) == null) return "ControllerHandler";
             }

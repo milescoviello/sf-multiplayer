@@ -61,7 +61,7 @@ namespace SFHeadlessHost
             try
             {
                 var harmony = new Harmony(PluginGuid + ".map-terrain");
-                var mapBase = AccessTools.TypeByName("MapInfoSyncableBase");
+                var mapBase = CachedType("MapInfoSyncableBase");
                 if ((object)mapBase != null)
                 {
                     // MapInfoSyncableBase is an abstract MonoBehaviour with virtual Awake().
@@ -112,7 +112,7 @@ namespace SFHeadlessHost
                     }
                     Log.LogInfo($"[v26.6] Patched MapInfoSyncableBase + {patched - 1} subclass Awake methods (total {patched} patches).");
                 }
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mmType = CachedType("MultiplayerManager");
                 if (RefOk(mmType))
                 {
                     var onMapInfo = AccessTools.Method(mmType, "OnMapInfoRecieved");
@@ -133,7 +133,7 @@ namespace SFHeadlessHost
             if (data == null || data.Length < 1) return true;
             try
             {
-                var tagType = AccessTools.TypeByName("MapInfoOnlineTag");
+                var tagType = CachedType("MapInfoOnlineTag");
                 if (!RefOk(tagType)) return true;
                 var tags = UnityEngine.Object.FindObjectsOfType(tagType);
                 if (tags == null || tags.Length == 0) return true;
@@ -156,7 +156,7 @@ namespace SFHeadlessHost
                 EnsureOracleP2PNetworkReady("map-sync-awake");
                 SetMapSyncNetworkControlGlobal(true);
                 var t = __instance.GetType();
-                var mapBase = AccessTools.TypeByName("MapInfoSyncableBase");
+                var mapBase = CachedType("MapInfoSyncableBase");
                 var netF = RefOk(mapBase) ? AccessTools.Field(mapBase, "m_NetworkControl") : AccessTools.Field(t, "m_NetworkControl");
                 if (RefOk(netF)) netF.SetValue(netF.IsStatic ? null : __instance, true);
                 var startF = AccessTools.Field(t, "m_StartPos");
@@ -179,7 +179,7 @@ namespace SFHeadlessHost
             if (!_batchModeHost) return;
             try
             {
-                var p2pType = AccessTools.TypeByName("P2PPackageHandler");
+                var p2pType = CachedType("P2PPackageHandler");
                 if (!RefOk(p2pType)) return;
                 object p2p = null;
                 var inst = AccessTools.Property(p2pType, "Instance");
@@ -200,7 +200,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var mapBase = AccessTools.TypeByName("MapInfoSyncableBase");
+                var mapBase = CachedType("MapInfoSyncableBase");
                 if (!RefOk(mapBase)) return;
                 var netF = AccessTools.Field(mapBase, "m_NetworkControl");
                 if (RefOk(netF)) netF.SetValue(null, on);
@@ -239,7 +239,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if ((object)gmType == null) return null;
                 var instProp = AccessTools.Property(gmType, "Instance");
                 object gm = null;
@@ -287,7 +287,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if ((object)gmType == null) return;
                 object gmInst = null;
                 var instanceGetter = AccessTools.PropertyGetter(gmType, "Instance");
@@ -334,7 +334,7 @@ namespace SFHeadlessHost
             if (IsOraclePreCombatGraceActive()) return;
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if (!RefOk(gmType)) return;
                 object gmInst = null;
                 var ig = AccessTools.PropertyGetter(gmType, "Instance");
@@ -482,7 +482,7 @@ namespace SFHeadlessHost
             {
                 var mm = GetMultiplayerManagerInstance();
                 if (!RefOk(mm)) return;
-                var wpType = AccessTools.TypeByName("WeaponPickUp");
+                var wpType = CachedType("WeaponPickUp");
                 if (!RefOk(wpType)) return;
                 var add = AccessTools.Method(mm.GetType(), "AddPreSpawnedWeapon");
                 if (!RefOk(add)) return;
@@ -778,7 +778,7 @@ namespace SFHeadlessHost
             if (!_batchModeHost) return;
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if (!RefOk(gmType)) return;
                 object gmInst = null;
                 var ig = AccessTools.PropertyGetter(gmType, "Instance");
@@ -812,8 +812,8 @@ namespace SFHeadlessHost
         {
             var p = new MapTerrainProfile();
             if (!scene.isLoaded) return p;
-            var codeType = AccessTools.TypeByName("CodeAnimation");
-            var eoppType = AccessTools.TypeByName("EnableObjectsPerPlayer");
+            var codeType = CachedType("CodeAnimation");
+            var eoppType = CachedType("EnableObjectsPerPlayer");
             EnsureMapReflection();
             foreach (var root in scene.GetRootGameObjects())
             {
@@ -859,7 +859,7 @@ namespace SFHeadlessHost
 
         private static void RestartSyncedCodeAnimationsInScene(Scene scene)
         {
-            var codeType = AccessTools.TypeByName("CodeAnimation");
+            var codeType = CachedType("CodeAnimation");
             if (!RefOk(codeType)) return;
             int restarted = 0;
             foreach (var root in scene.GetRootGameObjects())
@@ -966,8 +966,8 @@ namespace SFHeadlessHost
         private static List<MonoBehaviour> BuildMapInfoProviderList(GameObject root)
         {
             var result = new List<MonoBehaviour>();
-            var codeType = AccessTools.TypeByName("CodeAnimation");
-            var eoppType = AccessTools.TypeByName("EnableObjectsPerPlayer");
+            var codeType = CachedType("CodeAnimation");
+            var eoppType = CachedType("EnableObjectsPerPlayer");
             if (RefOk(codeType))
             {
                 var anims = root.GetComponentsInChildren(codeType, true);
@@ -995,7 +995,7 @@ namespace SFHeadlessHost
                 if (RefOk(shallSyncF) && !(bool)shallSyncF.GetValue(mb)) return null;
                 var durationF = AccessTools.Field(t, "duration");
                 float duration = RefOk(durationF) ? (float)durationF.GetValue(mb) : 1f;
-                var rv = mb.GetComponent(AccessTools.TypeByName("RandomValue"));
+                var rv = mb.GetComponent(CachedType("RandomValue"));
                 if (RefOk(rv))
                 {
                     var valF = AccessTools.Field(rv.GetType(), "value");
@@ -1131,7 +1131,28 @@ namespace SFHeadlessHost
             Log.LogInfo($"[v26.6] mapSync pos={posCount} state={stateCount} types ghost={ghost} move={move} pillar={pillar} other={other} registered={_mapSyncObjectsRegistered}");
         }
 
+        // Cached for 1 s (and dropped on every map load): this ran twice per
+        // 60 Hz snapshot and, on maps without map-sync objects, fell back to a
+        // full-scene FindObjectsOfType each time (~10 ms/frame on the server).
+        private List<Component> _mapSyncCompsCache;
+        private float _mapSyncCompsAt = -1f;
+        internal void InvalidateMapSyncComponentCache() { _mapSyncCompsCache = null; }
+
         private List<Component> EnumerateMapSyncComponents()
+        {
+            float nowCache = Time.realtimeSinceStartup;
+            if (_mapSyncCompsCache != null && nowCache - _mapSyncCompsAt < 1f)
+            {
+                _mapSyncCompsCache.RemoveAll(c => c == null);   // Unity null: destroyed objects
+                return _mapSyncCompsCache;
+            }
+            var list = EnumerateMapSyncComponentsUncached();
+            _mapSyncCompsCache = list;
+            _mapSyncCompsAt = nowCache;
+            return list;
+        }
+
+        private List<Component> EnumerateMapSyncComponentsUncached()
         {
             var list = new List<Component>();
             try
@@ -1167,7 +1188,7 @@ namespace SFHeadlessHost
         {
             if ((object)_mapSyncBaseType == null)
             {
-                _mapSyncBaseType = AccessTools.TypeByName("MapInfoSyncableBase");
+                _mapSyncBaseType = CachedType("MapInfoSyncableBase");
                 if ((object)_mapSyncBaseType != null)
                 {
                     _mapSyncStartPosField = AccessTools.Field(_mapSyncBaseType, "m_StartPos");

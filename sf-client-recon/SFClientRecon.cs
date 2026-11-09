@@ -183,7 +183,7 @@ namespace SFClientRecon
             // can register + simulate a server-side projectile.
             try
             {
-                var weaponType = AccessTools.TypeByName("Weapon");
+                var weaponType = CachedType("Weapon");
                 if ((object)weaponType != null)
                 {
                     var actuallyShoot = AccessTools.Method(weaponType, "ActuallyShoot");
@@ -208,7 +208,7 @@ namespace SFClientRecon
             // body's root is on that recent-lerp list.
             try
             {
-                var dpType = AccessTools.TypeByName("DestructiblePiece");
+                var dpType = CachedType("DestructiblePiece");
                 if ((object)dpType != null)
                 {
                     var onColl = AccessTools.Method(dpType, "OnCollisionEnter");
@@ -233,7 +233,7 @@ namespace SFClientRecon
             // Transpile the constant to scale with MapSizeHandler.mapSize.
             try
             {
-                var ipType = AccessTools.TypeByName("IgnorePlayerWhenOffScreen");
+                var ipType = CachedType("IgnorePlayerWhenOffScreen");
                 if ((object)ipType != null)
                 {
                     var upd = AccessTools.Method(ipType, "Update");

@@ -167,7 +167,7 @@ namespace SFHeadlessHost
             try
             {
                 var harmony = new Harmony(PluginGuid);
-                var sockType = AccessTools.TypeByName("Landfall.Network.Sockets.NetworkSocketServer");
+                var sockType = CachedType("Landfall.Network.Sockets.NetworkSocketServer");
                 if ((object)sockType != null)
                 {
                     var ctor = AccessTools.Constructor(sockType, Type.EmptyTypes);
@@ -200,7 +200,7 @@ namespace SFHeadlessHost
             try
             {
                 var harmony = new Harmony(PluginGuid + ".controller-input-prefix");
-                var ctrlType = AccessTools.TypeByName("Controller");
+                var ctrlType = CachedType("Controller");
                 if ((object)ctrlType != null)
                 {
                     var updateMethod = AccessTools.Method(ctrlType, "Update");
@@ -224,7 +224,7 @@ namespace SFHeadlessHost
             {
                 var harmony = new Harmony(PluginGuid + ".phase6-5-observe");
 
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mmType = CachedType("MultiplayerManager");
                 TryPatch(harmony, "MultiplayerManager.IsServer (postfix → true)",
                     (object)mmType != null ? AccessTools.PropertyGetter(mmType, "IsServer") : null,
                     postfix: nameof(IsServerPostfix));
@@ -232,7 +232,7 @@ namespace SFHeadlessHost
                     (object)mmType != null ? AccessTools.Method(mmType, "SendMessageToAllClients") : null,
                     prefix: nameof(SendBroadcastPrefix));
 
-                var mhTypeP = AccessTools.TypeByName("MatchmakingHandler");
+                var mhTypeP = CachedType("MatchmakingHandler");
                 TryPatch(harmony, "MatchmakingHandler.IsNetworkMatch (postfix → true)",
                     (object)mhTypeP != null ? AccessTools.PropertyGetter(mhTypeP, "IsNetworkMatch") : null,
                     postfix: nameof(IsNetworkMatchPostfix));
@@ -253,17 +253,17 @@ namespace SFHeadlessHost
                 TryPatch(harmony, "MatchmakingHandler.SetNetworkMatch (prefix force arg=true)",
                     setNetMatchMethod, prefix: nameof(SetNetworkMatchPrefix));
 
-                var snakeType = AccessTools.TypeByName("SnakeAI");
+                var snakeType = CachedType("SnakeAI");
                 TryPatch(harmony, "SnakeAI.Update (prefix → server-side snake targeting)",
                     (object)snakeType != null ? AccessTools.Method(snakeType, "Update") : null,
                     prefix: nameof(SnakeAIUpdatePrefix));
 
-                var wsType = AccessTools.TypeByName("WeaponSelectionHandler");
+                var wsType = CachedType("WeaponSelectionHandler");
                 TryPatch(harmony, "WeaponSelectionHandler.GetRandomWeaponIndex (prefix → valid index)",
                     (object)wsType != null ? AccessTools.Method(wsType, "GetRandomWeaponIndex") : null,
                     prefix: nameof(GetRandomWeaponIndexPrefix));
 
-                var gmTypeP = AccessTools.TypeByName("GameManager");
+                var gmTypeP = CachedType("GameManager");
                 TryPatch(harmony, "GameManager.SpawnRandomWeapon (prefix replace impl)",
                     (object)gmTypeP != null ? AccessTools.Method(gmTypeP, "SpawnRandomWeapon") : null,
                     prefix: nameof(SpawnRandomWeaponPrefix));
@@ -273,7 +273,7 @@ namespace SFHeadlessHost
                 // typeArray returns the first match which may be the wrong
                 // overload, so probe explicitly.
                 MethodInfo csteamSend = null;
-                var ppType = AccessTools.TypeByName("P2PPackageHandler");
+                var ppType = CachedType("P2PPackageHandler");
                 if ((object)ppType != null)
                 {
                     foreach (var m in ppType.GetMethods(BindingFlags.Public | BindingFlags.Instance))
@@ -302,7 +302,7 @@ namespace SFHeadlessHost
 
                 // v0.4.0 — installed on BOTH oracle and clients (was batchmode-
                 // only; clients hit the identical null-channels NRE storm).
-                var ppTypeHeadless = AccessTools.TypeByName("P2PPackageHandler");
+                var ppTypeHeadless = CachedType("P2PPackageHandler");
                 if ((object)ppTypeHeadless != null)
                 {
                     var isPkt = AccessTools.Method(ppTypeHeadless, "IsPacketAvailable");
@@ -331,7 +331,7 @@ namespace SFHeadlessHost
 
                 if (_batchModeHost)
                 {
-                    var cullType = AccessTools.TypeByName("IgnorePlayerWhenOffScreen");
+                    var cullType = CachedType("IgnorePlayerWhenOffScreen");
                     var cullUpd = (object)cullType != null ? AccessTools.Method(cullType, "Update") : null;
                     if ((object)cullUpd != null)
                         TryPatch(harmony, "IgnorePlayerWhenOffScreen.Update (headless cull kill)",

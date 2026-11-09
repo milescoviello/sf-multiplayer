@@ -80,7 +80,7 @@ namespace SFClientRecon
                 catch (Exception e) { Log.LogWarning($"[map-local] SF_MAP_LOCAL_TYPES: {e.Message}"); }
 
                 // Neutralise outbound state send (client owns these locally now).
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mmType = CachedType("MultiplayerManager");
                 var syncMapData = (object)mmType != null ? AccessTools.Method(mmType, "SyncMapData") : null;
                 if ((object)syncMapData != null)
                 {
@@ -97,7 +97,7 @@ namespace SFClientRecon
         {
             try
             {
-                var t = AccessTools.TypeByName(typeName);
+                var t = CachedType(typeName);
                 if ((object)t == null) return 0;
                 var m = AccessTools.Method(t, methodName);
                 if ((object)m == null) return 0;

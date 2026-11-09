@@ -16,7 +16,7 @@ namespace SFClientRecon
     {
         private static void EnsureControllerRefs()
         {
-            if (!_ctrlLookupTried) { _ctrlLookupTried = true; _ctrlTypeForNp = AccessTools.TypeByName("Controller"); }
+            if (!_ctrlLookupTried) { _ctrlLookupTried = true; _ctrlTypeForNp = CachedType("Controller"); }
             if ((object)_ctrlTypeForNp == null) return;
             if (!_ctrlPidLookupTried) { _ctrlPidLookupTried = true; _ctrlPlayerIdField = AccessTools.Field(_ctrlTypeForNp, "playerID"); }
             if (!_ctrlHasCtrlLookupTried) { _ctrlHasCtrlLookupTried = true; _ctrlHasControlField = AccessTools.Field(_ctrlTypeForNp, "mHasControl"); }
@@ -67,7 +67,7 @@ namespace SFClientRecon
                 // weapon prefab's root in stock SF.
                 if ((object)_weaponPickUpType == null)
                 {
-                    try { _weaponPickUpType = AccessTools.TypeByName("WeaponPickUp"); } catch { }
+                    try { _weaponPickUpType = CachedType("WeaponPickUp"); } catch { }
                 }
                 if ((object)_weaponPickUpType != null && rootT.GetComponentInChildren(_weaponPickUpType, true) != null)
                 {
@@ -84,7 +84,7 @@ namespace SFClientRecon
                         || IsWeaponNsoRootClient(rootT.gameObject))
                         return false;
                     if ((object)_nsoTypeForCollision == null && !_nsoTypeForCollisionTried)
-                    { _nsoTypeForCollisionTried = true; _nsoTypeForCollision = AccessTools.TypeByName("NetworkSyncableObject"); }
+                    { _nsoTypeForCollisionTried = true; _nsoTypeForCollision = CachedType("NetworkSyncableObject"); }
                     if (!IsLocalPlayerCollisionRigidbody(rb)
                         && (IsIceOnlyDestructibleRoot(rootT.gameObject)
                             || ((object)_nsoTypeForCollision != null && rootT.GetComponent(_nsoTypeForCollision) != null)))
@@ -126,7 +126,7 @@ namespace SFClientRecon
         {
             try
             {
-                var mhType = AccessTools.TypeByName("MusicHandler");
+                var mhType = CachedType("MusicHandler");
                 if ((object)mhType == null) { Log.LogInfo("[music-guard] MusicHandler not found — skip."); return; }
                 var harmony = new Harmony(PluginGuid + ".music-guard");
                 int n = 0;
@@ -159,7 +159,7 @@ namespace SFClientRecon
             {
                 if ((object)_mapSizeHandlerType == null)
                 {
-                    _mapSizeHandlerType = AccessTools.TypeByName("MapSizeHandler");
+                    _mapSizeHandlerType = CachedType("MapSizeHandler");
                     if ((object)_mapSizeHandlerType != null)
                     {
                         _mapSizeInstanceField = AccessTools.Field(_mapSizeHandlerType, "Instance");

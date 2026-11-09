@@ -84,7 +84,7 @@ namespace SFHeadlessHost
                         }
                     }
                     // GameManager.inFight + stillInMenu — the prime suspects.
-                    var gmT = AccessTools.TypeByName("GameManager");
+                    var gmT = CachedType("GameManager");
                     bool inFight = false, stillInMenu = false;
                     if ((object)gmT != null) {
                         var fF = AccessTools.Field(gmT, "inFight");
@@ -188,7 +188,7 @@ namespace SFHeadlessHost
                 int scene = (object)Instance != null ? Instance._currentSceneIndex : 0;
                 bool present = scene >= 104 && scene <= 124;
 
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mmType = CachedType("MultiplayerManager");
                 if ((object)mmType == null) return;
                 var mmInst = UnityEngine.Object.FindObjectOfType(mmType);
                 if ((object)mmInst == null)
@@ -237,10 +237,10 @@ namespace SFHeadlessHost
                     _snInfo = AccessTools.Field(t, "info");
                     _snLife = AccessTools.Field(t, "lifeCounter");
                     _snNso = AccessTools.Field(t, "mNetworkSyncableObject");
-                    _charInfoType = AccessTools.TypeByName("CharacterInformation");
-                    _hipType = AccessTools.TypeByName("Hip");
+                    _charInfoType = CachedType("CharacterInformation");
+                    _hipType = CachedType("Hip");
                     _ciIsDead = (object)_charInfoType != null ? AccessTools.Field(_charInfoType, "isDead") : null;
-                    var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    var nsoType = CachedType("NetworkSyncableObject");
                     _nsoNewSnakeTarget = (object)nsoType != null ? AccessTools.Method(nsoType, "NewSnakeTarget") : null;
                     _snakeReflectOk = (object)_snTarget != null && (object)_snMainRig != null && (object)_snRange != null
                         && (object)_snLife != null && (object)_hipType != null && (object)_ciIsDead != null;
@@ -327,8 +327,8 @@ namespace SFHeadlessHost
             var table = new List<KeyValuePair<int, int>>();
             try
             {
-                var wshType = AccessTools.TypeByName("WeaponSelectionHandler");
-                var swType = AccessTools.TypeByName("SingleWeaponUI");
+                var wshType = CachedType("WeaponSelectionHandler");
+                var swType = CachedType("SingleWeaponUI");
                 if ((object)wshType == null || (object)swType == null) return table;
                 UnityEngine.Object handler = UnityEngine.Object.FindObjectOfType(wshType);
                 if (handler == null)
@@ -372,7 +372,7 @@ namespace SFHeadlessHost
             try
             {
                 var weapons = (object)_cachedPlayerPrefab != null ? _cachedPlayerPrefab.transform.Find("Weapons") : null;
-                var weaponType = AccessTools.TypeByName("Weapon");
+                var weaponType = CachedType("Weapon");
                 if ((object)weapons != null && (object)weaponType != null)
                 {
                     var rarityP = AccessTools.Property(weaponType, "Rarity");
@@ -662,7 +662,7 @@ namespace SFHeadlessHost
             _mapSyncQuantizeInstalled = true;
             try
             {
-                var mgrType = AccessTools.TypeByName("MultiplayerManager");
+                var mgrType = CachedType("MultiplayerManager");
                 if ((object)mgrType == null) { Log.LogWarning("[P0-12] MultiplayerManager not found."); return; }
                 var harmony = new Harmony(PluginGuid + ".mapsync-quantize");
                 var addM = AccessTools.Method(mgrType, "AddMapDataObject");
@@ -689,7 +689,7 @@ namespace SFHeadlessHost
             {
                 var harmony = new Harmony(PluginGuid + ".client-shim");
 
-                var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                var nsoType = CachedType("NetworkSyncableObject");
                 if ((object)nsoType == null) { Log.LogWarning("[CLIENT] NetworkSyncableObject type not found."); return; }
 
                 // REVERTED 2026-05-23 night — the "dynamic NSOs locally"
@@ -897,7 +897,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var hhType = AccessTools.TypeByName("HealthHandler");
+                var hhType = CachedType("HealthHandler");
                 if ((object)hhType == null) { Log.LogWarning("[DEATH] HealthHandler type not found."); return; }
                 var dieMethod = AccessTools.Method(hhType, "Die");
                 if ((object)dieMethod == null) dieMethod = AccessTools.Method(hhType, "OnDeath");

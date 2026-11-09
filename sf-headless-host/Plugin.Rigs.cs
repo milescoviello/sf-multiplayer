@@ -41,7 +41,7 @@ namespace SFHeadlessHost
                 var delta = target - rootPos;
                 rig.transform.position = target;
 
-                var bpType = AccessTools.TypeByName("BodyPart");
+                var bpType = CachedType("BodyPart");
                 if ((object)bpType == null) return;
                 var bps = rig.GetComponentsInChildren(bpType);
                 int moved = 0;
@@ -130,7 +130,7 @@ namespace SFHeadlessHost
             if (!SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) return;
             try
             {
-                var ctrlType = AccessTools.TypeByName("Controller");
+                var ctrlType = CachedType("Controller");
                 if ((object)ctrlType != null)
                 {
                     var ctrl = rig.GetComponent(ctrlType);
@@ -163,7 +163,7 @@ namespace SFHeadlessHost
                 // carry, potentially corrupting scene-object indices on
                 // clients.
                 int nsoOff = 0;
-                var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                var nsoType = CachedType("NetworkSyncableObject");
                 if ((object)nsoType != null)
                 {
                     var nsos = rig.GetComponentsInChildren(nsoType);
@@ -224,7 +224,7 @@ namespace SFHeadlessHost
             if ((object)_cachedPlayerPrefab != null) return;
             try
             {
-                var chType = AccessTools.TypeByName("ControllerHandler");
+                var chType = CachedType("ControllerHandler");
                 if ((object)chType == null) { Log.LogWarning("CachePrefab: ControllerHandler type missing"); return; }
                 var chInst = UnityEngine.Object.FindObjectOfType(chType);
                 if ((object)chInst == null) { Log.LogWarning("CachePrefab: no ControllerHandler instance in active scene"); return; }
@@ -246,7 +246,7 @@ namespace SFHeadlessHost
                 GameObject prefab = _cachedPlayerPrefab;
                 if ((object)prefab == null)
                 {
-                    var chType = AccessTools.TypeByName("ControllerHandler");
+                    var chType = CachedType("ControllerHandler");
                     if ((object)chType == null) { err = "ControllerHandler type not found"; return false; }
                     var chInst = UnityEngine.Object.FindObjectOfType(chType);
                     if ((object)chInst == null) { err = "ControllerHandler instance not in scene (and no cached prefab)"; return false; }
@@ -277,8 +277,8 @@ namespace SFHeadlessHost
                 // but Controller also exposes TakeLocalControl(CharacterActions)
                 // which doesn't need a device — perfect for our bridge-driven
                 // input flow.
-                var ctrlType = AccessTools.TypeByName("Controller");
-                var caType = AccessTools.TypeByName("CharacterActions");
+                var ctrlType = CachedType("Controller");
+                var caType = CachedType("CharacterActions");
                 if ((object)ctrlType != null && (object)caType != null)
                 {
                     var ctrl = go.GetComponent(ctrlType);
@@ -339,7 +339,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var ctrlType = AccessTools.TypeByName("Controller");
+                var ctrlType = CachedType("Controller");
                 if ((object)ctrlType == null) return;
                 var ctrl = rig.GetComponent(ctrlType);
                 if ((object)ctrl == null) return;
@@ -348,7 +348,7 @@ namespace SFHeadlessHost
                 var actions = actionsField.GetValue(ctrl);
                 if ((object)actions == null) return;
 
-                var paType = AccessTools.TypeByName("InControl.PlayerAction");
+                var paType = CachedType("InControl.PlayerAction");
                 if ((object)paType == null) return;
                 var bindingsField = AccessTools.Field(paType, "regularBindings");
                 var visibleField  = AccessTools.Field(paType, "visibleBindings");
@@ -383,7 +383,7 @@ namespace SFHeadlessHost
         private static MethodInfo GetUpdateWithValueMethod()
         {
             if ((object)_cachedUpdateWithValue != null) return _cachedUpdateWithValue;
-            var paType = AccessTools.TypeByName("InControl.PlayerAction");
+            var paType = CachedType("InControl.PlayerAction");
             if ((object)paType == null)
             {
                 if (!_loggedUpdateWithValue) { Log.LogWarning("UpdateWithValue: no InControl.PlayerAction type"); _loggedUpdateWithValue = true; }
@@ -464,7 +464,7 @@ namespace SFHeadlessHost
                     if ((object)rig == null) { if (!_loggedFirstWriteIter) { Log.LogWarning($"WriteInputs iter: rig null"); _loggedFirstWriteIter = true; } continue; }
                     if (!SlotInputs.TryGetValue(slot, out var input)) { if (!_loggedFirstWriteIter) { Log.LogWarning($"WriteInputs iter: SlotInputs miss"); _loggedFirstWriteIter = true; } continue; }
 
-                    var ctrlType = AccessTools.TypeByName("Controller");
+                    var ctrlType = CachedType("Controller");
                     if ((object)ctrlType == null) { if (!_loggedFirstWriteIter) { Log.LogWarning($"WriteInputs iter: no Controller type"); _loggedFirstWriteIter = true; } continue; }
                     var ctrl = rig.GetComponent(ctrlType);
                     if ((object)ctrl == null) { if (!_loggedFirstWriteIter) { Log.LogWarning($"WriteInputs iter: no Controller on rig"); _loggedFirstWriteIter = true; } continue; }

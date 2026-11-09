@@ -122,7 +122,7 @@ namespace SFHeadlessHost
             _mapRotationBuilt = true;
             try
             {
-                var mshType = AccessTools.TypeByName("MapSelectionHandler");
+                var mshType = CachedType("MapSelectionHandler");
                 if ((object)mshType == null) { Log.LogWarning("[maps] MapSelectionHandler type not found; keeping the default rotation."); return; }
                 UnityEngine.Object handler = UnityEngine.Object.FindObjectOfType(mshType);
                 if (handler == null)

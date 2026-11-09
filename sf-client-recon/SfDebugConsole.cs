@@ -129,7 +129,7 @@ namespace SFClientRecon
 
         private void DumpRigs()
         {
-            var npType = AccessTools.TypeByName("NetworkPlayer");
+            var npType = CachedType("NetworkPlayer");
             if ((object)npType == null) { Debug.Log("[dbg] rigs: NetworkPlayer type not found"); return; }
             var nps = UnityEngine.Object.FindObjectsOfType(npType);
             var sb = new System.Text.StringBuilder();

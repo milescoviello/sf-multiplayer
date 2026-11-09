@@ -117,8 +117,8 @@ namespace SFClientRecon
         // Uses cached reflected types so it's cheap (no per-frame TypeByName).
         private static bool IsPlayerTouching(Rigidbody self, Bounds b)
         {
-            if ((object)_ctrlTypeClient == null) _ctrlTypeClient = AccessTools.TypeByName("Controller");
-            if ((object)_npTypeClient == null)   _npTypeClient   = AccessTools.TypeByName("NetworkPlayer");
+            if ((object)_ctrlTypeClient == null) _ctrlTypeClient = CachedType("Controller");
+            if ((object)_npTypeClient == null)   _npTypeClient   = CachedType("NetworkPlayer");
             if ((object)_ctrlTypeClient == null && (object)_npTypeClient == null) return false;
             int n = Physics.OverlapBoxNonAlloc(b.center, b.extents + Vector3.one * 0.12f, _contactBuf, Quaternion.identity);
             for (int i = 0; i < n; i++)

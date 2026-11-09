@@ -67,7 +67,7 @@ namespace SFClientRecon
                 Log.LogInfo("[nso-push] LEGACY local-crates mode (SF_CRATES_LOCAL_PHYSICS=1) — pure local physics + 5Hz relay, no reconciliation.");
             try
             {
-                _nsoPushType = AccessTools.TypeByName("NetworkSyncableObject");
+                _nsoPushType = CachedType("NetworkSyncableObject");
                 if ((object)_nsoPushType == null) return;
 
                 var harmony = new Harmony(PluginGuid + ".nso-push");
@@ -133,7 +133,7 @@ namespace SFClientRecon
             {
                 var go = comp.gameObject;
                 if ((object)_dontEnableRigType == null)
-                    _dontEnableRigType = AccessTools.TypeByName("DontEnableRig");
+                    _dontEnableRigType = CachedType("DontEnableRig");
                 bool floating = (object)_dontEnableRigType != null
                     && (object)go.GetComponentInChildren(_dontEnableRigType, true) != null;
                 pushable = !floating && IsPushableCrateRoot(go);
@@ -171,7 +171,7 @@ namespace SFClientRecon
             //      isKinematic),
             //   2) let vanilla run (keeps them kinematic / floating).
             if ((object)_dontEnableRigType == null)
-                _dontEnableRigType = AccessTools.TypeByName("DontEnableRig");
+                _dontEnableRigType = CachedType("DontEnableRig");
             bool isFloating = (object)_dontEnableRigType != null && (object)rootGo != null
                 && (object)rootGo.GetComponentInChildren(_dontEnableRigType, true) != null;
             if (isFloating)
@@ -264,8 +264,8 @@ namespace SFClientRecon
         private void RelayPushableCrateUpdates()
         {
             if ((object)_nsoPushType == null) return;
-            var pktType = AccessTools.TypeByName("P2PPackageHandler");
-            var mmType = AccessTools.TypeByName("MultiplayerManager");
+            var pktType = CachedType("P2PPackageHandler");
+            var mmType = CachedType("MultiplayerManager");
             if ((object)pktType == null || (object)mmType == null) return;
 
             var pkt = AccessTools.Property(pktType, "Instance")?.GetValue(null, null)
@@ -274,7 +274,7 @@ namespace SFClientRecon
 
             var mm = UnityEngine.Object.FindObjectOfType(mmType);
             if (!RefOk(mm)) return;
-            var gmType = AccessTools.TypeByName("GameManager");
+            var gmType = CachedType("GameManager");
             if ((object)gmType != null)
             {
                 var inFightF = AccessTools.Field(gmType, "inFight");
@@ -337,7 +337,7 @@ namespace SFClientRecon
             if ((object)root == null) return false;
             if ((object)_dpPushType == null)
             {
-                _dpPushType = AccessTools.TypeByName("DestructiblePiece");
+                _dpPushType = CachedType("DestructiblePiece");
                 if ((object)_dpPushType != null)
                 {
                     _dpSimpleField = AccessTools.Field(_dpPushType, "simpleDestruction");
@@ -592,7 +592,7 @@ namespace SFClientRecon
             if (_reconRigCacheAt > 0f && now - _reconRigCacheAt < 1f) return;
             _reconRigCacheAt = now;
             _reconRigCache.Clear();
-            if ((object)_npTypeForRecon == null) _npTypeForRecon = AccessTools.TypeByName("NetworkPlayer");
+            if ((object)_npTypeForRecon == null) _npTypeForRecon = CachedType("NetworkPlayer");
             if ((object)_npTypeForRecon == null) return;
             var nps = UnityEngine.Object.FindObjectsOfType(_npTypeForRecon);
             if (nps == null) return;

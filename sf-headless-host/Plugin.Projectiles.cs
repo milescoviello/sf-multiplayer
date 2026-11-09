@@ -219,7 +219,7 @@ namespace SFHeadlessHost
             {
                 var cols = Physics.OverlapSphere(center, radius);
                 if (cols == null) return;
-                var dpType = AccessTools.TypeByName("DestructiblePiece");
+                var dpType = CachedType("DestructiblePiece");
                 var collideM = (object)dpType != null ? AccessTools.Method(dpType, "Collide") : null;
                 var fThreshF = (object)dpType != null ? AccessTools.Field(dpType, "forceThreshold") : null;
                 var simpleF  = (object)dpType != null ? AccessTools.Field(dpType, "simpleDestruction") : null;

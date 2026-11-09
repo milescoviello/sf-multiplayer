@@ -80,7 +80,7 @@ namespace SFClientRecon
             }
             try
             {
-                _ngType = AccessTools.TypeByName("NetworkSyncableObject");
+                _ngType = CachedType("NetworkSyncableObject");
                 if ((object)_ngType == null)
                 {
                     Log.LogWarning("[nan-guard] NetworkSyncableObject type not found; guard inactive.");

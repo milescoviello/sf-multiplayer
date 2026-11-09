@@ -118,10 +118,10 @@ namespace SFClientRecon
             _oracleLobbyPatchesInstalled = true;
             try
             {
-                _pktType = AccessTools.TypeByName("P2PPackageHandler");
-                _mmType = AccessTools.TypeByName("MultiplayerManager");
-                _mhType = AccessTools.TypeByName("MatchmakingHandler");
-                _gmType = AccessTools.TypeByName("GameManager");
+                _pktType = CachedType("P2PPackageHandler");
+                _mmType = CachedType("MultiplayerManager");
+                _mhType = CachedType("MatchmakingHandler");
+                _gmType = CachedType("GameManager");
                 if (!RefOk(_pktType) || !RefOk(_mmType) || !RefOk(_mhType))
                 {
                     Log.LogWarning("[oracle-lobby] Game types not found — is Assembly-CSharp.srv installed?");
@@ -139,7 +139,7 @@ namespace SFClientRecon
                 if (RefOk(joinDefault))
                     harmony.Patch(joinDefault, prefix: new HarmonyMethod(typeof(Plugin), nameof(JoinDefaultSocketServer_OraclePrefix)));
 
-                _mmSocketsType = AccessTools.TypeByName("MatchMakingHandlerSockets");
+                _mmSocketsType = CachedType("MatchMakingHandlerSockets");
                 if (RefOk(_mmSocketsType))
                 {
                     var hostServer = AccessTools.Method(_mmSocketsType, "HostServer");
@@ -216,7 +216,7 @@ namespace SFClientRecon
             if (_oracleConnectStarted) return;
             try
             {
-                if (!RefOk(_mmType)) _mmType = AccessTools.TypeByName("MultiplayerManager");
+                if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
                 var mm = UnityEngine.Object.FindObjectOfType(_mmType);
                 if (RefOk(mm))
                 {
@@ -323,7 +323,7 @@ namespace SFClientRecon
                 var setLobbyType = AccessTools.Method(_mhType, "SetNewLobbyType");
                 if (RefOk(setLobbyType))
                 {
-                    var lobbyTypeEnum = AccessTools.TypeByName("ELobbyType");
+                    var lobbyTypeEnum = CachedType("ELobbyType");
                     if (RefOk(lobbyTypeEnum))
                     {
                         object publicLobby = Enum.ToObject(lobbyTypeEnum, 2);
@@ -412,7 +412,7 @@ namespace SFClientRecon
         {
             try
             {
-                var gmType = RefOk(_gmType) ? _gmType : AccessTools.TypeByName("GameManager");
+                var gmType = RefOk(_gmType) ? _gmType : CachedType("GameManager");
                 if (!RefOk(gmType)) return false;
                 var inFightF = AccessTools.Field(gmType, "inFight");
                 return RefOk(inFightF) && (bool)inFightF.GetValue(null);
@@ -428,7 +428,7 @@ namespace SFClientRecon
         {
             try
             {
-                var boxType = AccessTools.TypeByName("OnlineBox");
+                var boxType = CachedType("OnlineBox");
                 if (!RefOk(boxType)) return;
                 var box = UnityEngine.Object.FindObjectOfType(boxType);
                 if (!RefOk(box)) { Log.LogWarning("[oracle-lobby] OnlineBox not found — joining without it."); return; }
@@ -436,7 +436,7 @@ namespace SFClientRecon
                 var lockF = AccessTools.Field(boxType, "mLock");
                 if (RefOk(doneF)) doneF.SetValue(box, true);
                 if (RefOk(lockF)) lockF.SetValue(box, true);
-                if (!RefOk(_mmType)) _mmType = AccessTools.TypeByName("MultiplayerManager");
+                if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
                 var mm = UnityEngine.Object.FindObjectOfType(_mmType);
                 var assign = RefOk(_mmType) ? AccessTools.Method(_mmType, "AssignBox") : null;
                 if (RefOk(mm) && RefOk(assign)) assign.Invoke(mm, new object[] { box });
@@ -468,7 +468,7 @@ namespace SFClientRecon
                 // _mmType is normally set by the connect-mode install, but that
                 // only runs when launched with -address. Server-browser joins
                 // skip it, so resolve the type here too.
-                if (!RefOk(_mmType)) _mmType = AccessTools.TypeByName("MultiplayerManager");
+                if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
                 if (!RefOk(_mmType)) return;
                 if (!RefOk(mm))
                 {
@@ -586,7 +586,7 @@ namespace SFClientRecon
                 bool initFlag = false;
                 try
                 {
-                    if (!RefOk(_mmType)) _mmType = AccessTools.TypeByName("MultiplayerManager");
+                    if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
                     var mm = UnityEngine.Object.FindObjectOfType(_mmType);
                     var f = AccessTools.Field(_mmType, "mHasBeenInitializedFromServer");
                     if (RefOk(mm) && RefOk(f)) initFlag = (bool)f.GetValue(mm);

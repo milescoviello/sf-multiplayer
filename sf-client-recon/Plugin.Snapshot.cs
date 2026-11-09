@@ -44,7 +44,7 @@ namespace SFClientRecon
             if (!_gmFxLooked)
             {
                 _gmFxLooked = true;
-                _gmTypeFx = AccessTools.TypeByName("GameManager");
+                _gmTypeFx = CachedType("GameManager");
                 if ((object)_gmTypeFx != null)
                     _gmInFightFx = AccessTools.Field(_gmTypeFx, "inFight");
             }
@@ -66,7 +66,7 @@ namespace SFClientRecon
                 // or not.
                 if (_playerTargets.Count > 0)
                 {
-                    var npType = AccessTools.TypeByName("NetworkPlayer");
+                    var npType = CachedType("NetworkPlayer");
                     if ((object)npType != null)
                     {
                         var nps = UnityEngine.Object.FindObjectsOfType(npType);
@@ -153,16 +153,17 @@ namespace SFClientRecon
                             pose.RenderRot = Quaternion.Slerp(pose.RenderRot, pose.Rot, nsoT);
                         }
 
+                        bool localSpin = entry.LocalSpin;
                         if ((object)rb != null)
                         {
                             if (!rb.isKinematic) rb.isKinematic = true;   // P0-5 / ice regression guard
                             rb.position = pose.RenderPos;
-                            rb.rotation = pose.RenderRot;
+                            if (!localSpin) rb.rotation = pose.RenderRot;
                         }
                         else
                         {
                             comp.transform.position = pose.RenderPos;
-                            comp.transform.rotation = pose.RenderRot;
+                            if (!localSpin) comp.transform.rotation = pose.RenderRot;
                         }
                         // P0-15 — moved to ApplyNsoSnapshot below; only mark
                         // recentLerpAt when a snapshot delivers a LARGE
@@ -213,7 +214,21 @@ namespace SFClientRecon
         // GetComponent<Rigidbody> for every box every frame — on box-heavy maps
         // that was thousands of hierarchy walks/sec → frame drops scaling with
         // crate count. Now it's a single dictionary lookup per frame.
-        private class NsoCacheEntry { public Component Comp; public Rigidbody Rb; public Rigidbody[] Rbs; public bool SkipSmooth; public bool Pushable; public bool Floating; }
+        // LocalSpin: the object (or a child) has a stock Spin script, e.g. the
+        // rotating laser holders on Laser maps. Stock clients let Spin rotate it
+        // locally every frame (deterministic speed) and only nudge toward the
+        // host; we take POSITION from snapshots and leave rotation to Spin.
+        // Applying sparse snapshot rotations on top made lasers spin in jerks.
+        private class NsoCacheEntry { public Component Comp; public Rigidbody Rb; public Rigidbody[] Rbs; public bool SkipSmooth; public bool Pushable; public bool Floating; public bool LocalSpin; }
+        private static Type _spinType; private static bool _spinTypeLooked;
+
+        private static bool HasLocalSpin(Component c)
+        {
+            if (!_spinTypeLooked) { _spinTypeLooked = true; _spinType = CachedType("Spin"); }
+            if ((object)_spinType == null || (object)c == null) return false;
+            var s = c.GetComponentInChildren(_spinType, true) as Behaviour;
+            return s != null && s.enabled;
+        }
 
         private void ApplyNsoSnapshot(List<NsoSnapEntry> snap, uint tick)
         {
@@ -226,7 +241,7 @@ namespace SFClientRecon
             {
                 if ((object)_nsoType == null)
                 {
-                    _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoType = CachedType("NetworkSyncableObject");
                     if ((object)_nsoType == null) return;
                     _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
                     _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
@@ -262,7 +277,7 @@ namespace SFClientRecon
                             // activates them, in which case the server tells us via
                             // snapshot. Treat them as kinematic-follow.
                             if ((object)_dontEnableRigType == null)
-                                _dontEnableRigType = AccessTools.TypeByName("DontEnableRig");
+                                _dontEnableRigType = CachedType("DontEnableRig");
                             bool floating = (object)_dontEnableRigType != null
                                 && (object)c.GetComponentInChildren(_dontEnableRigType, true) != null;
                             // NOTE: crate physics (grip, drag, spin cap, continuous
@@ -283,7 +298,8 @@ namespace SFClientRecon
                                 Rbs = !skip ? c.GetComponentsInChildren<Rigidbody>() : null,
                                 SkipSmooth = skip,
                                 Pushable = pushable && !floating,
-                                Floating = floating
+                                Floating = floating,
+                                LocalSpin = HasLocalSpin(c)
                             };
                         }
                     }
@@ -399,7 +415,7 @@ namespace SFClientRecon
             if ((object)root == null) return false;
             if ((object)_weaponPickUpTypeClient == null)
             {
-                try { _weaponPickUpTypeClient = AccessTools.TypeByName("WeaponPickUp"); } catch { }
+                try { _weaponPickUpTypeClient = CachedType("WeaponPickUp"); } catch { }
             }
             return (object)_weaponPickUpTypeClient != null
                 && root.GetComponentInChildren(_weaponPickUpTypeClient, true) != null;
@@ -409,7 +425,7 @@ namespace SFClientRecon
         {
             if ((object)_clientDpType == null)
             {
-                _clientDpType = AccessTools.TypeByName("DestructiblePiece");
+                _clientDpType = CachedType("DestructiblePiece");
                 if ((object)_clientDpType != null)
                 {
                     _clientDpSimpleField = AccessTools.Field(_clientDpType, "simpleDestruction");
@@ -435,7 +451,7 @@ namespace SFClientRecon
         {
             if ((object)_clientDpType == null)
             {
-                _clientDpType = AccessTools.TypeByName("DestructiblePiece");
+                _clientDpType = CachedType("DestructiblePiece");
                 if ((object)_clientDpType != null)
                 {
                     _clientDpSimpleField = AccessTools.Field(_clientDpType, "simpleDestruction");

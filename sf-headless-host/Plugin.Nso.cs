@@ -18,7 +18,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                var nsoType = CachedType("NetworkSyncableObject");
                 if ((object)nsoType == null) { Log.LogWarning("[P6.5 NSO] type not found"); return; }
                 var nsos = UnityEngine.Object.FindObjectsOfType(nsoType);
                 if (nsos == null) { Log.LogInfo("[P6.5 NSO] FindObjectsOfType returned null"); return; }
@@ -69,7 +69,7 @@ namespace SFHeadlessHost
                 //   - flip NSO.mIsListening = true
                 if (total > 0 && listening == 0)
                 {
-                    var gmType = AccessTools.TypeByName("GameManager");
+                    var gmType = CachedType("GameManager");
                     object gmInst = null;
                     if ((object)gmType != null)
                     {
@@ -214,7 +214,7 @@ namespace SFHeadlessHost
             {
                 if (Time.realtimeSinceStartup - _stateProbeLastAt < 2.0f) return;
                 _stateProbeLastAt = Time.realtimeSinceStartup;
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if ((object)gmType == null) return;
                 var instanceGetter = AccessTools.PropertyGetter(gmType, "Instance");
                 object gmInst = null;
@@ -229,7 +229,7 @@ namespace SFHeadlessHost
                 float mt = (object)matchTimeF != null ? (float)matchTimeF.GetValue(gmInst) : float.NaN;
                 bool stillInMenu = (object)stillInMenuF != null && (bool)stillInMenuF.GetValue(gmInst);
 
-                var mhType = AccessTools.TypeByName("MatchmakingHandler");
+                var mhType = CachedType("MatchmakingHandler");
                 bool isNetMatch = false;
                 if ((object)mhType != null)
                 {
@@ -298,7 +298,7 @@ namespace SFHeadlessHost
         private void EnsureNsoTypeCache()
         {
             if ((object)_nsoType != null) return;
-            _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+            _nsoType = CachedType("NetworkSyncableObject");
             if ((object)_nsoType != null)
             {
                 _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
@@ -320,7 +320,7 @@ namespace SFHeadlessHost
         {
             if ((object)_wakeDpType == null)
             {
-                _wakeDpType = AccessTools.TypeByName("DestructiblePiece");
+                _wakeDpType = CachedType("DestructiblePiece");
                 if ((object)_wakeDpType != null)
                 {
                     _wakeDpSimpleField = AccessTools.Field(_wakeDpType, "simpleDestruction");
@@ -346,7 +346,7 @@ namespace SFHeadlessHost
             if (IsChainStyleDestructibleRoot(root) || IsWeaponNsoRoot(root)) return false;
             if ((object)_wakeDpType == null)
             {
-                _wakeDpType = AccessTools.TypeByName("DestructiblePiece");
+                _wakeDpType = CachedType("DestructiblePiece");
                 if ((object)_wakeDpType != null)
                 {
                     _wakeDpSimpleField = AccessTools.Field(_wakeDpType, "simpleDestruction");
@@ -370,7 +370,7 @@ namespace SFHeadlessHost
             if ((object)root == null) return false;
             if ((object)_weaponPickUpType == null)
             {
-                try { _weaponPickUpType = AccessTools.TypeByName("WeaponPickUp"); } catch { }
+                try { _weaponPickUpType = CachedType("WeaponPickUp"); } catch { }
             }
             return (object)_weaponPickUpType != null
                 && root.GetComponentInChildren(_weaponPickUpType, true) != null;
@@ -386,7 +386,7 @@ namespace SFHeadlessHost
             {
                 if ((object)_nsoType == null)
                 {
-                    _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoType = CachedType("NetworkSyncableObject");
                     if ((object)_nsoType == null) return;
                     _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
                     _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
@@ -541,7 +541,7 @@ namespace SFHeadlessHost
                 if (!_dpDestLookupTried)
                 {
                     _dpDestLookupTried = true;
-                    _dpDestType = AccessTools.TypeByName("DestructiblePiece");
+                    _dpDestType = CachedType("DestructiblePiece");
                     if ((object)_dpDestType != null)
                     {
                         _dpSimpleDestM = AccessTools.Method(_dpDestType, "NetworkForceSimpleDestruction");
@@ -639,7 +639,7 @@ namespace SFHeadlessHost
             {
                 if ((object)_nsoType == null)
                 {
-                    _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoType = CachedType("NetworkSyncableObject");
                     if ((object)_nsoType == null) return;
                     _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
                     _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
@@ -758,7 +758,7 @@ namespace SFHeadlessHost
             _nsoFreezerNextAt = Time.realtimeSinceStartup + 3f;
             try
             {
-                var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                var nsoType = CachedType("NetworkSyncableObject");
                 if ((object)nsoType == null) return;
                 var nsos = UnityEngine.Object.FindObjectsOfType(nsoType);
                 if (nsos == null) return;

@@ -87,7 +87,7 @@ namespace SFHeadlessHost
             {
                 if ((object)_nsoType == null)
                 {
-                    _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoType = CachedType("NetworkSyncableObject");
                     if ((object)_nsoType == null) return;
                 }
                 var all = UnityEngine.Object.FindObjectsOfType(_nsoType);

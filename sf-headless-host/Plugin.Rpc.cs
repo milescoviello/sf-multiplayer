@@ -267,7 +267,7 @@ namespace SFHeadlessHost
                 // BodyPart Rigidbodies. Use the first BodyPart's position
                 // (typically the hip/pelvis) as the canonical position.
                 bool first = true;
-                var bodyPartType = AccessTools.TypeByName("BodyPart");
+                var bodyPartType = CachedType("BodyPart");
                 foreach (var kv in SlotToRig)
                 {
                     var rig = kv.Value;
@@ -304,7 +304,7 @@ namespace SFHeadlessHost
             try
             {
                 if (!SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) { err = "no rig"; return false; }
-                var bp = rig.GetComponentInChildren(AccessTools.TypeByName("BodyPart")) as Component;
+                var bp = rig.GetComponentInChildren(CachedType("BodyPart")) as Component;
                 if ((object)bp == null) { err = "no BodyPart"; return false; }
                 var rb = bp.GetComponent<Rigidbody>();
                 if ((object)rb == null) { err = "no Rigidbody on BodyPart"; return false; }
@@ -323,7 +323,7 @@ namespace SFHeadlessHost
             try
             {
                 if (!SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) { err = "no rig"; return false; }
-                var mov = rig.GetComponent(AccessTools.TypeByName("Movement"));
+                var mov = rig.GetComponent(CachedType("Movement"));
                 if ((object)mov == null) { err = "no Movement"; return false; }
                 string methodName = dir == "left" ? "MoveLeft" : "MoveRight";
                 var m = AccessTools.Method(mov.GetType(), methodName);
@@ -357,7 +357,7 @@ namespace SFHeadlessHost
                 }
                 else sb.Append("; no Rigidbody");
 
-                var ctrl = rig.GetComponent(AccessTools.TypeByName("Controller"));
+                var ctrl = rig.GetComponent(CachedType("Controller"));
                 if ((object)ctrl != null)
                 {
                     var hasControl = AccessTools.Field(ctrl.GetType(), "mHasControl");
@@ -367,7 +367,7 @@ namespace SFHeadlessHost
                 }
                 else sb.Append("; no Controller");
 
-                var mov = rig.GetComponent(AccessTools.TypeByName("Movement"));
+                var mov = rig.GetComponent(CachedType("Movement"));
                 if ((object)mov != null)
                 {
                     sb.Append("; Movement=").Append(((Behaviour)mov).enabled);
@@ -376,14 +376,14 @@ namespace SFHeadlessHost
                 }
                 else sb.Append("; no Movement");
 
-                var fighting = rig.GetComponent(AccessTools.TypeByName("Fighting"));
+                var fighting = rig.GetComponent(CachedType("Fighting"));
                 if ((object)fighting != null)
                 {
                     var mm = AccessTools.Field(fighting.GetType(), "movementMultiplier");
                     if ((object)mm != null) sb.Append("; movementMultiplier=").Append(mm.GetValue(fighting));
                 }
 
-                var info = rig.GetComponent(AccessTools.TypeByName("CharacterInformation"));
+                var info = rig.GetComponent(CachedType("CharacterInformation"));
                 if ((object)info != null)
                 {
                     var sf = AccessTools.Field(info.GetType(), "sinceFallen");
@@ -394,7 +394,7 @@ namespace SFHeadlessHost
 
                 // Dump CharacterActions Movement.X / Y / Left / Right values
                 // so we can see whether our injection is taking effect.
-                var ctrl2 = rig.GetComponent(AccessTools.TypeByName("Controller"));
+                var ctrl2 = rig.GetComponent(CachedType("Controller"));
                 if ((object)ctrl2 != null)
                 {
                     var pa = AccessTools.Field(ctrl2.GetType(), "mPlayerActions")?.GetValue(ctrl2);
@@ -422,7 +422,7 @@ namespace SFHeadlessHost
                 sb.Append("; Time.deltaTime=").Append(Time.deltaTime.ToString("0.000"));
                 sb.Append("; fixedDelta=").Append(Time.fixedDeltaTime.ToString("0.000"));
 
-                var standing = rig.GetComponent(AccessTools.TypeByName("Standing"));
+                var standing = rig.GetComponent(CachedType("Standing"));
                 if ((object)standing != null) sb.Append("; Standing=").Append(((Behaviour)standing).enabled);
                 else sb.Append("; no Standing");
 

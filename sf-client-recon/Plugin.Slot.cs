@@ -44,13 +44,13 @@ namespace SFClientRecon
                 if (!_npLocalCtlLookupTried)
                 {
                     _npLocalCtlLookupTried = true;
-                    var npT = AccessTools.TypeByName("NetworkPlayer");
+                    var npT = CachedType("NetworkPlayer");
                     if ((object)npT != null)
                         _npHasLocalControlField = AccessTools.Field(npT, "mHasLocalControl");
                 }
                 if ((object)_npHasLocalControlField != null)
                 {
-                    var npTypeScan = AccessTools.TypeByName("NetworkPlayer");
+                    var npTypeScan = CachedType("NetworkPlayer");
                     var npsScan = (object)npTypeScan != null ? UnityEngine.Object.FindObjectsOfType(npTypeScan) : null;
                     if (npsScan != null)
                     {
@@ -76,7 +76,7 @@ namespace SFClientRecon
                 if (!_mmSlotLookupTried)
                 {
                     _mmSlotLookupTried = true;
-                    _mmTypeForSlot = AccessTools.TypeByName("MultiplayerManager");
+                    _mmTypeForSlot = CachedType("MultiplayerManager");
                     if ((object)_mmTypeForSlot != null)
                         _mmLocalPlayerIndexField = AccessTools.Field(_mmTypeForSlot, "mLocalPlayerIndex");
                 }

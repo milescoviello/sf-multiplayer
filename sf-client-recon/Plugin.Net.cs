@@ -283,7 +283,7 @@ namespace SFClientRecon
             if (!RefOk(np)) return false;
             try
             {
-                if (!_ctrlLookupTried) { _ctrlLookupTried = true; _ctrlTypeForNp = AccessTools.TypeByName("Controller"); }
+                if (!_ctrlLookupTried) { _ctrlLookupTried = true; _ctrlTypeForNp = CachedType("Controller"); }
                 if (!RefOk(_ctrlTypeForNp)) return false;
                 if (!_ctrlPidLookupTried) { _ctrlPidLookupTried = true; _ctrlPlayerIdField = AccessTools.Field(_ctrlTypeForNp, "playerID"); }
                 if (!RefOk(_ctrlPlayerIdField)) return false;

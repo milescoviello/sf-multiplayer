@@ -27,7 +27,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if ((object)gmType == null) { Log.LogWarning("[P6.5] GameManager type not found (countdown)"); return; }
                 object gmInst = null;
                 var instanceGetter = AccessTools.PropertyGetter(gmType, "Instance");
@@ -89,6 +89,7 @@ namespace SFHeadlessHost
                 return;
             }
             _sceneLoadRealtime = Time.realtimeSinceStartup;
+            InvalidateMapSyncComponentCache();
             EnableWestern4BarrelSync(scene);
             _nsoSpawnPos.Clear();
             _nsoVoidResetCount.Clear();   // per-NSO-index void-rescue budget — reset with the map (ids get reassigned)
@@ -108,7 +109,7 @@ namespace SFHeadlessHost
             if (scene.name != "Western 4") return;
             try
             {
-                var spawnerType = AccessTools.TypeByName("ObjectSpawner");
+                var spawnerType = CachedType("ObjectSpawner");
                 var syncF = (object)spawnerType != null ? AccessTools.Field(spawnerType, "m_SyncPosition") : null;
                 if ((object)syncF == null) return;
                 int n = 0;
@@ -159,8 +160,8 @@ namespace SFHeadlessHost
             }
             float settleSec = n > 50 ? 2.5f : 1.5f;
             yield return new WaitForSecondsRealtime(settleSec);
-            var dpType = AccessTools.TypeByName("DestructiblePiece");
-            var dontEnableType = AccessTools.TypeByName("DontEnableRig");
+            var dpType = CachedType("DestructiblePiece");
+            var dontEnableType = CachedType("DontEnableRig");
             FieldInfo simpleField = (object)dpType != null ? AccessTools.Field(dpType, "simpleDestruction") : null;
             FieldInfo eventField = (object)dpType != null ? AccessTools.Field(dpType, "eventDestruction") : null;
             int reEnabled = 0;
@@ -250,7 +251,7 @@ namespace SFHeadlessHost
             {
                 if ((object)_nsoType == null)
                 {
-                    _nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoType = CachedType("NetworkSyncableObject");
                     if ((object)_nsoType == null) return;
                     _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
                     _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
@@ -290,7 +291,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mmType = CachedType("MultiplayerManager");
                 if ((object)mmType == null) { Log.LogWarning("[P6.9] MultiplayerManager type not found"); return; }
                 var mmInst = UnityEngine.Object.FindObjectOfType(mmType);
                 if ((object)mmInst == null) { Log.LogWarning("[P6.9] MultiplayerManager instance not found"); return; }
@@ -409,7 +410,7 @@ namespace SFHeadlessHost
         {
             try
             {
-                var gmType = AccessTools.TypeByName("GameManager");
+                var gmType = CachedType("GameManager");
                 if ((object)gmType == null) { Log.LogWarning("[P6.5] GameManager type not found"); return; }
                 // Try the singleton accessor first — GameManager._instance is
                 // set in Awake on the MainScene boot; persists if marked
@@ -435,7 +436,7 @@ namespace SFHeadlessHost
                     }
                 }
                 if ((object)gmInst == null) { Log.LogWarning("[P6.5] GameManager instance not found (Instance/FindObjectOfType/FindObjectsOfTypeAll all null)"); return; }
-                var mwType = AccessTools.TypeByName("MapWrapper");
+                var mwType = CachedType("MapWrapper");
                 if ((object)mwType == null) { Log.LogWarning("[P6.5] MapWrapper type not found"); return; }
 
                 int sceneIdx = (object)Instance != null ? Instance._currentSceneIndex : 6;

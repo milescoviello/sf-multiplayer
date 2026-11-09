@@ -56,7 +56,7 @@ namespace SFClientRecon
             _chanFillNextAt = now + 5f;
             try
             {
-                if ((object)_ppTypeForFill == null) _ppTypeForFill = AccessTools.TypeByName("P2PPackageHandler");
+                if ((object)_ppTypeForFill == null) _ppTypeForFill = CachedType("P2PPackageHandler");
                 if ((object)_ppTypeForFill == null) return;
                 var inst = UnityEngine.Object.FindObjectOfType(_ppTypeForFill);
                 if (!RefOk(inst)) return;
