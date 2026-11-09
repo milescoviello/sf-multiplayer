@@ -533,7 +533,42 @@ namespace SFClientRecon
                 }
             }
             catch (Exception e) { Log.LogWarning($"[oracle-lobby] Init postfix: {e.Message}"); }
+            SendGameSocketBind(__instance, true);
             Log.LogInfo("[oracle-lobby] P2PPackageHandler.Init → oracle RX armed.");
+        }
+
+        // The router pins a socket to a lobby when it SELECTs, but the patched
+        // game socket never did: it rode the per-IP fallback, i.e. whatever
+        // lobby ANY client at this IP picked last. Two players behind one NAT in
+        // different lobbies (one plays COMP, one watches REPLAY) got crossed, and
+        // each re-SELECT tore the other's game flow down. So the game socket
+        // sends a router BIND itself (op 0x06: endpoint binding only, no reply,
+        // because a reply would land in the patched DLL's receive queue). Sent
+        // after Init and every 10 s, before the handshake's first packet.
+        private static System.Reflection.FieldInfo _gameSocketF;
+        private static float _nextGameBindAt;
+        internal static void SendGameSocketBind(object pktHandler, bool force)
+        {
+            try
+            {
+                if (!force && Time.realtimeSinceStartup < _nextGameBindAt) return;
+                _nextGameBindAt = Time.realtimeSinceStartup + 10f;
+                string code = SelectedLobbyCode ?? "";
+                if (code.Length == 0 || code.Length > 16 || !RefOk(pktHandler)) return;
+                if (!RefOk(_gameSocketF)) _gameSocketF = AccessTools.Field(pktHandler.GetType(), "_socket");
+                var sock = RefOk(_gameSocketF) ? _gameSocketF.GetValue(pktHandler) as System.Net.Sockets.Socket : null;
+                if (sock == null || !sock.Connected) return;
+                byte[] codeBytes = System.Text.Encoding.ASCII.GetBytes(code);
+                byte[] pkt = new byte[8 + 1 + 1 + codeBytes.Length + 4];
+                pkt[0] = 0x53; pkt[1] = 0x46; pkt[2] = 0x52; pkt[3] = 0x54; pkt[4] = 0x52;   // "SFRTR"
+                pkt[5] = 0x00; pkt[6] = 0x00; pkt[7] = 0x01;
+                pkt[8] = 0x06;                                   // op = BIND (silent)
+                pkt[9] = (byte)codeBytes.Length;
+                Buffer.BlockCopy(codeBytes, 0, pkt, 10, codeBytes.Length);
+                sock.Send(pkt);
+                if (force) Log.LogInfo($"[oracle-lobby] game socket BIND lobby={code} ({sock.LocalEndPoint})");
+            }
+            catch (Exception e) { Log.LogWarning($"[oracle-lobby] game socket BIND: {e.Message}"); }
         }
 
         internal static void MultiplayerManager_RequestClientInit_OraclePostfix(object __instance)
@@ -553,6 +588,7 @@ namespace SFClientRecon
                 // Do NOT require mHasHandler — during OnlineBox / scene load it can
                 // be false while UDP replies (ClientAccepted) are already queued.
                 bool sentOrRx = t.Field<bool>("mHasSentOrReceived").Value;
+                SendGameSocketBind(__instance, false);
                 if (_oracleConnectStarted || sentOrRx)
                     ForceInitializedFromServer(null);
                 t.Method("CheckForPackagesOnChannel", new object[] { 1, false }).GetValue();

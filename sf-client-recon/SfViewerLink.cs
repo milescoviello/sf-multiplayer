@@ -32,7 +32,7 @@ namespace SFClientRecon
             if (op == 0 && Time.unscaledTime < _nextViewerHelloAt) return;
             _nextViewerHelloAt = Time.unscaledTime + 2f;
             if (!InitializedFromServer()) return;
-            if (FindLocalSlot() >= 0) return;   // a player: PlayerInput already tells the server
+            if (HasLocalBody()) return;   // a player: PlayerInput tells the server, and chat works
             ulong sid = OwnSteamId();
             if (sid == 0) return;
             byte[] pkt = new byte[5 + 10 + 9];
@@ -43,6 +43,23 @@ namespace SFClientRecon
             pkt[13] = op; pkt[14] = arg;
             try { _socket.Send(pkt, pkt.Length, _serverEp); }
             catch (Exception e) { Log.LogWarning($"[viewer] send: {e.Message}"); }
+        }
+
+        // A spectator / viewer knows its slot (the patched DLL sets
+        // mLocalPlayerIndex) but has no character: no NetworkPlayer with
+        // mHasLocalControl. Checked at most every 2 s or on a key press.
+        private static FieldInfo _npLocalCtlF;
+        private static bool HasLocalBody()
+        {
+            var npT = CachedType("NetworkPlayer");
+            if (!RefOk(npT)) return false;
+            if (!RefOk(_npLocalCtlF)) _npLocalCtlF = AccessTools.Field(npT, "mHasLocalControl");
+            if (!RefOk(_npLocalCtlF)) return false;
+            foreach (var np in UnityEngine.Object.FindObjectsOfType(npT))
+            {
+                try { if ((bool)_npLocalCtlF.GetValue(np)) return true; } catch { }
+            }
+            return false;
         }
 
         private static bool InitializedFromServer()

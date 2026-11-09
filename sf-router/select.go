@@ -11,7 +11,7 @@ import (
 // Wire (little-endian):
 //
 //	[8] magic   = selectMagic
-//	[1] op      = opSelect | opLeave
+//	[1] op      = opSelect | opLeave | opBind (silent, see router.go)
 //	[1] codeLen (0..maxCodeLen)
 //	[N] code    (ASCII A-Z0-9, uppercased by client)
 //	[4] nonce   (echoed in the ACK so the client can correlate)
@@ -30,12 +30,13 @@ import (
 var selectMagic = []byte{'S', 'F', 'R', 'T', 'R', 0x00, 0x00, 0x01}
 
 const (
-	opSelect byte = 0x01
-	opLeave  byte = 0x02
-	opList   byte = 0x03 // client → router: "send me the lobby list" (code empty)
-	opCreate byte = 0x04 // client → router: "create a lobby" (code empty → auto-gen)
-	opRestart byte = 0x05 // client → router: "restart lobby <code>"
-	opAck    byte = 0x81
+	opSelect   byte = 0x01
+	opLeave    byte = 0x02
+	opList     byte = 0x03 // client → router: "send me the lobby list" (code empty)
+	opCreate   byte = 0x04 // client → router: "create a lobby" (code empty → auto-gen)
+	opRestart  byte = 0x05 // client → router: "restart lobby <code>"
+	opBind     byte = 0x06 // client → router: pin THIS endpoint to <code>, silently (no ACK, IP fallback untouched)
+	opAck      byte = 0x81
 	opListResp byte = 0x83 // router → client: the lobby list (see buildListResp)
 	opCtlAck   byte = 0x84 // router → client: create/restart accepted|rejected (status byte)
 

@@ -17,8 +17,8 @@
 //     SELECT control datagram naming its lobby code; the router resolves it to
 //     a backend (via the lobby registry) and pins the client. Game traffic
 //     from a client that hasn't SELECTed is dropped. Bindings are per-endpoint
-//     with a per-IP fallback so the patched-DLL game socket (same IP, never
-//     SELECTs) rides the recon socket's selection.
+//     with a per-IP fallback for a game socket that hasn't bound itself yet;
+//     current clients send a silent BIND from the game socket too.
 package router
 
 import (
@@ -360,6 +360,33 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 		r.mu.Unlock()
 		r.sendAck(cliAddr, nonce, ackOK)
 		log.Printf("[router] SELECT %q from %s → %s", code, cliAddr, backend)
+		return
+	case opBind:
+		// The patched-DLL game socket pins itself. Unlike SELECT: no ACK (it
+		// would land in the game's receive queue), and the per-IP fallback is
+		// left alone, so a co-located player in another lobby is never
+		// re-routed. Only this endpoint's own flow is rebuilt if its lobby
+		// changed.
+		backend, found := r.resolve(code)
+		if !found {
+			return
+		}
+		key := cliAddr.String()
+		r.mu.Lock()
+		prev, exists := r.epBind[key]
+		if !exists && len(r.epBind) >= maxBindings {
+			r.mu.Unlock()
+			return
+		}
+		r.epBind[key] = &bound{code: code, lastSeen: time.Now()}
+		if fl := r.flows[key]; fl != nil && fl.backend.String() != backend.String() {
+			_ = fl.upSock.Close()
+			delete(r.flows, key)
+		}
+		r.mu.Unlock()
+		if !exists || prev.code != code {
+			log.Printf("[router] BIND %q from %s → %s", code, cliAddr, backend)
+		}
 		return
 	case opCreate, opRestart:
 		// In-game lobby management. The router can't spawn/restart Proton itself,

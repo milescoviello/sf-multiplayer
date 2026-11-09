@@ -88,13 +88,15 @@ SF.exe ports stay loopback — hidden from scanners.
   to blunt spoofed-source-address sprays (binding creation is already gated on a
   valid lobby code).
 
-## Known limitation (documented risk)
+## Game-socket binding (fixed 2026-11-09)
 
-Backend selection falls back to per-IP for the **game socket** (the patched DLL
-never SELECTs). So **two players behind one public IP/NAT who join _different_
-lobbies**: each player's recon socket is correct (its own per-endpoint binding),
-but the second player's *game* socket rides the shared IP fallback and can route
-to the first player's lobby. Fine for the comp scene (distinct IPs); two
-same-IP players in the *same* lobby also work. The robust fix — make the game
-socket SELECT too — needs a patched-`Assembly-CSharp` change and is deferred
-(TODO). Per-endpoint bindings always win over the IP fallback.
+The patched-DLL **game socket** used to ride the per-IP fallback (it never
+SELECTed), so two players behind one public IP/NAT in _different_ lobbies got
+crossed: the second player's game socket could route to the first player's
+lobby, and every re-SELECT tore the other's game flow down. Current clients
+send a silent **BIND** (op `0x06`, same framing as SELECT) from the game socket
+after `P2PPackageHandler.Init` and every 10 s: it sets only that endpoint's
+binding, gets **no ACK** (an ACK would land in the patched DLL's receive queue),
+and leaves the IP fallback alone. Covered by
+`TestColocatedGameSocketBindSurvivesOtherSelect`. The IP fallback remains for
+older clients. Per-endpoint bindings always win over the IP fallback.
