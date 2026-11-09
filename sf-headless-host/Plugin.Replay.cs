@@ -160,10 +160,12 @@ namespace SFHeadlessHost
         }
 
         // Called from SendSfPacket for every packet sent.
+        private bool _recSuppress;   // a per-viewer message (e.g. a spectator's banner): not recorded
+
         private void RecordOutgoing(byte msgType, byte[] body, ulong steamID, byte channel)
         {
             var w = _replay;
-            if (w == null || IsReplayExcluded(msgType)) return;
+            if (w == null || _recSuppress || IsReplayExcluded(msgType)) return;
             // A broadcast is sent once per client with the same body array: keep one.
             int frame = Time.frameCount;
             if (frame == _recLastFrame && msgType == _recLastType && channel == _recLastCh && ReferenceEquals(body, _recLastBody)) return;
@@ -298,6 +300,15 @@ namespace SFHeadlessHost
             return list;
         }
 
+        // "20261109-102531.sfrp" -> "Nov 9 10:25"
+        private static string ReplayLabel(string path)
+        {
+            string n = System.IO.Path.GetFileNameWithoutExtension(path);
+            DateTime t;
+            return DateTime.TryParseExact(n, "yyyyMMdd-HHmmss", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out t) ? t.ToString("MMM d HH:mm", System.Globalization.CultureInfo.InvariantCulture) : n;
+        }
+
         private static ReplayReader OpenReplay(string path)
         {
             try { var r = new ReplayReader(); return r.Open(path) ? r : null; }
@@ -369,9 +380,9 @@ namespace SFHeadlessHost
             v.T0 = Time.realtimeSinceStartup;
             v.Pending = v.Reader.Next();
             v.Streaming = true;
-            string name = System.IO.Path.GetFileNameWithoutExtension(v.Reader.Path);
-            Log.LogInfo($"[replay] viewer slot {cli.Slot} watching {name} ({v.Reader.Header})");
-            SendChatToPlayer(cli, $"Replay {name} (UTC). /replays to list, /play <n> to pick another.");
+            string name = ReplayLabel(v.Reader.Path);
+            Log.LogInfo($"[replay] viewer slot {cli.Slot} watching {System.IO.Path.GetFileName(v.Reader.Path)} ({v.Reader.Header})");
+            SendChatToPlayer(cli, $"Replay {name} UTC. Keys: 1-9 pick a replay, R restart, L list.");
         }
 
         private void TickReplayPlayback()
@@ -409,11 +420,41 @@ namespace SFHeadlessHost
                 }
                 if (v.Pending == null)
                 {
-                    SendChatToPlayer(v.Cli, "Replay finished. /replays to list, /play <n> to watch one.");
+                    SendChatToPlayer(v.Cli, "Replay finished. Keys: 1-9 pick a replay, R restart, L list.");
                     v.Reader.Close(); v.Reader = null; v.Streaming = false;
                 }
             }
             if (gone != null) foreach (var k in gone) { _viewers[k].Reader?.Close(); _viewers.Remove(k); }
+        }
+
+        // msgType 46 from a bodyless client's recon socket: [u64 steamId][u8 op][u8 arg].
+        // Records where its v26 traffic goes (it sends no PlayerInput), and in
+        // the replay lobby carries its controls (it has no chat box):
+        // 1 list, 2 play <arg>, 3 restart.
+        private readonly Dictionary<string, float> _viewerOpAt = new Dictionary<string, float>();
+        private void HandleViewerHello(byte[] data, int off, int len, IPEndPoint from)
+        {
+            if (len < 10) return;
+            ulong sid = BitConverter.ToUInt64(data, off);
+            byte op = data[off + 8], arg = data[off + 9];
+            SfClient cli = null;
+            foreach (var kv in _sfClients)
+                if (kv.Value.Initialized && kv.Value.IsSpectator && kv.Value.SteamID == sid && kv.Value.Slot >= 0) { cli = kv.Value; break; }
+            if (cli == null) return;   // players learn their v26 address from PlayerInput
+            IPEndPoint prev;
+            if (!_slotV26Endpoint.TryGetValue(cli.Slot, out prev) || !prev.Equals(from))
+            {
+                _slotV26Endpoint[cli.Slot] = from;
+                Log.LogInfo($"[viewer] slot {cli.Slot} v26 endpoint {from}");
+            }
+            if (op == 0 || !ReplayMode) return;
+            string key = cli.Addr.ToString();
+            float last, now = Time.realtimeSinceStartup;
+            if (_viewerOpAt.TryGetValue(key, out last) && now - last < 0.5f) return;
+            _viewerOpAt[key] = now;
+            if (op == 1) HandleReplayChat(cli, "/replays", "");
+            else if (op == 2) HandleReplayChat(cli, "/play", arg.ToString());
+            else if (op == 3) HandleReplayChat(cli, "/restart", "");
         }
 
         private const float ReplayLoadWaitSec = 12f;
@@ -442,15 +483,15 @@ namespace SFHeadlessHost
                 {
                     if (files.Count == 0) { SendChatToPlayer(sender, "No replays recorded yet."); return; }
                     var parts = new List<string>();
-                    for (int i = 0; i < files.Count && i < 8; i++) parts.Add($"{i + 1}) {System.IO.Path.GetFileNameWithoutExtension(files[i])}");
-                    SendChatToPlayer(sender, "Replays, newest first (UTC): " + string.Join("  ", parts.ToArray()));
+                    for (int i = 0; i < files.Count && i < 9; i++) parts.Add($"{i + 1}) {ReplayLabel(files[i])}");
+                    SendChatToPlayer(sender, "Replays (UTC): " + string.Join("  ", parts.ToArray()));
                     return;
                 }
                 case "/play":
                 case "/watch":
                 {
                     int n;
-                    if (!int.TryParse(arg, out n) || n < 1 || n > files.Count) { SendChatToPlayer(sender, "Usage: /play <n> (see /replays)."); return; }
+                    if (!int.TryParse(arg, out n) || n < 1 || n > files.Count) { SendChatToPlayer(sender, files.Count == 0 ? "No replays recorded yet." : $"There are {files.Count} replays: pick 1-{Math.Min(9, files.Count)} (L lists them)."); return; }
                     var r = OpenReplay(files[n - 1]);
                     if (r == null) { SendChatToPlayer(sender, "Couldn't open that replay."); return; }
                     ReplayViewer v;
@@ -470,7 +511,7 @@ namespace SFHeadlessHost
                     }
                     _replaySelected?.Close();
                     _replaySelected = r;
-                    SendChatToPlayer(sender, $"Replay {n} has different players: leave and rejoin this lobby to watch it.");
+                    SendChatToPlayer(sender, $"Replay {n} has different players: leave and rejoin this lobby to watch it (it's selected).");
                     return;
                 }
                 case "/restart":
@@ -485,7 +526,7 @@ namespace SFHeadlessHost
                     return;
                 }
                 default:
-                    SendChatToPlayer(sender, "Replay lobby: /replays (list), /play <n> (watch), /restart (from the start).");
+                    SendChatToPlayer(sender, "Replay lobby. Keys: 1-9 pick a replay, R restart, L list.");
                     return;
             }
         }

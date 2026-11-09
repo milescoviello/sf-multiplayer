@@ -223,6 +223,8 @@ namespace SFHeadlessHost
         private static Type _hipType, _charInfoType;
         private static bool _snakeReflectOk, _snakeReflectTried;
         private static int _snakeTargetsSent;
+        internal static bool SkipOnServerPrefix() => false;
+
         internal static void SnakeAIUpdatePrefix(object __instance)
         {
             try

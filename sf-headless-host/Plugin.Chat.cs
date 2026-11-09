@@ -52,6 +52,17 @@ namespace SFHeadlessHost
         {
             if (target == null || target.Slot < 0) return;
             byte[] body = System.Text.Encoding.UTF8.GetBytes(text);
+            if (target.IsSpectator)
+            {
+                // No body to hang a chat bubble on (spectator / replay viewer):
+                // the recon plugin's top banner instead. Not part of any replay.
+                IPEndPoint v26Ep;
+                if (!_slotV26Endpoint.TryGetValue(target.Slot, out v26Ep))
+                    v26Ep = new IPEndPoint(target.Addr.Address, V26_CLIENT_PORT);
+                _recSuppress = true;
+                try { SendSfPacket(v26Ep, PktV26Announce, body, 0, 0); } finally { _recSuppress = false; }
+                return;
+            }
             byte ch = (byte)((target.Slot * 2) + 3);
             SendSfPacket(target.Addr, PktPlayerTalked, body, 0uL, ch);
         }

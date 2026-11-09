@@ -251,6 +251,12 @@ namespace SFHeadlessHost
                 catch (Exception ex) { Log.LogWarning($"[SF] HandlePlayerInput threw: {ex.Message}"); }
                 return;
             }
+            if (msgType == PktViewerHello)
+            {
+                try { HandleViewerHello(data, bodyOffset, bodyLen, from); }
+                catch (Exception ex) { Log.LogWarning($"[SF] HandleViewerHello threw: {ex.Message}"); }
+                return;
+            }
             if (msgType == PktClientFireWeapon)
             {
                 try { HandleClientFireWeapon(data, bodyOffset, bodyLen, from); }

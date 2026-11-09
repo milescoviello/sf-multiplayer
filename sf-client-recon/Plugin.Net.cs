@@ -91,7 +91,8 @@ namespace SFClientRecon
                 {
                     string text = System.Text.Encoding.UTF8.GetString(pkt, annOff, annLen);
                     _bannerText = text;
-                    _bannerUntilUtc = DateTime.UtcNow.AddSeconds(3);
+                    // Long lines (a replay list) stay up longer: 3 s + 50 ms per character, up to 10 s.
+                    _bannerUntilUtc = DateTime.UtcNow.AddSeconds(Math.Min(10.0, 3.0 + text.Length * 0.05));
                 }
                 catch { }
                 return;

@@ -258,6 +258,17 @@ namespace SFHeadlessHost
                     (object)snakeType != null ? AccessTools.Method(snakeType, "Update") : null,
                     prefix: nameof(SnakeAIUpdatePrefix));
 
+                // No music on the server. MusicHandler starts the next streamed
+                // track when one ends, and that AudioSource.Play crashes Unity's
+                // native audio under headless Wine (COMP 11-09: MusicHandler.PlayNext
+                // → AudioSource.Play → native crash, process hung in the crash
+                // handler). Pure audio: nothing in gameplay reads it.
+                var musicType = CachedType("MusicHandler");
+                foreach (var m in new[] { "Update", "StartMusic", "PlayNext", "PlaySpecialSong" })
+                    TryPatch(harmony, $"MusicHandler.{m} (prefix → skip: no music on the server)",
+                        (object)musicType != null ? AccessTools.Method(musicType, m) : null,
+                        prefix: nameof(SkipOnServerPrefix));
+
                 var wsType = CachedType("WeaponSelectionHandler");
                 TryPatch(harmony, "WeaponSelectionHandler.GetRandomWeaponIndex (prefix → valid index)",
                     (object)wsType != null ? AccessTools.Method(wsType, "GetRandomWeaponIndex") : null,
@@ -678,6 +689,7 @@ namespace SFHeadlessHost
         private const byte PktV26Announce                   = 42;  // server → all clients, UTF-8 banner text (recon plugin draws it 3s)
         private const byte PktRoundSpawns                   = 44;  // server → clients (v26): COMP spawn assignment for the next map
         private const byte PktPlayerPings                   = 45;  // server → clients (v26): each player's RTT to the server, every 2 s
+        private const byte PktViewerHello                   = 46;  // client → server (v26): bodyless client's v26 address + replay controls
         // === Patched-DLL extensions (kit's patched Assembly-CSharp.dll has
         // these beyond stock SF's 0-38 range). We don't synthesize them, but
         // we relay so peer clients see each other. From ALKA's

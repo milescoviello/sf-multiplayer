@@ -353,7 +353,8 @@ namespace SFClientRecon
             }
 
             float w = Mathf.Min(900f, Screen.width * 0.9f);
-            float h = 56f;
+            int lines = Mathf.Clamp((text.Length + 54) / 55, 1, 4);   // ~55 characters per line at 26 pt
+            float h = 56f + 32f * (lines - 1);
             var rect = new Rect((Screen.width - w) / 2f, 24f, w, h);
 
             // Drop shadow for legibility over any map background.
@@ -392,6 +393,7 @@ namespace SFClientRecon
             // No FPS / vSync overrides: the player's own Game Settings decide, as in
             // stock (FPS changes how the game plays, so forcing it is not fair play).
             try { ApplyServerPings(); } catch { }
+            try { TickViewerLink(); } catch { }
             try { TickOracleAutoConnect(); } catch { }
             try { TickDebugConsole(); } catch { }
             try { TickChannelNullFill(); } catch { }
