@@ -72,16 +72,6 @@ namespace SFHeadlessHost
             string pass = Environment.GetEnvironmentVariable("SF_ADMIN_PASS");
             _adminPass = string.IsNullOrEmpty(pass) ? null : pass;
         }
-        // Round/map/weapon control changes the match for everyone, so it is
-        // admin-only (SF_ADMIN_STEAMIDS or /admin <SF_ADMIN_PASS>). Otherwise a
-        // player losing a comp round could just /next it away.
-        private bool RequireAdmin(SfClient sender)
-        {
-            if (IsAdminSender(sender)) return true;
-            SendChatToPlayer(sender, "Admin only.");
-            return false;
-        }
-
         private static bool IsAdminSender(SfClient sender)
         {
             EnsureAdminEnvLoaded();
@@ -127,7 +117,6 @@ namespace SFHeadlessHost
                         SendChatToPlayer(sender, "pong");
                         break;
                     case "/start":
-                        if (!RequireAdmin(sender)) break;
                         if (_matchStarted)
                         {
                             SendChatToPlayer(sender, "Match already in progress.");
@@ -143,7 +132,6 @@ namespace SFHeadlessHost
                         break;
                     case "/restart":
                     case "/next":
-                        if (!RequireAdmin(sender)) break;
                         if (_pendingRoundAdvanceAt > 0f)
                             SendChatToPlayer(sender, "Round advance already pending.");
                         else
@@ -160,7 +148,6 @@ namespace SFHeadlessHost
                             SendChatToPlayer(sender, $"Current map: scene {_currentSceneIndex}. Usage: /map <1-124>. Random next: /next.");
                             break;
                         }
-                        if (!RequireAdmin(sender)) break;
                         if (!int.TryParse(arg, out int sceneIdx) || sceneIdx < 1 || sceneIdx > 124 || sceneIdx == 102)
                         {
                             SendChatToPlayer(sender, "Usage: /map <1-124> (102 excluded — non-MP scene). Use /listmaps to browse.");
@@ -297,7 +284,6 @@ namespace SFHeadlessHost
                                 SendChatToPlayer(sender, $"Weapons allow-list: {string.Join(",", System.Array.ConvertAll(arr, i => i.ToString()))}");
                             }
                         }
-                        else if (!RequireAdmin(sender)) { }
                         else if (arg == "all" || arg == "clear" || arg == "default")
                         {
                             _allowedWeaponIds.Clear();
@@ -329,33 +315,11 @@ namespace SFHeadlessHost
                     case "/tickrate":
                     case "/tick":
                     {
-                        string arg = (space < 0 ? "" : text.Substring(space + 1).Trim());
-                        if (string.IsNullOrEmpty(arg))
-                        {
-                            float fd = Time.fixedDeltaTime;
-                            int hz = (fd > 0f) ? (int)System.Math.Round(1.0 / fd) : 0;
-                            SendChatToPlayer(sender, $"Server physics tickrate: {hz}Hz (fixedDeltaTime={fd:0.0000}s). Snapshot broadcast: 30Hz.");
-                        }
-                        else if (!IsAdminSender(sender))
-                        {
-                            SendChatToPlayer(sender, "Setting /tickrate is admin-only. Authenticate with /admin <password>.");
-                        }
-                        else
-                        {
-                            int hz;
-                            if (!int.TryParse(arg, out hz) || hz < 20 || hz > 240)
-                            {
-                                SendChatToPlayer(sender, "Usage: /tickrate <20-240>. Default 50.");
-                            }
-                            else
-                            {
-                                float newFd = 1.0f / hz;
-                                float oldFd = Time.fixedDeltaTime;
-                                Time.fixedDeltaTime = newFd;
-                                Log.LogInfo($"[chat] /tickrate {hz}Hz — Time.fixedDeltaTime: {oldFd:0.0000} → {newFd:0.0000}");
-                                SendChatToPlayer(sender, $"Server physics tickrate set to {hz}Hz. (was {(int)System.Math.Round(1.0/oldFd)}Hz). Snapshot broadcast still 30Hz — client FPS is independent.");
-                            }
-                        }
+                        // Read-only: the server must run the same physics step as
+                        // every player's game, so it can't be changed in game.
+                        float fd = Time.fixedDeltaTime;
+                        int hz = (fd > 0f) ? (int)System.Math.Round(1.0 / fd) : 0;
+                        SendChatToPlayer(sender, $"Server physics: {hz}Hz (fixedDeltaTime={fd:0.0000}s, stock). Snapshot broadcast: {SnapshotHz}Hz.");
                         break;
                     }
                     case "/help":

@@ -217,6 +217,76 @@ namespace SFHeadlessHost
             }
             return false; // skip original SpawnRandomWeapon
         }
+        // Snakes (snake gun + snake maps). Stock SnakeAI picks a target only on
+        // the host, from ControllerHandler.players, and broadcasts it with
+        // NetworkSyncableObject.NewSnakeTarget; every client then chases with its
+        // own copy and the bite lands on the victim's own client. The server's
+        // player rigs aren't in ControllerHandler.players, so server snakes never
+        // picked anyone: no target was ever sent and snakes never did damage.
+        // This prefix does the host's targeting over the server rigs. It leaves
+        // mTargetController unset, so the server copy never bites (stock: only
+        // the victim's client applies a bite).
+        private static System.Reflection.FieldInfo _snTarget, _snMainRig, _snRange, _snInfo, _snLife, _snNso, _ciIsDead;
+        private static System.Reflection.MethodInfo _nsoNewSnakeTarget;
+        private static Type _hipType, _charInfoType;
+        private static bool _snakeReflectOk, _snakeReflectTried;
+        private static int _snakeTargetsSent;
+        internal static void SnakeAIUpdatePrefix(object __instance)
+        {
+            try
+            {
+                if (!_snakeReflectTried)
+                {
+                    _snakeReflectTried = true;
+                    var t = __instance.GetType();
+                    _snTarget = AccessTools.Field(t, "target");
+                    _snMainRig = AccessTools.Field(t, "mainRig");
+                    _snRange = AccessTools.Field(t, "targetRange");
+                    _snInfo = AccessTools.Field(t, "info");
+                    _snLife = AccessTools.Field(t, "lifeCounter");
+                    _snNso = AccessTools.Field(t, "mNetworkSyncableObject");
+                    _charInfoType = AccessTools.TypeByName("CharacterInformation");
+                    _hipType = AccessTools.TypeByName("Hip");
+                    _ciIsDead = (object)_charInfoType != null ? AccessTools.Field(_charInfoType, "isDead") : null;
+                    var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+                    _nsoNewSnakeTarget = (object)nsoType != null ? AccessTools.Method(nsoType, "NewSnakeTarget") : null;
+                    _snakeReflectOk = (object)_snTarget != null && (object)_snMainRig != null && (object)_snRange != null
+                        && (object)_snLife != null && (object)_hipType != null && (object)_ciIsDead != null;
+                    if (!_snakeReflectOk) Log.LogWarning("[snake] SnakeAI reflection incomplete — server snake targeting off.");
+                }
+                if (!_snakeReflectOk || (object)Instance == null) return;
+                if ((_snTarget.GetValue(__instance) as Rigidbody) != null) return;      // already chasing
+                if ((float)_snLife.GetValue(__instance) < 0.5f) return;
+                var info = (object)_snInfo != null ? _snInfo.GetValue(__instance) : null;
+                if (info != null && (bool)_ciIsDead.GetValue(info)) return;
+                var main = _snMainRig.GetValue(__instance) as Rigidbody;
+                if (main == null) return;
+                float range = (float)_snRange.GetValue(__instance);
+                int best = -1; Rigidbody bestHip = null; float bestD = 100f;   // stock search radius cap
+                foreach (var kv in SlotToRig)
+                {
+                    var rig = kv.Value;
+                    if (rig == null) continue;
+                    var ci = (object)_charInfoType != null ? rig.GetComponent(_charInfoType) : null;
+                    if (ci != null && (bool)_ciIsDead.GetValue(ci)) continue;
+                    var hip = rig.GetComponentInChildren(_hipType);
+                    if (hip == null) continue;
+                    float d = Vector3.Distance(main.position, hip.transform.position);
+                    if (d < bestD && d < range) { bestD = d; best = kv.Key; bestHip = hip.GetComponent<Rigidbody>(); }
+                }
+                if (best < 0) return;
+                var nso = (object)_snNso != null ? _snNso.GetValue(__instance) : null;
+                if (nso != null && (object)_nsoNewSnakeTarget != null)
+                {
+                    _nsoNewSnakeTarget.Invoke(nso, new object[] { (byte)best });   // broadcasts to clients (rate-limited 0.5s by stock)
+                    if (_snakeTargetsSent++ < 5 || _snakeTargetsSent % 50 == 0)
+                        Log.LogInfo($"[snake] target slot {best} ({bestD:0.0}u) #{_snakeTargetsSent}");
+                }
+                _snTarget.SetValue(__instance, bestHip);   // server copy chases too (NewSnakeTarget cleared it: server PlayerControllers is empty)
+            }
+            catch (Exception e) { if (_snakeTargetsSent++ < 3) Log.LogWarning($"[snake] {e.Message}"); }
+        }
+
         internal static bool GetRandomWeaponIndexPrefix(bool mustBeActive, ref GameObject weaponObject, ref int __result)
         {
             _grwiCallCount++;

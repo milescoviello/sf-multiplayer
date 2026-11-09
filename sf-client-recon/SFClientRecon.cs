@@ -146,30 +146,24 @@ namespace SFClientRecon
             // objects (~40u away) and teleports them (observed live:
             // crates=162 on a 90-crate map, meanErr=37, thousands of snaps).
             SceneManager.sceneLoaded += OnSceneLoadedTrackMapScene;
+            // Headless test clients (bots, no rendering) opt in explicitly;
+            // otherwise batchmode means we're inside the server.
+            bool headlessTestClient = Environment.GetEnvironmentVariable("SFCLIENTRECON_HEADLESS_CLIENT") == "1";
             foreach (var arg in Environment.GetCommandLineArgs())
             {
-                if (arg == "-batchmode" || arg == "-nographics")
+                if (!headlessTestClient && (arg == "-batchmode" || arg == "-nographics"))
                 {
                     Log.LogInfo($"{PluginName}: batchmode detected — client-recon does nothing on oracle. Bye.");
                     return;
                 }
             }
-            // Uncap FPS so local Movement prediction runs at the highest rate
-            // the user's hardware allows — smoother feel + more accurate
-            // reconciliation between snapshot boundaries. Cribbed from
-            // ALKA's SFClientEnhancements; cost is zero, value is real.
-            QualitySettings.vSyncCount = 0;
-            Application.targetFrameRate = -1;
-
-            // Default physics tickrate: 60Hz on both client and server. SF's
-            // stock default is 50Hz; bumping to 60 makes local prediction
-            // match the per-tick step the server runs at (also 60 by default
-            // in our plugin), so reconciliation has less per-tick error to
-            // correct. Per-second force is preserved because Movement.cs
-            // scales by Time.deltaTime.
-            Time.fixedDeltaTime = 1f / 60f;
-            Physics.sleepThreshold = 0.011f;
-            Physics.defaultContactOffset = 0.01f;
+            // Vanilla parity: leave FPS, vSync and the physics step exactly as
+            // the game and the player set them. Stick Fight's gameplay changes
+            // with FPS (speed, blocks, quickdraws, throws), players pick their
+            // FPS on purpose, and the physics step / sleep / contact settings
+            // change how ragdolls and boxes behave. This plugin used to force
+            // uncapped FPS, a 60 Hz physics step and custom Physics constants.
+            Log.LogInfo($"[parity] stock settings kept: fixedDeltaTime={Time.fixedDeltaTime:0.0000}s targetFrameRate={Application.targetFrameRate} vSync={QualitySettings.vSyncCount} sleepThreshold={Physics.sleepThreshold:0.000} contactOffset={Physics.defaultContactOffset:0.000}");
 
             var nsoSmoothEnv = Environment.GetEnvironmentVariable("SFCLIENTRECON_NSO_SMOOTH");
             if (!string.IsNullOrEmpty(nsoSmoothEnv) && float.TryParse(nsoSmoothEnv, out var nsr) && nsr > 1f)

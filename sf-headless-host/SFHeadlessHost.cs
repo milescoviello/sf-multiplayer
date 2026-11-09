@@ -252,6 +252,11 @@ namespace SFHeadlessHost
                 TryPatch(harmony, "MatchmakingHandler.SetNetworkMatch (prefix force arg=true)",
                     setNetMatchMethod, prefix: nameof(SetNetworkMatchPrefix));
 
+                var snakeType = AccessTools.TypeByName("SnakeAI");
+                TryPatch(harmony, "SnakeAI.Update (prefix → server-side snake targeting)",
+                    (object)snakeType != null ? AccessTools.Method(snakeType, "Update") : null,
+                    prefix: nameof(SnakeAIUpdatePrefix));
+
                 var wsType = AccessTools.TypeByName("WeaponSelectionHandler");
                 TryPatch(harmony, "WeaponSelectionHandler.GetRandomWeaponIndex (prefix → valid index)",
                     (object)wsType != null ? AccessTools.Method(wsType, "GetRandomWeaponIndex") : null,

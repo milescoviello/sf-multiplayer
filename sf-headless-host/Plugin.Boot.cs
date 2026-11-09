@@ -674,10 +674,20 @@ namespace SFHeadlessHost
                 Log.LogError($"SF server bind on {BindPort} threw: {e}");
                 return;
             }
-            // Default tickrate: 60Hz on both server and client (was Unity's
-            // stock 50Hz). Client plugin sets the same in SFClientRecon.Awake.
-            // Operator can change live with /tickrate N.
-            Time.fixedDeltaTime = 1f / 60f;
+            // Physics step: the game's stock value, the same step every
+            // player's game runs. The server simulates the shared objects
+            // (boxes, platforms) that clients also simulate or follow, so a
+            // different step makes the two diverge. (This used to force 60 Hz.)
+            // Frame cap: headless Unity otherwise spins uncapped (~half a core
+            // per idle lobby). Packets are drained once per frame, so a high cap
+            // keeps added delay small: 200 fps = at most 5 ms. SF_SERVER_FPS overrides.
+            {
+                int fpsCap = 200;
+                int v;
+                if (int.TryParse(Environment.GetEnvironmentVariable("SF_SERVER_FPS"), out v) && v >= 30 && v <= 1000) fpsCap = v;
+                Application.targetFrameRate = fpsCap;
+                Log.LogInfo($"Server frame cap: {fpsCap} fps.");
+            }
             {
                 float fd = Time.fixedDeltaTime;
                 int hz = (fd > 0f) ? (int)System.Math.Round(1.0 / fd) : 0;
