@@ -114,7 +114,7 @@ namespace SFHeadlessHost
             catch (Exception e) { Log.LogWarning($"[replay] start failed: {e.Message}"); _replay = null; }
         }
 
-        private void OnApplicationQuit() => StopRecording("quit");
+        private void OnApplicationQuit() { StopRxThread(); StopRecording("quit"); }
 
         private void StopRecording(string why)
         {

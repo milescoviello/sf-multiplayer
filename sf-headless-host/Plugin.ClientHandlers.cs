@@ -570,10 +570,24 @@ namespace SFHeadlessHost
         //
         // Body format (from NetworkPlayer.SyncClientState): first 4 bytes
         // are posY + posZ as int16 / 100.
+        private int _playerUpdateWrongChannel;
         private void HandlePlayerUpdate(SfClient cli, byte[] data, int off, int len, byte channel)
         {
+            // A player moves only their own body: PlayerUpdate on another
+            // player's channel would move that player on everyone's screen.
+            if (cli.Slot < 0 || channel != (byte)(cli.Slot * 2 + 2))
+            {
+                if (_playerUpdateWrongChannel++ < 5) Log.LogWarning($"[SF] dropped PlayerUpdate from slot {cli.Slot} on channel {channel}.");
+                return;
+            }
             byte[] body = new byte[len];
             if (len > 0) System.Buffer.BlockCopy(data, off, body, 0, len);
+            if (_rxRelayed)
+            {
+                // Already relayed by the receive thread; keep it in the replay.
+                if (_replay != null) { try { RecordOutgoing(PktPlayerUpdate, body, cli.SteamID, channel); } catch { } }
+            }
+            else
             foreach (var kv in _sfClients)
             {
                 if (kv.Value == cli) continue;

@@ -642,7 +642,7 @@ namespace SFHeadlessHost
                         _heartbeatLastFrame = Time.frameCount;
                         int bodies = 0;
                         try { foreach (var rb in UnityEngine.Object.FindObjectsOfType<Rigidbody>()) if (!rb.isKinematic && !rb.IsSleeping()) bodies++; } catch { }
-                        Log.LogInfo($"heartbeat: scene={SceneManager.GetActiveScene().name} tick={_heartbeatTicks} | clients={connected} spawned={spawned} | rx={pktRate:0.0}/s snap={snapRate:0.0}/s input={inputRate:0.0}/s | rigs={SlotToRig.Count} matchStarted={_matchStarted} | fps={fps:0} awakeBodies={bodies} pluginMs/frame={(_updateFrames > 0 ? _updateMsAccum / _updateFrames : 0):0.00} hot:{ProfTopAndReset(_updateFrames)}");
+                        Log.LogInfo($"heartbeat: scene={SceneManager.GetActiveScene().name} tick={_heartbeatTicks} | clients={connected} spawned={spawned} | rx={pktRate:0.0}/s snap={snapRate:0.0}/s input={inputRate:0.0}/s | rigs={SlotToRig.Count} matchStarted={_matchStarted} | relayed={_fastRelayed} refused={_fastRefused} rxDrop={_rxDropped} | fps={fps:0} awakeBodies={bodies} pluginMs/frame={(_updateFrames > 0 ? _updateMsAccum / _updateFrames : 0):0.00} hot:{ProfTopAndReset(_updateFrames)}");
                         _updateMsAccum = 0; _updateFrames = 0;
                     }
                     // Phase 6.5 — periodic state probe (only after match has started).
@@ -680,6 +680,7 @@ namespace SFHeadlessHost
                 _sfServer = new UdpClient(BindPort);
                 _sfServer.Client.Blocking = false;
                 Log.LogInfo($"SF server: listening on UDP {BindPort} (raw v25 protocol).");
+                StartRxThread();
             }
             catch (Exception e)
             {

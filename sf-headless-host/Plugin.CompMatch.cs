@@ -87,7 +87,7 @@ namespace SFHeadlessHost
         {
             if (len < 6 || data[off] != PingMagic0 || data[off + 1] != PingMagic1) return;
             uint sent = (uint)(data[off + 2] | (data[off + 3] << 8) | (data[off + 4] << 16) | (data[off + 5] << 24));
-            float rtt = Time.realtimeSinceStartup * 1000f - sent;
+            float rtt = RxNow * 1000f - sent;   // arrival time, not when the main thread got to it
             if (rtt < 0f || rtt > 5000f) return;
             cli.RttMs = cli.RttMs <= 0f ? rtt : cli.RttMs * 0.8f + rtt * 0.2f;
         }
@@ -100,7 +100,7 @@ namespace SFHeadlessHost
         private void RecordDeathTime(SfClient cli)
         {
             float oneWay = cli.RttMs > 0f ? cli.RttMs / 2000f : 0f;
-            _deathTimeComp[cli.Slot] = Time.realtimeSinceStartup - oneWay;
+            _deathTimeComp[cli.Slot] = RxNow - oneWay;   // when the report arrived
         }
 
         private byte DecideRoundWinner()

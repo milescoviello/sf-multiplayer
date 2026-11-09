@@ -89,6 +89,7 @@ namespace SFHeadlessHost
         private void DrainSfServer()
         {
             if ((object)_sfServer == null) return;
+            if (_rxRun) { DrainRxQueue(); return; }   // receive thread (Plugin.RxThread.cs)
             int processed = 0;
             while (processed++ < 64) // cap per frame
             {
