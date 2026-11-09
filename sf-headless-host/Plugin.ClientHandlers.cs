@@ -575,7 +575,7 @@ namespace SFHeadlessHost
             short rawZ = (short)(body[2] | (body[3] << 8));
             float py = rawY / 100f;
             float pz = rawZ / 100f;
-            UpdateGhostRigPosition(cli.Slot, new Vector3(0f, py, pz));
+            DriveRigFromPlayerUpdate(cli.Slot, body, new Vector3(0f, py, pz));
             _reportedPos[cli.Slot] = new Vector3(0f, py, pz);
             _reportedAt[cli.Slot] = Time.realtimeSinceStartup;
         }

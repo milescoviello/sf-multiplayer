@@ -200,6 +200,11 @@ namespace SFHeadlessHost
                 bool ok = TryForceMove(slot, dir, out string err);
                 SendBridgeJson(from, $"{{\"reply\":\"ack\",\"cmd\":\"forceMove\",\"ok\":{(ok?"true":"false")},\"err\":\"{err}\"}}");
             }
+            else if (cmd == "rigdiag")
+            {
+                string info = RigDiag();
+                SendBridgeJson(from, $"{{\"reply\":\"rigdiag\",\"info\":\"{info.Replace("\\","\\\\").Replace("\"","\\\"")}\"}}");
+            }
             else if (cmd == "inspect")
             {
                 int slot = ExtractIntField(body, "slot", 0);

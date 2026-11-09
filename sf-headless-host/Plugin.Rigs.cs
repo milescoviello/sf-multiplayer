@@ -140,8 +140,11 @@ namespace SFHeadlessHost
                         var hasCtrlF = AccessTools.Field(ctrlType, "mHasControl");
                         if ((object)hasCtrlF != null)
                         {
-                            hasCtrlF.SetValue(ctrl, true);
-                            Log.LogInfo($"[P6.9] Slot {slot}: Controller.mHasControl set true (per-instance).");
+                            // Vanilla host: a remote player's Controller has no
+                            // control; it replays the movement state from that
+                            // player's PlayerUpdate (ApplyMovementState).
+                            hasCtrlF.SetValue(ctrl, LegacyRigs);
+                            Log.LogInfo($"[P6.9] Slot {slot}: Controller.mHasControl set {LegacyRigs} (per-instance).");
                         }
                     }
                 }
@@ -156,6 +159,11 @@ namespace SFHeadlessHost
                     rb.isKinematic = true;
                     rb.velocity = Vector3.zero;
                     rb.angularVelocity = Vector3.zero;
+                    // Parked until its player's first PlayerUpdate places it:
+                    // the rig spawns at a fixed point that can sit inside map
+                    // props (Desert5's centre crate stack), and a kinematic
+                    // body there shoves them apart.
+                    if (!LegacyRigs) rb.detectCollisions = false;
                     kinSet++;
                 }
 
@@ -179,66 +187,146 @@ namespace SFHeadlessHost
             catch (Exception e) { Log.LogWarning($"[P6.9 ConfigureAuthoritativeRig] {e.Message}"); }
         }
 
-        // Stock host model for other players (NetworkPlayer.LerpLocalDummy): the
-        // dummy is a physical ragdoll whose root is eased toward the reported
-        // position every physics step, transform.position = Lerp(pos, target,
-        // dt * 10). This used to teleport every body of the rig by the full delta
-        // on each PlayerUpdate (~50 Hz), which shoved crates violently (depenetration
-        // impulses) and then woke/unfroze them. SF_LEGACY_RIGS=1 restores that.
+        // The server's copy of each player is what a vanilla host has for a
+        // remote player (NetworkPlayer.SyncClientState + LerpLocalDummy):
+        //  - parked (kinematic, no collisions) until that player's first
+        //    PlayerUpdate, then every body goes dynamic, a real ragdoll with
+        //    the player's real mass (162 total vs 500-1500 per crate);
+        //  - its Controller replays the movement state from PlayerUpdate
+        //    (look rotation, left/right/jump bits, stick Y), so it stands,
+        //    walks and jumps like the player;
+        //  - after each PlayerUpdate the root is eased toward root + (reported
+        //    - body average) for one send interval: transform.position =
+        //    Lerp(pos, end, dt * 10) (clients report the body average).
+        // It used to be a kinematic statue (infinite mass) teleported to the
+        // reported point with its body 1.2u above the player's: walking into,
+        // standing on, or spawning inside a crate stack shoved every crate at
+        // full speed ("stacks collapse as soon as players fight on them").
+        // SF_LEGACY_RIGS=1 restores the kinematic ghost.
         private static readonly bool LegacyRigs = Environment.GetEnvironmentVariable("SF_LEGACY_RIGS") == "1";
+        private const float DummyLerpTime = 1f / 50f;   // NetworkPlayer.mSendRate (mSendRatePerSecond = 50)
         private readonly Dictionary<int, Vector3> _rigTarget = new Dictionary<int, Vector3>();
+        private readonly Dictionary<int, float> _rigLerpStart = new Dictionary<int, float>();
+        private readonly HashSet<int> _rigLive = new HashSet<int>();   // rig instance ids that got their first PlayerUpdate
+        private static MethodInfo _ctrlSetLookM, _ctrlSetMoveM, _standSetStickM;
+        private static Type _standingType;
 
-        // FixedUpdate: ease each rig root toward its player's reported position.
+        // FixedUpdate: LerpLocalDummy for every rig that got a PlayerUpdate
+        // within the last send interval.
         private void TickRigLerp()
         {
-            if (LegacyRigs || _rigTarget.Count == 0) return;
-            float k = Mathf.Clamp01(Time.deltaTime * 10f);
+            if (_rigTarget.Count == 0) return;
+            float k = Time.deltaTime * 10f;
+            List<int> done = null;
             foreach (var kv in _rigTarget)
             {
                 GameObject rig;
-                if (!SlotToRig.TryGetValue(kv.Key, out rig) || (object)rig == null) continue;
+                if (!SlotToRig.TryGetValue(kv.Key, out rig) || (object)rig == null) { (done ?? (done = new List<int>())).Add(kv.Key); continue; }
                 rig.transform.position = Vector3.Lerp(rig.transform.position, kv.Value, k);
+                float t0;
+                if (!LegacyRigs && _rigLerpStart.TryGetValue(kv.Key, out t0) && Time.time - t0 >= DummyLerpTime)
+                    (done ?? (done = new List<int>())).Add(kv.Key);
+            }
+            if (done != null) foreach (var s in done) _rigTarget.Remove(s);
+        }
+
+        private void DriveRigFromPlayerUpdate(int slot, byte[] body, Vector3 reported)
+        {
+            if (LegacyRigs) { UpdateGhostRigPosition(slot, reported); return; }
+            if (!SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) return;
+            if (_deadThisRound.Contains(slot)) return;   // died: stays parked
+            var rbs = rig.GetComponentsInChildren<Rigidbody>();
+            if (rbs.Length == 0) return;
+            Vector3 avg = Vector3.zero;
+            foreach (var rb in rbs) avg += rb.transform.position;
+            avg /= rbs.Length;
+            Vector3 diff = reported - avg;
+            int id = rig.GetInstanceID();
+            if (!_rigLive.Contains(id) || diff.sqrMagnitude > 25f)
+            {
+                // First package of this life (or a jump > 5u: respawn, map
+                // change): put the body where the player is, then go dynamic.
+                rig.transform.position = rig.transform.position + diff;
+                foreach (var rb in rbs)
+                {
+                    if ((object)rb == null) continue;
+                    rb.isKinematic = false;
+                    rb.detectCollisions = true;
+                    rb.velocity = Vector3.zero;
+                    rb.angularVelocity = Vector3.zero;
+                }
+                _rigTarget.Remove(slot);
+                if (_rigLive.Add(id))
+                    Log.LogInfo($"[P6.9 dummy] slot {slot}: first PlayerUpdate, body placed at ({reported.y:0.00},{reported.z:0.00}) and dynamic ({rbs.Length} bodies).");
+            }
+            else
+            {
+                _rigTarget[slot] = rig.transform.position + diff;
+                _rigLerpStart[slot] = Time.time;
+            }
+            ApplyDummyMovementState(rig, body);
+        }
+
+        // PlayerUpdate body (NetworkPlayer.SendNewClientStatePackage):
+        // [i16 y][i16 z][s8 lookX][s8 lookY][s8 stickY][u8 movementType]...
+        private static void ApplyDummyMovementState(GameObject rig, byte[] body)
+        {
+            if (body == null || body.Length < 8) return;
+            try
+            {
+                var ctrlType = CachedType("Controller");
+                if ((object)ctrlType == null) return;
+                if ((object)_ctrlSetLookM == null)
+                {
+                    _ctrlSetLookM = AccessTools.Method(ctrlType, "SetNewLookRotation");
+                    _ctrlSetMoveM = AccessTools.Method(ctrlType, "SetNewMovementType");
+                    _standingType = CachedType("Standing");
+                    if ((object)_standingType != null) _standSetStickM = AccessTools.Method(_standingType, "SetNewLeftStickYValue");
+                }
+                var ctrl = rig.GetComponent(ctrlType);
+                if ((object)ctrl == null) return;
+                var look = new Vector2((sbyte)body[4] / 100f, (sbyte)body[5] / 100f);
+                if ((object)_ctrlSetLookM != null && look.sqrMagnitude > 0.0001f) _ctrlSetLookM.Invoke(ctrl, new object[] { look });
+                if ((object)_ctrlSetMoveM != null) _ctrlSetMoveM.Invoke(ctrl, new object[] { body[7] });
+                var standing = (object)_standingType != null ? rig.GetComponent(_standingType) : null;
+                if ((object)standing != null && (object)_standSetStickM != null) _standSetStickM.Invoke(standing, new object[] { (sbyte)body[6] / 100f });
+            }
+            catch (Exception e) { if (Verbose) Log.LogDebug($"[P6.9 dummy] movement state: {e.Message}"); }
+        }
+
+        // A player died: take their server body out of the world (it would
+        // otherwise stand where they died, a wall nobody can see).
+        private void ParkRig(int slot)
+        {
+            if (LegacyRigs || !SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) return;
+            _rigTarget.Remove(slot);
+            foreach (var rb in rig.GetComponentsInChildren<Rigidbody>())
+            {
+                if ((object)rb == null) continue;
+                rb.isKinematic = true;
+                rb.detectCollisions = false;
             }
         }
 
+        // SF_LEGACY_RIGS=1: the old kinematic ghost.
         private void UpdateGhostRigPosition(int slot, Vector3 target)
         {
             if (!SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) return;
             var rootPos = rig.transform.position;
             var delta = target - rootPos;
-            if (!LegacyRigs && delta.magnitude <= 5f)
+            if (delta.magnitude <= 5f)
             {
                 _rigTarget[slot] = target;   // eased in FixedUpdate (TickRigLerp)
                 return;
             }
-            _rigTarget.Remove(slot);          // big jump (spawn / map change): snap as before
-            if (delta.sqrMagnitude < 0.0001f) return;
-            // BOXES FIX v3: large jumps (first update from spawn-point to client's
-            // real position, or scene transition) use direct rb.position writes
-            // so we DON'T sweep through box stacks and knock them off platforms.
-            // Subsequent small deltas use MovePosition's swept collision so the
-            // rig CAN push boxes as it walks into them.
-            bool teleport = delta.magnitude > 5f;
+            _rigTarget.Remove(slot);          // big jump (spawn / map change): snap
             rig.transform.position = target;
-            var rbs = rig.GetComponentsInChildren<Rigidbody>();
-            foreach (var rb in rbs)
+            foreach (var rb in rig.GetComponentsInChildren<Rigidbody>())
             {
                 if ((object)rb == null) continue;
-                if (teleport)
-                {
-                    rb.position = rb.position + delta;
-                    if (!rb.isKinematic) rb.velocity = Vector3.zero;
-                }
-                else if (rb.isKinematic)
-                    rb.MovePosition(rb.position + delta);
-                else
-                    rb.position += delta;
+                rb.position = rb.position + delta;
+                if (!rb.isKinematic) rb.velocity = Vector3.zero;
             }
-            if (!teleport)
-                WakeNsosNearGhostSweep(rootPos, target);
-            if (_ghostMoveLogCount < 5 || _ghostMoveLogCount % 600 == 0)
-                Log.LogInfo($"[P6.9 ghost] slot={slot} moved to {target} (delta={delta.magnitude:0.00} {(teleport?"TELEPORT":"sweep")})");
-            _ghostMoveLogCount++;
         }
 
         // TrySpawnPlayer instantiates a Player rig in the active scene at the

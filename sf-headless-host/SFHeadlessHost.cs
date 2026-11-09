@@ -557,6 +557,7 @@ namespace SFHeadlessHost
         // Physics.Linecast/OverlapSphere queries run in sync with Unity physics.
         private void FixedUpdate()
         {
+            try { TickCrateJoltDiag(); } catch { }
             try { TickRigLerp(); } catch { }
             try { TickProjectiles(); }
             catch (Exception e)
@@ -584,7 +585,7 @@ namespace SFHeadlessHost
         private int _ghostGovernedCount;
         private void TickGhostContactGovernor()
         {
-            if (SlotToRig.Count == 0) return;
+            if (!LegacyRigs || SlotToRig.Count == 0) return;   // dynamic dummies push with their real mass
             EnsureNsoSrvCache();
             if (_nsoSrvEntries.Count == 0) return;
             float capSqr = GhostPushCrateCap * GhostPushCrateCap;
@@ -928,7 +929,6 @@ namespace SFHeadlessHost
         // don't broadcast ClientSpawned for it) so the player only sees
         // their own player + others; the ghost is a server-side physical
         // body for collision purposes only.
-        private static int _ghostMoveLogCount;
         private static int _ghostWakeLogCount;
         private static Type _wakeDpType;
         private static FieldInfo _wakeDpSimpleField;

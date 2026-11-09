@@ -127,6 +127,7 @@ namespace SFHeadlessHost
             if (_matchStarted && !_startMatchSentThisRound) return;   // previous round's late packet
             if (!_deadThisRound.Add(victim)) return;                   // dead-heartbeat repeat
             RecordDeathTime(cli);
+            ParkRig(victim);
             Log.LogInfo($"[DEATH] slot {victim} died ({reason}, rtt {cli.RttMs:0}ms).");
             if (_matchStarted) CheckRoundEnd(reason);
             else CheckLobbyStart(reason);
@@ -406,6 +407,7 @@ namespace SFHeadlessHost
             }
             SlotToRig.Clear();
             _rigTarget.Clear();
+            _rigLive.Clear();
             Log.LogInfo($"[SF] Round advance: cleared {destroyed} authoritative rig(s) for next map.");
         }
 

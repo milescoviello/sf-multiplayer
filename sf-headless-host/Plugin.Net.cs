@@ -389,6 +389,8 @@ namespace SFHeadlessHost
                     if (msgType == PktPlayerForceAddedAndBlock
                         && (_forceBlockRxCount++ < 5 || _forceBlockRxCount % 30 == 0))
                         Log.LogInfo($"[OPEN-3] rx PlayerForceAddedAndBlock (punch-block) slot={cli.Slot} ch={channel} body={bodyLen}B #{_forceBlockRxCount} → relaying to other client(s)");
+                    if (msgType == PktPlayerForceAdded)
+                        ApplyClientObjectForce(cli, data, bodyOffset, bodyLen, channel);
                     RelayBodyToOthers(cli, msgType, data, bodyOffset, bodyLen, channel);
                     // Void/lava: FallOut often arrives without a 666 relay (solo or last player).
                     if (msgType == PktPlayerFallOut)

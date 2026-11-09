@@ -162,6 +162,33 @@ namespace SFHeadlessHost
                 var startF = AccessTools.Field(t, "m_StartPos");
                 if ((object)startF == null) return;
                 Vector2 sp = (Vector2)startF.GetValue(__instance);
+                // Stock Awake only sets up when IsNetworkMatch is already true.
+                // The first map after a lobby (re)start can wake before that:
+                // m_NetworkManager (static) stays null, m_SendRate 0 and
+                // m_StartPos (0,0), and with the sync forced on above every
+                // send threw (thousands of NullReferenceExceptions on moving
+                // platforms) and every object shared the (0,0) key.
+                if (RefOk(mapBase))
+                {
+                    var nmF = AccessTools.Field(mapBase, "m_NetworkManager");
+                    if (RefOk(nmF) && nmF.GetValue(null) == null)
+                    {
+                        var mmNow = GetMultiplayerManagerInstance();
+                        if ((object)mmNow != null) { nmF.SetValue(null, mmNow); Log.LogInfo("[v26.6] map-sync: set MapInfoSyncableBase.m_NetworkManager (stock Awake ran outside a network match)."); }
+                    }
+                    var rateF = AccessTools.Field(mapBase, "m_SendRate");
+                    var rpsF = AccessTools.Field(mapBase, "m_SendRatePerSecond");
+                    if (RefOk(rateF) && RefOk(rpsF) && (float)rateF.GetValue(__instance) <= 0f)
+                    {
+                        float rps = (float)rpsF.GetValue(__instance);
+                        rateF.SetValue(__instance, 1f / (rps > 0f ? rps : 5f));
+                    }
+                }
+                if (sp == Vector2.zero)
+                {
+                    var c = __instance as Component;
+                    if ((object)c != null) sp = new Vector2(c.transform.position.y, c.transform.position.z);
+                }
                 sp = QuantizeMapSyncKey(sp);
                 startF.SetValue(__instance, sp);
                 var mm = GetMultiplayerManagerInstance();

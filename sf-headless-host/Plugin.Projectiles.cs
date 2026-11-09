@@ -144,10 +144,10 @@ namespace SFHeadlessHost
                     // Thrown weapons hit walls and stick/drop — they never explode.
                     if (!p.IsThrown && IsExplosiveWeaponType(p.WeaponType, p.Velocity.magnitude))
                         ApplyExplosiveBlastAt(wallHit, BlastRadius, BlastForce);
-                    else
-                        // Server-auth boxes (v0.4.0): non-explosive shots
-                        // shove the crate they hit in the oracle sim — the
-                        // only sim that counts now.
+                    else if (!ClientCrateForce)
+                        // Legacy: a flat shove from the server's own bullet.
+                        // Normally the shooter's PlayerForceAdded moves the
+                        // crate (Plugin.ObjectForce.cs), as on a stock host.
                         ApplyBulletCrateKick(wallCol, p.Velocity);
                     _projectiles.RemoveAt(i);
                     continue;
@@ -217,6 +217,7 @@ namespace SFHeadlessHost
         {
             try
             {
+                NoteBlast();
                 var cols = Physics.OverlapSphere(center, radius);
                 if (cols == null) return;
                 var dpType = CachedType("DestructiblePiece");
@@ -319,6 +320,7 @@ namespace SFHeadlessHost
                 dir.Normalize();
                 rb.WakeUp();
                 rb.velocity += dir * BulletCrateKick;
+                NoteCrateKick(rb);
                 _bulletCrateKicks++;
                 if (_bulletCrateKicks == 1 || _bulletCrateKicks % 25 == 0)
                     Log.LogInfo($"[P6.17] Bullet crate-kick #{_bulletCrateKicks} on '{root.name}'");
