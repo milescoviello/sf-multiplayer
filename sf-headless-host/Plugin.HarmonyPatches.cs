@@ -226,20 +226,127 @@ namespace SFHeadlessHost
                 Log.LogInfo($"[P6.5] GetRandomWeaponIndexPrefix call#{_grwiCallCount} → returning {__result}");
             return false; // skip original
         }
+        // Stock weapon drops (WeaponSelectionHandler.GetRandomWeaponIndex): a
+        // rarity-weighted bag — every active weapon goes in Weapon.Rarity times,
+        // draws are random WITHOUT replacement, and the bag refills when empty.
+        // The stock handler builds its list from the weapon-select menu UI,
+        // which a headless server never builds (the stock call returns -1), so
+        // we build the same bag from the character prefab's Weapons children
+        // (named "<index> <Name>"), the same source the UI reads. The /weapons
+        // allow-list (comp rules) filters the bag. The old fallback here was
+        // `seed % 8`: only weapons 0-7, in a fixed, predictable order.
+        private static readonly List<int> _weaponBag = new List<int>();
+        private static List<KeyValuePair<int, int>> _weaponTable;   // (weapon index, rarity)
+        private static readonly System.Random _weaponRng = new System.Random();
+
+        private static List<KeyValuePair<int, int>> GetWeaponTable()
+        {
+            if (_weaponTable != null) return _weaponTable;
+            var table = ReadWeaponTableFromSelectionHandler();
+            string source = "weapon-select list";
+            if (table.Count == 0) { table = ReadWeaponTableFromPrefab(); source = "character prefab (fallback)"; }
+            if (table.Count > 0)
+            {
+                _weaponTable = table;
+                int total = 0; foreach (var kv in table) total += kv.Value;
+                Log.LogInfo($"[weapons] drop table from {source}: {table.Count} weapons, bag size {total} (rarity-weighted, like stock).");
+            }
+            return table;
+        }
+
+        // The stock source: WeaponSelectionHandler.m_Weapons (one SingleWeaponUI
+        // per selectable weapon) filtered by GetActiveStateForWeapon (weapon and
+        // its category switched on). Clients resolve a spawned id through the
+        // same list (GetWeaponByIndex → m_WeaponObjects), so only these ids exist
+        // on every client. The handler does initialize on the headless server
+        // (its Unity log shows "generated WeaponRarity").
+        private static List<KeyValuePair<int, int>> ReadWeaponTableFromSelectionHandler()
+        {
+            var table = new List<KeyValuePair<int, int>>();
+            try
+            {
+                var wshType = AccessTools.TypeByName("WeaponSelectionHandler");
+                var swType = AccessTools.TypeByName("SingleWeaponUI");
+                if ((object)wshType == null || (object)swType == null) return table;
+                UnityEngine.Object handler = UnityEngine.Object.FindObjectOfType(wshType);
+                if (handler == null)
+                {
+                    var all = Resources.FindObjectsOfTypeAll(wshType);
+                    if (all != null && all.Length > 0) handler = all[0];
+                }
+                if (handler == null) return table;
+                var list = AccessTools.Field(wshType, "m_Weapons")?.GetValue(handler) as System.Collections.IList;
+                var isActive = AccessTools.Method(wshType, "GetActiveStateForWeapon");
+                var idxF = AccessTools.Field(swType, "WeaponIndex");
+                var rarF = AccessTools.Field(swType, "Rarity");
+                if (list == null || (object)idxF == null || (object)rarF == null) return table;
+                foreach (var w in list)
+                {
+                    if (w == null) continue;
+                    bool active = true;
+                    try { if ((object)isActive != null) active = (bool)isActive.Invoke(handler, new[] { w }); } catch { }
+                    if (!active) continue;
+                    int rarity = Convert.ToInt32(rarF.GetValue(w));
+                    if (rarity > 0) table.Add(new KeyValuePair<int, int>(Convert.ToInt32(idxF.GetValue(w)), rarity));
+                }
+            }
+            catch (Exception e) { Log.LogWarning($"[weapons] weapon-select list read failed: {e.Message}"); }
+            return table;
+        }
+
+        private static List<KeyValuePair<int, int>> ReadWeaponTableFromPrefab()
+        {
+            var table = new List<KeyValuePair<int, int>>();
+            try
+            {
+                var weapons = (object)_cachedPlayerPrefab != null ? _cachedPlayerPrefab.transform.Find("Weapons") : null;
+                var weaponType = AccessTools.TypeByName("Weapon");
+                if ((object)weapons != null && (object)weaponType != null)
+                {
+                    var rarityP = AccessTools.Property(weaponType, "Rarity");
+                    var dropF = AccessTools.Field(weaponType, "weaponDrop");
+                    for (int i = 0; i < weapons.childCount; i++)
+                    {
+                        var child = weapons.GetChild(i);
+                        int idx;
+                        if (!int.TryParse(child.name.Split(' ')[0], out idx) || idx < 0 || idx > 255) continue;
+                        var w = child.GetComponent(weaponType);
+                        if ((object)w == null) continue;
+                        int rarity = (object)rarityP != null ? Convert.ToInt32(rarityP.GetValue(w, null)) : 1;
+                        if (rarity <= 0) continue;
+                        if ((object)dropF != null && (dropF.GetValue(w) as UnityEngine.Object) == null) continue;
+                        table.Add(new KeyValuePair<int, int>(idx, rarity));
+                    }
+                }
+            }
+            catch (Exception e) { Log.LogWarning($"[weapons] prefab table build failed: {e.Message}"); }
+            return table;
+        }
+
+        // Call when the allow-list changes so the next draw uses the new filter.
+        internal static void ResetWeaponBag() => _weaponBag.Clear();
+
+        private static void RefillWeaponBag()
+        {
+            _weaponBag.Clear();
+            foreach (var kv in GetWeaponTable())
+            {
+                if (_allowedWeaponIds.Count > 0 && !_allowedWeaponIds.Contains(kv.Key)) continue;
+                for (int r = 0; r < kv.Value; r++) _weaponBag.Add(kv.Key);
+            }
+            // An explicit admin allow-list wins even for ids the table lacks.
+            if (_weaponBag.Count == 0 && _allowedWeaponIds.Count > 0)
+                foreach (var id in _allowedWeaponIds) _weaponBag.Add(id);
+        }
+
         internal static int PickWeaponId(int seed)
         {
-            if (_allowedWeaponIds.Count > 0)
-            {
-                // Round-robin across the allow-list. Could randomize but
-                // deterministic order makes tournaments more predictable.
-                var arr = new int[_allowedWeaponIds.Count];
-                _allowedWeaponIds.CopyTo(arr);
-                System.Array.Sort(arr);
-                int pick = arr[_allowedWeaponCycleIdx % arr.Length];
-                _allowedWeaponCycleIdx++;
-                return pick;
-            }
-            return seed % 8;
+            if (_weaponBag.Count == 0) RefillWeaponBag();
+            if (_weaponBag.Count == 0) return seed % 8;   // prefab not cached yet: last resort
+            int i = _weaponRng.Next(_weaponBag.Count);
+            int pick = _weaponBag[i];
+            _weaponBag.RemoveAt(i);
+            return pick;
         }
         internal static bool SendBroadcastPrefix(object[] __args)
         {

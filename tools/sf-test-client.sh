@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Launch one Stick Fight test client (Proton, windowed, muted) against a server.
+# Optional scripted bot drives the local player (needs StickFightGym.dll in the
+# install's BepInEx/plugins, from the stickfight-bot repo).
+#
+# usage: sf-test-client.sh <install-dir> <n> <server-host> [lobby] [bot:1|0]
+#   n      — client number 1..4; picks distinct local ports + prefix
+#   lobby  — lobby code to join via the router (default MAIN)
+set -u
+DIR="$1"; N="$2"; HOST="$3"; LOBBY="${4:-MAIN}"; BOT="${5:-1}"
+PROTON="${SF_PROTON:-$HOME/.local/share/Steam/steamapps/common/Proton - Experimental/proton}"
+PREFIX="${SF_TEST_PREFIX_ROOT:-$HOME/sf-test}/prefix-c$N"
+mkdir -p "$PREFIX"
+export STEAM_COMPAT_CLIENT_INSTALL_PATH="$HOME/.local/share/Steam"
+export STEAM_COMPAT_DATA_PATH="$PREFIX"
+export WINEDLLOVERRIDES="winhttp=n,b"
+export WINEDEBUG=-all
+export PROTON_USE_XALIA=0
+export SF_LOBBY="$LOBBY"
+export SFCLIENTRECON_PORT=$((1339 + N))     # distinct v26 listen port per client
+export SFGYM_PORT=$((5555 + N))             # distinct bot control port per client
+export SFGYM_MUTE=1                         # never make sound
+export SFGYM_BOT_AUTOSPAWN=0                # never create extra local players
+if [ "$BOT" = "1" ]; then
+  export SFGYM_BOT_SLOTS=0 SFGYM_BOT_FOLLOW_LOCAL=1
+fi
+cd "$DIR"
+exec "$PROTON" run "$DIR/StickFight.exe" -address "$HOST" -port 1338 \
+  -screen-width 960 -screen-height 540 -screen-fullscreen 0

@@ -1,4 +1,8 @@
 [Unit]
+# Never stop retrying: RestartSec= already spaces restarts out, and the
+# watchdog's own `systemctl restart` would be refused once a start limit trips.
+# (Start-limit keys belong in [Unit]; in [Service] systemd ignores them.)
+StartLimitIntervalSec=0
 Description=Stick Fight headless oracle (Phase 6)
 Documentation=https://github.com/kitslayer/sf-multiplayer
 After=network-online.target
@@ -8,10 +12,10 @@ Wants=network-online.target
 Type=simple
 User=miles
 Group=miles
-WorkingDirectory=%h/sf-oracle/install
+WorkingDirectory=/home/miles/sf-oracle/install
 
 # Environment — change SFHEADLESS_PORT here to host on a different port.
-Environment=SF_ORACLE_ROOT=%h/sf-oracle
+Environment=SF_ORACLE_ROOT=/home/miles/sf-oracle
 Environment=SFHEADLESS_PORT=1337
 Environment=SFHEADLESS_BRIDGEPORT=11337
 Environment=SF_LOBBY_CODE=MAIN
@@ -26,13 +30,11 @@ Environment=SF_NEXT_MATCH_DELAY=2.0
 Environment=SFHEADLESS_LOGFILE=/tmp/sf-oracle-plugin-11337.log
 
 # Launcher
-ExecStart=%h/sf-multiplayer/deploy/start-oracle-server.sh
+ExecStart=/home/miles/sf-multiplayer/deploy/start-oracle-server.sh
 
 # Native SF crashes a lot under Proton — auto-restart on failure with backoff
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=300
-StartLimitBurst=10
 
 # Logging (journalctl -u sf-oracle.service)
 StandardOutput=journal

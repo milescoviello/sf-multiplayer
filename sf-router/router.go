@@ -109,6 +109,8 @@ type Router struct {
 	// LIST control datagram can answer the in-game browser over the same UDP port
 	// — no HTTP/website needed. Set once before Run; read on the (cold) LIST path.
 	lister func() []string
+	// capacityOf, when set, returns a lobby's max players for LIST (else 4).
+	capacityOf func(code string) byte
 
 	// controller, when set, handles CREATE/RESTART control ops by proxying to the
 	// local control plane (the router can't spawn Proton itself). Called on a
@@ -308,6 +310,7 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 		// Answer the in-game browser's lobby-list request over UDP (no HTTP).
 		r.mu.Lock()
 		lister := r.lister
+		capacityOf := r.capacityOf
 		r.mu.Unlock()
 		if lister == nil {
 			return // stage-0 / no registry — nothing to list
@@ -321,7 +324,11 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 			if players > 255 {
 				players = 255
 			}
-			lobbies = append(lobbies, LobbyInfo{Code: c, Players: byte(players), Capacity: 4})
+			capacity := byte(4)
+			if capacityOf != nil {
+				capacity = capacityOf(c)
+			}
+			lobbies = append(lobbies, LobbyInfo{Code: c, Players: byte(players), Capacity: capacity})
 		}
 		if _, err := r.pub.WriteToUDP(buildListResp(nonce, lobbies), cliAddr); err != nil {
 			log.Printf("[router] LIST reply to %s failed: %v", cliAddr, err)
@@ -461,6 +468,14 @@ func (r *Router) SetDefaultCode(code string) {
 func (r *Router) SetLister(fn func() []string) {
 	r.mu.Lock()
 	r.lister = fn
+	r.mu.Unlock()
+}
+
+// SetCapacityOf sets the per-lobby max-player lookup used by LIST (typically
+// Registry.Capacity). Call before Run. Unset = every lobby reports 4.
+func (r *Router) SetCapacityOf(fn func(code string) byte) {
+	r.mu.Lock()
+	r.capacityOf = fn
 	r.mu.Unlock()
 }
 

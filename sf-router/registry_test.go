@@ -104,3 +104,24 @@ func TestRegistryKeepsCacheOnTransientError(t *testing.T) {
 		t.Error("KEEP dropped after a transient FS error; the cache should be retained")
 	}
 }
+
+// capacity= in a lobby .conf sets the max players the LIST op reports (1v1
+// COMP = 2). Absent or out-of-range values fall back to a stock 4.
+func TestRegistryCapacity(t *testing.T) {
+	dir := t.TempDir()
+	self := os.Getpid()
+	writeConf(t, dir, "MAIN", 1337, self)
+	for code, extra := range map[string]string{"COMP": "capacity=2\n", "BAD": "capacity=9\n", "JUNK": "capacity=x\n"} {
+		body := "code=" + code + "\nport=1341\npid=" + itoa(self) + "\n" + extra
+		if err := os.WriteFile(filepath.Join(dir, code+".conf"), []byte(body), 0o644); err != nil {
+			t.Fatalf("write conf: %v", err)
+		}
+	}
+	reg := NewRegistry(dir, time.Millisecond)
+	cases := map[string]byte{"MAIN": 4, "comp": 2, "BAD": 4, "JUNK": 4, "ABSENT": 4}
+	for code, want := range cases {
+		if got := reg.Capacity(code); got != want {
+			t.Errorf("Capacity(%s) = %d, want %d", code, got, want)
+		}
+	}
+}

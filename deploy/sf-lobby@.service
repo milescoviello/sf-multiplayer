@@ -17,6 +17,10 @@
 #   mkdir -p ~/sf-oracle/lobbies && printf 'SFHEADLESS_PORT=1341\nSFHEADLESS_BRIDGEPORT=11341\nSFHEADLESS_LOGFILE=/tmp/sf-oracle-plugin-11341.log\n' > ~/sf-oracle/lobbies/COMP.env
 #   sudo systemctl daemon-reload && sudo systemctl enable --now sf-lobby@COMP
 [Unit]
+# Never stop retrying: RestartSec= already spaces restarts out, and the
+# watchdog's own `systemctl restart` would be refused once a start limit trips.
+# (Start-limit keys belong in [Unit]; in [Service] systemd ignores them.)
+StartLimitIntervalSec=0
 Description=Stick Fight always-on lobby %i (headless oracle behind the router)
 Documentation=https://github.com/kitslayer/sf-multiplayer
 After=network-online.target sf-router.service
@@ -46,8 +50,6 @@ ExecStopPost=/home/miles/sf-multiplayer/deploy/register-main-lobby.sh unregister
 
 Restart=on-failure
 RestartSec=10
-StartLimitIntervalSec=300
-StartLimitBurst=10
 
 StandardOutput=journal
 StandardError=journal

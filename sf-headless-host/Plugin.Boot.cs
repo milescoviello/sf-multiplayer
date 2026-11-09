@@ -89,12 +89,38 @@ namespace SFHeadlessHost
                 return;
             }
             _sceneLoadRealtime = Time.realtimeSinceStartup;
+            EnableWestern4BarrelSync(scene);
             _nsoSpawnPos.Clear();
             _nsoVoidResetCount.Clear();   // per-NSO-index void-rescue budget — reset with the map (ids get reassigned)
             _nsoPeriodicKeyframeNextAt = Time.realtimeSinceStartup + 1f;
             Log.LogInfo($"[P6.9 settle] Scene loaded: '{scene.name}' (buildIndex={scene.buildIndex}); starting settle coroutine.");
             StartCoroutine(SettlePhaseCoroutine(scene));
             StartCoroutine(DelayedMapTerrainInitCoroutine());
+        }
+
+        // Western 4's explosive barrels come from ObjectSpawners whose stock
+        // m_SyncPosition is false, so the host never networks their position and
+        // they don't explode for the other players. Turning it on host-side fixes
+        // it for everyone. Found by z7572's DesyncFixer (v1.1.0, "Western4
+        // explosive fix"); reimplemented here, not copied.
+        private static void EnableWestern4BarrelSync(Scene scene)
+        {
+            if (scene.name != "Western 4") return;
+            try
+            {
+                var spawnerType = AccessTools.TypeByName("ObjectSpawner");
+                var syncF = (object)spawnerType != null ? AccessTools.Field(spawnerType, "m_SyncPosition") : null;
+                if ((object)syncF == null) return;
+                int n = 0;
+                foreach (var root in scene.GetRootGameObjects())
+                    foreach (var sp in root.GetComponentsInChildren(spawnerType, true))
+                    {
+                        syncF.SetValue(sp, true);
+                        n++;
+                    }
+                Log.LogInfo($"[map-fix] Western 4: enabled position sync on {n} barrel spawner(s).");
+            }
+            catch (Exception e) { Log.LogWarning($"[map-fix] Western 4 barrel sync: {e.Message}"); }
         }
 
         private System.Collections.IEnumerator DelayedMapTerrainInitCoroutine()
@@ -567,20 +593,9 @@ namespace SFHeadlessHost
                         _pendingRoundAdvanceAt = -1f;
                         AdvanceRound();
                     }
-                    if (_pendingClientStartMatchAt > 0f && Time.realtimeSinceStartup >= _pendingClientStartMatchAt && !_pendingClientStartMatchFired)
-                    {
-                        _pendingClientStartMatchAt = -1f;
-                        _pendingClientStartMatchFired = true;
-                        BroadcastStartMatch();
-                        Log.LogInfo("[SF] Deferred StartMatch sent to clients (post MapChange load window).");
-                    }
-                    // After MapChange settles, send StartMatch to kick the next round's countdown.
-                    if (_pendingStartMatchAt > 0f && Time.realtimeSinceStartup >= _pendingStartMatchAt)
-                    {
-                        _pendingStartMatchAt = -1f;
-                        BroadcastStartMatch();
-                        Log.LogInfo("[SF] Round advance: StartMatch sent.");
-                    }
+                    // After a MapChange: StartMatch once every player has loaded
+                    // (ClientReadyUp), bounded by an earliest time and a deadline.
+                    TickStartMatchGate();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;

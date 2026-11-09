@@ -360,15 +360,10 @@ namespace SFHeadlessHost
         }
         private void HandleClientReadyUp(SfClient cli, byte[] data, int off, int len)
         {
-            // Match no longer auto-starts on ClientReadyUp. Host types /start
-            // in chat. ClientReadyUp is still logged so we can see the
-            // ready-button-walk-through.
-            Log.LogInfo($"[SF] ClientReadyUp from {cli.Addr} bodyLen={len} — ignored; waiting for /start chat command.");
-            if (_matchStarted && _pendingClientStartMatchFired)
-            {
-                Log.LogInfo($"[SF] Match already started; re-sending StartMatch to {cli.Addr} only.");
-                SendSfPacket(cli.Addr, PktStartMatch, new byte[0], 0, 0);
-            }
+            // Sent by the client after its map load + intro (PrepareMapForTravel).
+            // Feeds the StartMatch gate; a late one gets StartMatch to itself only.
+            Log.LogInfo($"[SF] ClientReadyUp from slot {cli.Slot} (round live={_startMatchSentThisRound}).");
+            OnClientReadyUp(cli);
         }
         private void HandlePlayerInput(byte[] data, int off, int len, IPEndPoint from)
         {

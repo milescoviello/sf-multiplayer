@@ -287,8 +287,19 @@ namespace SFClientRecon
                     Log.LogError("[oracle-lobby] P2PPackageHandler missing.");
                     return;
                 }
+                // Mirror the game's own entry point, OnlineBox.Update ("all local
+                // players are in the ONLINE box"): ResumeNetworkTraffic → Init →
+                // lock the box → AssignBox → join. The game PAUSES traffic at boot
+                // (GameManager.Awake: "Disabling networking!") and Init() returns
+                // immediately while paused, so without the resume the socket never
+                // connects and every send is dropped: the client loops on
+                // "Connecting to the server..." forever. That's what auto-connect
+                // and server-browser joins did whenever nobody walked into the box.
+                var resume = AccessTools.Method(_pktType, "ResumeNetworkTraffic");
+                if (RefOk(resume)) resume.Invoke(pkt, null);
                 var init = AccessTools.Method(_pktType, "Init");
                 if (RefOk(init)) init.Invoke(pkt, null);
+                ClaimOnlineBox();
 
                 // Clean handshake: the joiner path must send ClientRequesting*
                 // in order. A stale mHasBeenInitializedFromServer=true (e.g.
@@ -409,6 +420,30 @@ namespace SFClientRecon
             catch { return false; }
         }
 
+        // Do what OnlineBox.Update does once it fires: lock the box (so its own
+        // Update can't start a second Init/OnSceneStarted when a player later
+        // walks in) and hand it to MultiplayerManager, whose join path calls
+        // mOnlineBox.Joined() and checks it before disabling the lobby players.
+        private static void ClaimOnlineBox()
+        {
+            try
+            {
+                var boxType = AccessTools.TypeByName("OnlineBox");
+                if (!RefOk(boxType)) return;
+                var box = UnityEngine.Object.FindObjectOfType(boxType);
+                if (!RefOk(box)) { Log.LogWarning("[oracle-lobby] OnlineBox not found — joining without it."); return; }
+                var doneF = AccessTools.Field(boxType, "done");
+                var lockF = AccessTools.Field(boxType, "mLock");
+                if (RefOk(doneF)) doneF.SetValue(box, true);
+                if (RefOk(lockF)) lockF.SetValue(box, true);
+                if (!RefOk(_mmType)) _mmType = AccessTools.TypeByName("MultiplayerManager");
+                var mm = UnityEngine.Object.FindObjectOfType(_mmType);
+                var assign = RefOk(_mmType) ? AccessTools.Method(_mmType, "AssignBox") : null;
+                if (RefOk(mm) && RefOk(assign)) assign.Invoke(mm, new object[] { box });
+            }
+            catch (Exception e) { Log.LogWarning($"[oracle-lobby] ClaimOnlineBox: {e.Message}"); }
+        }
+
         private static object GetPktHandler()
         {
             var prop = AccessTools.Property(_pktType, "Instance");
@@ -421,6 +456,11 @@ namespace SFClientRecon
         // via mNetworkHandler.HasBeenInitializedFromServer, and the joiner path
         // (OnSocketServerJoined) never sets it. Without this, MapChange is dropped.
         private static float _lastForceDiagAt = -1f;
+        // Cached: this runs every frame AND on every received packet (60 Hz
+        // snapshots alone), and FindObjectOfType scans the whole scene each call.
+        // Unity's != null also catches a destroyed (scene-reloaded) instance.
+        private static UnityEngine.Object _mmCached;
+        private static System.Reflection.FieldInfo _initFromServerF;
         internal static void ForceInitializedFromServer(object mm)
         {
             try
@@ -430,7 +470,11 @@ namespace SFClientRecon
                 // skip it, so resolve the type here too.
                 if (!RefOk(_mmType)) _mmType = AccessTools.TypeByName("MultiplayerManager");
                 if (!RefOk(_mmType)) return;
-                if (!RefOk(mm)) mm = UnityEngine.Object.FindObjectOfType(_mmType);
+                if (!RefOk(mm))
+                {
+                    if (_mmCached == null) _mmCached = UnityEngine.Object.FindObjectOfType(_mmType);
+                    mm = _mmCached;
+                }
                 if (!RefOk(mm))
                 {
                     if (Time.realtimeSinceStartup - _lastForceDiagAt > 3f)
@@ -440,7 +484,8 @@ namespace SFClientRecon
                     }
                     return;
                 }
-                var f = AccessTools.Field(_mmType, "mHasBeenInitializedFromServer");
+                if (!RefOk(_initFromServerF)) _initFromServerF = AccessTools.Field(_mmType, "mHasBeenInitializedFromServer");
+                var f = _initFromServerF;
                 if (!RefOk(f))
                 {
                     if (Time.realtimeSinceStartup - _lastForceDiagAt > 3f)

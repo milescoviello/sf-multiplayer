@@ -99,8 +99,6 @@ namespace SFHeadlessHost
         private bool _roundAdvanceQueuedAfterMapLoad;
         private readonly HashSet<int> _deathSlotsHandled = new HashSet<int>();
         private float _authDeathCheckAt = -1f;
-        private float _pendingClientStartMatchAt = -1f;
-        private bool _pendingClientStartMatchFired;
 
         private void Awake()
         {
@@ -393,7 +391,6 @@ namespace SFHeadlessHost
         // Static so /weapons handler (instance method) and the static
         // GRWI/SRW prefixes share state.
         internal static readonly System.Collections.Generic.HashSet<int> _allowedWeaponIds = new System.Collections.Generic.HashSet<int>();
-        private static int _allowedWeaponCycleIdx;
 
         // Phase 6.5 Step 1 — log host broadcasts. Observe-only: return true so the
         // original method runs (it's a no-op on the oracle because mConnectedClients
@@ -796,7 +793,6 @@ namespace SFHeadlessHost
         private float _pendingRearmCombatAt = -1f;
         private float _lastPeriodicRearmAt = -1f;
 
-        private float _pendingStartMatchAt = -1f;
         private int _roundCounter;
 
         // All 123 dumped Landfall map scene indices from /home/miles/sf-multiplayer/maps/.
@@ -1167,7 +1163,7 @@ namespace SFHeadlessHost
             if (float.TryParse(Environment.GetEnvironmentVariable("SF_PRE_COMBAT_DELAY"), out fv) && fv >= 1f && fv <= 10f)
                 OraclePreCombatGraceSec = fv;
 
-            Log.LogInfo($"Config: BindPort={BindPort} BridgePort={BridgePort} InitialScene={InitialScene} Verbose={Verbose} RoundEndDelay={RoundEndDelaySec:0.0}s NextMatchDelay={NextMatchDelaySec:0.0}s RoundMinPlay={RoundMinPlaySec:0.0}s PreCombatGrace={OraclePreCombatGraceSec:0.0}s");
+            Log.LogInfo($"Config: BindPort={BindPort} MaxPlayers={MaxPlayers} BridgePort={BridgePort} InitialScene={InitialScene} Verbose={Verbose} RoundEndDelay={RoundEndDelaySec:0.0}s NextMatchDelay={NextMatchDelaySec:0.0}s RoundMinPlay={RoundMinPlaySec:0.0}s PreCombatGrace={OraclePreCombatGraceSec:0.0}s");
         }
 
     }

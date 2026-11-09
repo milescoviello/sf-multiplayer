@@ -132,6 +132,8 @@ namespace SFHeadlessHost
                     }
                     _rateGuards.Remove(k);
                 }
+                // A player leaving can end the round (last one standing wins).
+                if (_matchStarted) CheckRoundEnd("player left");
                 // Lobby emptied out: clear the match flag so the next player's
                 // /start fires a fresh MapChange. _matchStarted was a one-way
                 // latch — once a match started it never reset, so any later
@@ -165,8 +167,10 @@ namespace SFHeadlessHost
         {
             _matchStarted = false;
             _autoStartAt = -1f;
-            _pendingClientStartMatchAt = -1f;
-            _pendingClientStartMatchFired = false;
+            _startMatchEarliestAt = -1f;
+            _startMatchDeadline = -1f;
+            _startMatchSentThisRound = false;
+            ResetDeathTrackingForNewRound();
             _pendingRoundAdvanceAt = -1f;
             // B1 (code-review): also reset the oracle's per-match latches + clear
             // stale authoritative rigs. _authSpawnDone is otherwise reset ONLY on
@@ -285,6 +289,10 @@ namespace SFHeadlessHost
                 case PktPlayerTookDamage:
                     if (!ValidateDamagePacket(cli, data, bodyOffset, bodyLen)) break;
                     RelayBodyToAll(msgType, data, bodyOffset, bodyLen, channel);
+                    // Body: byte attacker, float damage (666.666 = killing blow), ...
+                    // Sent by the VICTIM's client on its own event channel.
+                    if (bodyLen >= 5 && System.Math.Abs(BitConverter.ToSingle(data, bodyOffset + 1) - 666.666f) < 0.01f)
+                        OnClientReportedDeath(cli, channel, "killing blow");
                     break;
                 // PlayerWonWithRicochet has no abuse vector worth validating yet.
                 case PktPlayerWonWithRicochet:
@@ -329,8 +337,8 @@ namespace SFHeadlessHost
                         Log.LogInfo($"[OPEN-3] rx PlayerForceAddedAndBlock (punch-block) slot={cli.Slot} ch={channel} body={bodyLen}B #{_forceBlockRxCount} → relaying to other client(s)");
                     RelayBodyToOthers(cli, msgType, data, bodyOffset, bodyLen, channel);
                     // Void/lava: FallOut often arrives without a 666 relay (solo or last player).
-                    if (msgType == PktPlayerFallOut && _matchStarted)
-                        ScheduleRoundAdvanceOnDeath("player-fallout");
+                    if (msgType == PktPlayerFallOut)
+                        OnClientReportedDeath(cli, channel, "fell out");
                     break;
 
                 case PktObjectUpdate:
@@ -482,29 +490,31 @@ namespace SFHeadlessHost
                     Log.LogInfo($"[SF] relay-to-all msgType={msgType} bodyLen={len} → {sent} client(s) (#{_relayAllCount})");
             }
 
-            // Detect killing-blow for round-advance. PlayerTookDamage body
-            // format (from NetworkPlayer.UnitWasDamaged): byte attacker, float
-            // damage, bool playParticles, [particle dir bytes], byte dmgType.
-            // damage == 666.666f signals "this hit kills."
-            if (msgType == PktPlayerTookDamage && len >= 5)
-            {
-                float dmg = BitConverter.ToSingle(body, 1);
-                if (System.Math.Abs(dmg - 666.666f) < 0.01f)
-                {
-                    if (!_matchStarted)
-                        FireMatchStart($"lobby-kill dmg={dmg:0.###}");
-                    else
-                        ScheduleRoundAdvanceOnDeath($"killing-blow dmg={dmg:0.###}");
-                }
-            }
         }
 
         // === helpers ===
 
+        // Max players for this lobby: SF_MAX_PLAYERS (1..4, default 4 = stock).
+        // The 1v1 COMP lobby runs with 2.
+        private static int _maxPlayers = -1;
+        internal static int MaxPlayers
+        {
+            get
+            {
+                if (_maxPlayers < 0)
+                {
+                    int v;
+                    string s = Environment.GetEnvironmentVariable("SF_MAX_PLAYERS");
+                    _maxPlayers = (int.TryParse(s, out v) && v >= 1 && v <= 4) ? v : 4;
+                }
+                return _maxPlayers;
+            }
+        }
+
         private int AllocSlot(SfClient cli)
         {
             if (cli.Slot >= 0) return cli.Slot;
-            for (int s = 0; s < 4; s++)
+            for (int s = 0; s < MaxPlayers; s++)
             {
                 bool taken = false;
                 foreach (var kv in _sfClients) if (kv.Value.Slot == s) { taken = true; break; }

@@ -23,6 +23,134 @@ namespace SFHeadlessHost
             return n;
         }
 
+        // ================================================================
+        // Round / lobby rules — mirrors the stock host (GameManager.KillPlayer):
+        //   * a round ends when <= 1 participant is still alive; the survivor's
+        //     slot (NetworkSpawnID) is the MapChange winner, 255 = nobody;
+        //   * in the lobby room ("kill your friends to start") the match starts
+        //     the same way, but only with >= 2 players in the lobby.
+        // Deaths are client-authoritative exactly like stock SF: the dying
+        // player's own client reports it (PlayerTookDamage carrying the 666.666
+        // killing-blow marker, or PlayerFallOut) on ITS event channel
+        // (NetworkPlayer: update ch = spawnID*2+2, event ch = +1), and keeps
+        // re-sending it while dead. The server's own authoritative rigs are a
+        // second simulation that can diverge, so they never end a round.
+        // ================================================================
+        private readonly HashSet<int> _deadThisRound = new HashSet<int>();
+        private byte _pendingRoundWinner = 255;
+        // StartMatch went out for the current map → the round is live. Death
+        // reports before that are late packets from the previous round (sent
+        // just before the client processed MapChange) and must not count.
+        private bool _startMatchSentThisRound;
+        private int _roundParticipantsAtStart;
+        // Ready-up gate: StartMatch goes out once every participant has sent
+        // ClientReadyUp (sent by the client after its map load + intro), never
+        // before _startMatchEarliestAt, and at the latest at _startMatchDeadline.
+        private readonly HashSet<int> _readySlots = new HashSet<int>();
+        private float _startMatchEarliestAt = -1f;
+        private float _startMatchDeadline = -1f;
+        private const float StartMatchMaxWaitSec = 5f;   // past the earliest time
+        private int _deathReportsRejected;
+
+        private void ArmStartMatchAfterLoad(float earliestDelaySec)
+        {
+            float now = Time.realtimeSinceStartup;
+            _readySlots.Clear();
+            _startMatchSentThisRound = false;
+            _startMatchEarliestAt = now + earliestDelaySec;
+            _startMatchDeadline = _startMatchEarliestAt + StartMatchMaxWaitSec;
+        }
+
+        private bool AllParticipantsReady()
+        {
+            int n = 0;
+            foreach (var kv in _sfClients)
+            {
+                var c = kv.Value;
+                if (!c.Initialized || c.Slot < 0) continue;
+                n++;
+                if (!_readySlots.Contains(c.Slot)) return false;
+            }
+            return n > 0;
+        }
+
+        // Called every frame from the Running loop.
+        private void TickStartMatchGate()
+        {
+            if (_startMatchEarliestAt < 0f) return;
+            float now = Time.realtimeSinceStartup;
+            if (now < _startMatchEarliestAt) return;
+            bool allReady = AllParticipantsReady();
+            if (!allReady && now < _startMatchDeadline) return;
+            _startMatchEarliestAt = -1f;
+            _startMatchDeadline = -1f;
+            Log.LogInfo($"[SF] StartMatch gate open ({(allReady ? "all players loaded" : "ready-up deadline")}; ready={_readySlots.Count}/{CountInitializedSfClients()}).");
+            BroadcastStartMatch();
+        }
+
+        private void OnClientReadyUp(SfClient cli)
+        {
+            if (!cli.Initialized || cli.Slot < 0) return;
+            _readySlots.Add(cli.Slot);
+            // Stock host: a ReadyUp that arrives while the fight is already on
+            // (late joiner / late loader) gets StartMatch sent to that user only.
+            if (_matchStarted && _startMatchSentThisRound)
+                SendSfPacket(cli.Addr, PktStartMatch, new byte[0], 0, 0);
+        }
+
+        // A client reported its own death. `channel` is the packet's channel.
+        private void OnClientReportedDeath(SfClient cli, byte channel, string reason)
+        {
+            if (cli == null || !cli.Initialized || cli.Slot < 0) return;
+            int victim = channel >= 2 ? (channel - 2) / 2 : -1;
+            if (victim != cli.Slot)
+            {
+                // A client may only report its OWN death (its own event channel).
+                if (_deathReportsRejected++ < 5 || _deathReportsRejected % 50 == 0)
+                    Log.LogWarning($"[DEATH] ignored {reason} from slot {cli.Slot} on channel {channel} (channel slot {victim}) #{_deathReportsRejected}");
+                return;
+            }
+            if (_matchStarted && !_startMatchSentThisRound) return;   // previous round's late packet
+            if (!_deadThisRound.Add(victim)) return;                   // dead-heartbeat repeat
+            Log.LogInfo($"[DEATH] slot {victim} died ({reason}).");
+            if (_matchStarted) CheckRoundEnd(reason);
+            else CheckLobbyStart(reason);
+        }
+
+        private void CountAlive(out int participants, out int alive, out int lastAlive)
+        {
+            participants = 0; alive = 0; lastAlive = -1;
+            var seen = new HashSet<int>();
+            foreach (var kv in _sfClients)
+            {
+                var c = kv.Value;
+                if (!c.Initialized || c.Slot < 0 || !seen.Add(c.Slot)) continue;
+                participants++;
+                if (!_deadThisRound.Contains(c.Slot)) { alive++; lastAlive = c.Slot; }
+            }
+        }
+
+        internal void CheckRoundEnd(string reason)
+        {
+            if (!_matchStarted || !_startMatchSentThisRound || _pendingRoundAdvanceAt >= 0f) return;
+            CountAlive(out int participants, out int alive, out int lastAlive);
+            // Started as a real match (2+): last one standing wins (this also
+            // covers the opponent disconnecting). Solo QA lobby: your own death
+            // moves to the next map.
+            bool over = _roundParticipantsAtStart >= 2 ? alive <= 1 : alive == 0;
+            if (!over) return;
+            _pendingRoundWinner = (_roundParticipantsAtStart >= 2 && alive == 1) ? (byte)lastAlive : (byte)255;
+            Log.LogInfo($"[SF] Round over ({reason}): alive={alive}/{participants} winner={(_pendingRoundWinner == 255 ? "none" : "slot " + _pendingRoundWinner)}.");
+            TryScheduleRoundAdvance(reason);
+        }
+
+        private void CheckLobbyStart(string reason)
+        {
+            CountAlive(out int participants, out int alive, out int _);
+            if (participants < 2 || alive > 1) return;   // stock: needs 2+ in the lobby
+            FireMatchStart($"lobby: last player standing ({reason})");
+        }
+
         /// <summary>One connected player in an active match — solo physics/map QA.</summary>
         private bool IsSoloTestLobby() => _matchStarted && CountInitializedSfClients() == 1;
 
@@ -57,19 +185,11 @@ namespace SFHeadlessHost
             Log.LogInfo($"[DEATH] Round advance gate cleared ({reason}).");
         }
 
-        /// <summary>Death signal — clears gate and schedules next map (queues during map load).</summary>
-        internal void ScheduleRoundAdvanceOnDeath(string reason)
-        {
-            // (B2) AcResetRound moved to AdvanceRound (the real round boundary).
-            // Firing it per-death over-incremented _acRoundIndex and zeroed the
-            // behavioral-AC accumulators mid-round on every kill.
-            ClearRoundAdvanceBlockedGate(reason);
-            TryScheduleRoundAdvance(reason);
-        }
-
+        // The server's own rig died (HealthHandler.Die on the oracle). Logged
+        // only — round results come from the players' clients (see above).
         internal void OnOraclePlayerDied(object healthHandler, string reason)
         {
-            ScheduleRoundAdvanceOnDeath(reason);
+            if (Verbose) Log.LogDebug($"[DEATH] server rig died ({reason}) — informational, rounds follow client reports.");
         }
 
         private void TryScheduleRoundAdvance(string reason)
@@ -139,14 +259,17 @@ namespace SFHeadlessHost
                 if ((object)kv.Value == null) continue;
                 if (!TryGetRigIsDead(kv.Value)) continue;
                 _deathSlotsHandled.Add(kv.Key);
-                Log.LogInfo($"[DEATH] Auth rig slot {kv.Key} isDead — scheduling round advance.");
-                ScheduleRoundAdvanceOnDeath($"auth-rig-dead slot={kv.Key}");
+                // Informational: the server rig is a second sim that can diverge
+                // from the player's own client, so it never decides a round.
+                Log.LogInfo($"[DEATH] server rig slot {kv.Key} isDead (informational).");
             }
         }
 
         private void ResetDeathTrackingForNewRound()
         {
             _deathSlotsHandled.Clear();
+            _deadThisRound.Clear();
+            _pendingRoundWinner = 255;
             _roundAdvanceQueuedAfterMapLoad = false;
         }
         // Exposed so a chat command / log can show what's excluded.
@@ -166,6 +289,7 @@ namespace SFHeadlessHost
                 Log.LogError("[SF] AdvanceRound: no playable Landfall maps (SF_EXCLUDE_MAPS too broad) — staying on the current scene.");
                 return;
             }
+            byte winner = _pendingRoundWinner;
             ResetDeathTrackingForNewRound();
             AcResetRound();   // (B2) reset behavioral-AC accumulators at the real round boundary
             _roundCounter++;
@@ -178,18 +302,20 @@ namespace SFHeadlessHost
             _currentSceneIndex = nextScene;
             _roundAdvanceBlockedUntil = Time.realtimeSinceStartup + RoundMinPlaySec;
             bool solo = IsSoloTestLobby();
-            Log.LogInfo($"[SF] Round advance #{_roundCounter}: MapChange → scene {nextScene} (winner=255, soloTest={solo})");
-            // ChangeMap body: [byte winnerIndex=255 (no winner)][byte mapType=0 (Landfall)][int32 sceneIndex LE]
+            Log.LogInfo($"[SF] Round advance #{_roundCounter}: MapChange → scene {nextScene} (winner={winner}, soloTest={solo})");
+            // ChangeMap body: [byte winnerIndex (slot, 255 = none)][byte mapType=0 (Landfall)][int32 sceneIndex LE].
+            // Clients use the winner for the crown, win text and win counter
+            // (GameManager.NetworkAllPlayersDiedButOne → StartMatch → LastWinner).
             byte[] body = new byte[1 + 1 + 4];
-            body[0] = 255;
+            body[0] = winner;
             body[1] = 0;
             WriteU32LE(body, 2, (uint)nextScene);
             BroadcastSfPacket(PktMapChange, body, 0, 0);
-            // SF's host normally follows MapChange with StartMatch after
-            // clients re-ready up. Stock SF uses k_MAX_SECONDS_UNTIL_AUTO_START=3s
-            // but the client's map-load animation eats most of that. Defaulting
-            // to 2s; configurable via SF_NEXT_MATCH_DELAY env var.
-            _pendingStartMatchAt = Time.realtimeSinceStartup + NextMatchDelaySec;
+            // Stock host: StartMatch once every client has re-readied (each
+            // sends ClientReadyUp after its map load + intro). Never earlier
+            // than SF_NEXT_MATCH_DELAY (the oracle's own reload), never later
+            // than StartMatchMaxWaitSec past that.
+            ArmStartMatchAfterLoad(NextMatchDelaySec);
             _pendingRearmCombatAt = -1f;
             _oracleCountDownAt = -1f;
             _oracleCountDownFired = false;
@@ -265,8 +391,7 @@ namespace SFHeadlessHost
             ResetDeathTrackingForNewRound();
             Log.LogInfo($"[SF] FireMatchStart({source}) — MapChange now; StartMatch to clients after load window.");
             BroadcastMapChange(_currentSceneIndex);
-            _pendingClientStartMatchAt = Time.realtimeSinceStartup + Mathf.Max(5f, NextMatchDelaySec + 2f);
-            _pendingClientStartMatchFired = false;
+            ArmStartMatchAfterLoad(Mathf.Max(5f, NextMatchDelaySec + 2f));
             _matchStarted = true;
             _roundAdvanceBlockedUntil = Time.realtimeSinceStartup + RoundMinPlaySec;
             _sceneLoadRealtime = Time.realtimeSinceStartup;
@@ -303,6 +428,10 @@ namespace SFHeadlessHost
         private void BroadcastStartMatch()
         {
             BroadcastSfPacket(PktStartMatch, new byte[0], 0, 0);
+            _startMatchSentThisRound = true;
+            _roundParticipantsAtStart = 0;
+            foreach (var kv in _sfClients)
+                if (kv.Value.Initialized && kv.Value.Slot >= 0) _roundParticipantsAtStart++;
             // Clear per-round spawn flag so next ClientRequestingToSpawn
             // is treated as a fresh round-start rather than a respawn.
             foreach (var kv in _sfClients) kv.Value.Spawned = false;

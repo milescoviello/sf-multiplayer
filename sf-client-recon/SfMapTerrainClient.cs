@@ -102,9 +102,11 @@ namespace SFClientRecon
                     var onMap = AccessTools.Method(mmType, "OnMapChanged");
                     if ((object)onMap != null)
                     {
-                        harmony.Patch(onMap, postfix: new HarmonyMethod(
-                            AccessTools.Method(typeof(Plugin), nameof(OnMapChangedInvalidateCachePostfix))));
-                        Log.LogInfo("[v26.6] Patched OnMapChanged (invalidate mapSync cache).");
+                        harmony.Patch(onMap,
+                            prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(OnMapChangedWinnerGuardPrefix))),
+                            postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(OnMapChangedInvalidateCachePostfix))));
+                        harmony.Patch(onMap, postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(OnMapChangedWinnerGuardPostfix))));
+                        Log.LogInfo("[v26.6] Patched OnMapChanged (winner guard + invalidate mapSync cache).");
                     }
                     var onGw = AccessTools.Method(mmType, "OnGroundWeaponsInit");
                     if ((object)onGw != null)
@@ -786,5 +788,108 @@ namespace SFClientRecon
             }
             return false;
         }
-    }
+    
+        // GameManager.StartMatch credits the round winner BEFORE it starts
+        // loading the next map (CharacterStats.wins++, WinCounterUI.
+        // IncrementWinCounter, and for the local winner the Steam achievement
+        // checks), none of it null-checked. One missing piece throws, StartMatch
+        // aborts, the next map never loads, the client never re-readies or
+        // re-enters the fight, and nobody can die. So check those pieces first:
+        // if one is missing, log which and play the round as "no winner" (255)
+        // so the map change always completes.
+        // Also clear GameManager.LastWinner on a no-winner round: the client only
+        // sets it when a winner is sent, so a draw would credit the PREVIOUS
+        // round's winner again.
+        private static readonly HashSet<string> _winnerGuardLogged = new HashSet<string>();
+        internal static void OnMapChangedWinnerGuardPrefix(byte[] data)
+        {
+            if (data == null || data.Length < 1) return;
+            try
+            {
+                if (data[0] != 255)
+                {
+                    string missing = WinnerCreditMissing(data[0]);
+                    if (missing == "WinCounterUI" && TryCreateTempWinCounter())
+                        missing = WinnerCreditMissing(data[0]);
+                    if (missing == null) return;
+                    if (_winnerGuardLogged.Add(missing))
+                        Log.LogWarning($"[winner-guard] can't credit round winner (slot {data[0]}): {missing} missing on this client; playing the round as no-winner so the map change completes.");
+                    data[0] = 255;
+                }
+                var gmType = AccessTools.TypeByName("GameManager");
+                var gm = RefOk(gmType) ? AccessTools.Property(gmType, "Instance")?.GetValue(null, null) : null;
+                var setter = RefOk(gmType) ? AccessTools.PropertySetter(gmType, "LastWinner") : null;
+                if (RefOk(gm) && RefOk(setter)) setter.Invoke(gm, new object[] { null });
+            }
+            catch (Exception e) { Log.LogWarning($"[winner-guard] {e.Message}"); }
+        }
+
+        // The win-count overlay (WinCounterUI) isn't in the scene on clients that
+        // joined through our connect path, yet StartMatch calls
+        // FindObjectOfType<WinCounterUI>().IncrementWinCounter unguarded. Put a
+        // bare stand-in in place for this one call so the winner is still
+        // credited (CharacterStats.wins, crown, win text), then remove it in the
+        // postfix. Its Start never runs, so isEnabled stays false and
+        // RefreshWinTexts returns at once: it never touches its null text arrays.
+        private static GameObject _tempWinCounter;
+        private static bool _winCounterDiagDone;
+        private static bool TryCreateTempWinCounter()
+        {
+            try
+            {
+                var wcType = AccessTools.TypeByName("WinCounterUI");
+                if (!RefOk(wcType)) return false;
+                if (!_winCounterDiagDone)
+                {
+                    _winCounterDiagDone = true;
+                    var all = Resources.FindObjectsOfTypeAll(wcType);
+                    string where = "none";
+                    if (all != null && all.Length > 0 && all[0] is Component c)
+                        where = $"{all.Length} inactive, first under '{(c.transform.root != null ? c.transform.root.name : "?")}'";
+                    Log.LogInfo($"[winner-guard] no active WinCounterUI ({where}); using a temporary stand-in to credit winners.");
+                }
+                _tempWinCounter = new GameObject("sf-temp-wincounter");
+                _tempWinCounter.AddComponent(wcType);
+                return true;
+            }
+            catch (Exception e) { Log.LogWarning($"[winner-guard] stand-in failed: {e.Message}"); return false; }
+        }
+
+        internal static void OnMapChangedWinnerGuardPostfix()
+        {
+            if (_tempWinCounter == null) return;
+            try { UnityEngine.Object.DestroyImmediate(_tempWinCounter); } catch { }
+            _tempWinCounter = null;
+        }
+
+        // Returns what StartMatch would trip over when crediting `winner`, or
+        // null when crediting is safe (or the stock code would skip it anyway).
+        private static string WinnerCreditMissing(byte winner)
+        {
+            var mmType = AccessTools.TypeByName("MultiplayerManager");
+            var mm = RefOk(mmType) ? UnityEngine.Object.FindObjectOfType(mmType) : null;
+            if (mm == null) return null;
+            var players = AccessTools.Property(mmType, "PlayerControllers")?.GetValue(mm, null) as System.Collections.IList;
+            if (players == null || winner >= players.Count) return null;          // stock: no LastWinner set
+            var ctrl = players[winner] as Component;
+            if (ctrl == null) return null;                                          // stock: skipped
+            var statsType = AccessTools.TypeByName("CharacterStats");
+            if (!RefOk(statsType) || ctrl.GetComponent(statsType) == null) return "winner's CharacterStats";
+            var wcType = AccessTools.TypeByName("WinCounterUI");
+            if (!RefOk(wcType) || UnityEngine.Object.FindObjectOfType(wcType) == null) return "WinCounterUI";
+            var hasControl = AccessTools.Property(ctrl.GetType(), "HasControl");
+            bool local = RefOk(hasControl) && (bool)hasControl.GetValue(ctrl, null);
+            if (local)
+            {
+                var ssType = AccessTools.TypeByName("SteamStatsAndAchievements");
+                var ss = RefOk(ssType) ? AccessTools.Property(ssType, "Instance")?.GetValue(null, null) : null;
+                if (!RefOk(ss) || (ss as UnityEngine.Object) == null) return "SteamStatsAndAchievements";
+                if (!RefOk(AccessTools.Field(ssType, "TransientMemory")?.GetValue(ss))) return "SteamStats TransientMemory";
+                var chType = AccessTools.TypeByName("ControllerHandler");
+                var ch = RefOk(chType) ? AccessTools.Property(chType, "Instance")?.GetValue(null, null) : null;
+                if (!RefOk(ch) || (ch as UnityEngine.Object) == null) return "ControllerHandler";
+            }
+            return null;
+        }
+}
 }

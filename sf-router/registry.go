@@ -23,15 +23,32 @@ type Registry struct {
 	dir string
 	ttl time.Duration
 
-	mu       sync.Mutex
-	byCode   map[string]*net.UDPAddr
-	loadedAt time.Time
+	mu        sync.Mutex
+	byCode    map[string]*net.UDPAddr
+	capByCode map[string]byte // max players per lobby (.conf capacity=, default 4)
+	loadedAt  time.Time
 }
+
+// defaultCapacity is a stock Stick Fight lobby (4 players).
+const defaultCapacity = 4
 
 // NewRegistry returns a registry reading dir (e.g. /tmp/sf-lobbies) with the
 // given cache TTL (~2s is plenty; lobbies come and go on human timescales).
 func NewRegistry(dir string, ttl time.Duration) *Registry {
-	return &Registry{dir: dir, ttl: ttl, byCode: map[string]*net.UDPAddr{}}
+	return &Registry{dir: dir, ttl: ttl, byCode: map[string]*net.UDPAddr{}, capByCode: map[string]byte{}}
+}
+
+// Capacity returns the lobby's max player count from its .conf (capacity=,
+// 1..4), or 4 when unset/unknown. Read on the cold LIST path.
+func (r *Registry) Capacity(code string) byte {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	r.refreshIfStale()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if c, ok := r.capByCode[code]; ok {
+		return c
+	}
+	return defaultCapacity
 }
 
 // Lookup returns the backend address for a lobby code (case-insensitive). It
@@ -95,10 +112,11 @@ func (r *Registry) StartRefresh(stop <-chan struct{}) {
 // reload rescans the dir WITHOUT holding r.mu (the scan does blocking I/O), then
 // swaps the result in under a brief lock.
 func (r *Registry) reload() {
-	next, replace := r.scan()
+	next, caps, replace := r.scan()
 	r.mu.Lock()
 	if replace {
 		r.byCode = next
+		r.capByCode = caps
 	}
 	r.loadedAt = time.Now()
 	r.mu.Unlock()
@@ -109,34 +127,38 @@ func (r *Registry) reload() {
 // the previously-cached map, so a momentary FS hiccup doesn't drop every live
 // client. A genuinely-missing dir (ENOENT) returns an empty map with
 // replace=true (no lobbies). Holds no locks; safe to run concurrently with Lookup.
-func (r *Registry) scan() (next map[string]*net.UDPAddr, replace bool) {
+func (r *Registry) scan() (next map[string]*net.UDPAddr, caps map[string]byte, replace bool) {
 	entries, err := os.ReadDir(r.dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return map[string]*net.UDPAddr{}, true // dir gone → no lobbies
+			return map[string]*net.UDPAddr{}, map[string]byte{}, true // dir gone → no lobbies
 		}
 		log.Printf("[registry] scan %s failed, keeping cached lobbies: %v", r.dir, err)
-		return nil, false
+		return nil, nil, false
 	}
 	next = make(map[string]*net.UDPAddr)
+	caps = make(map[string]byte)
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") {
 			continue
 		}
-		code, port, pid, ok := parseConf(filepath.Join(r.dir, e.Name()))
+		code, port, pid, capacity, ok := parseConf(filepath.Join(r.dir, e.Name()))
 		if !ok || !pidAlive(pid) {
 			continue
 		}
 		next[strings.ToUpper(code)] = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port}
+		caps[strings.ToUpper(code)] = capacity
 	}
-	return next, true
+	return next, caps, true
 }
 
-// parseConf reads a launch-lobby.sh .conf and returns code, port, pid.
-func parseConf(path string) (code string, port, pid int, ok bool) {
+// parseConf reads a launch-lobby.sh .conf and returns code, port, pid and
+// capacity (capacity= clamped to 1..4; default 4 when absent or invalid).
+func parseConf(path string) (code string, port, pid int, capacity byte, ok bool) {
+	capacity = defaultCapacity
 	f, err := os.Open(path)
 	if err != nil {
-		return "", 0, 0, false
+		return "", 0, 0, 0, false
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
@@ -154,12 +176,16 @@ func parseConf(path string) (code string, port, pid int, ok bool) {
 			port, _ = strconv.Atoi(v)
 		case "pid":
 			pid, _ = strconv.Atoi(v)
+		case "capacity":
+			if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= defaultCapacity {
+				capacity = byte(n)
+			}
 		}
 	}
 	if code == "" || port <= 0 || port > 65535 || pid <= 0 {
-		return "", 0, 0, false
+		return "", 0, 0, 0, false
 	}
-	return code, port, pid, true
+	return code, port, pid, capacity, true
 }
 
 // pidAlive reports whether pid is a live process. signal 0 probes existence:

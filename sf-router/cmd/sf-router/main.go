@@ -56,6 +56,7 @@ func main() {
 		r, err = router.NewRouting(*listen, reg.Lookup)
 		if err == nil {
 			r.SetLister(reg.Codes) // enables the LIST control op (in-game browser)
+			r.SetCapacityOf(reg.Capacity)
 			log.Printf("[router] routing mode: registry=%s ttl=%s", *registry, *regTTL)
 		}
 	case *backend != "":

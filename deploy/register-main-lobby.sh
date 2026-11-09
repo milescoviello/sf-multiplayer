@@ -39,6 +39,7 @@ port=${SFHEADLESS_PORT:-1337}
 bridge=${SFHEADLESS_BRIDGEPORT:-11337}
 pid=${PID}
 static=true
+capacity=${SF_MAX_PLAYERS:-4}
 started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 EOF
 mv -f "$CONF.tmp" "$CONF"

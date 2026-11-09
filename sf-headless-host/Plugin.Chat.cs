@@ -72,6 +72,16 @@ namespace SFHeadlessHost
             string pass = Environment.GetEnvironmentVariable("SF_ADMIN_PASS");
             _adminPass = string.IsNullOrEmpty(pass) ? null : pass;
         }
+        // Round/map/weapon control changes the match for everyone, so it is
+        // admin-only (SF_ADMIN_STEAMIDS or /admin <SF_ADMIN_PASS>). Otherwise a
+        // player losing a comp round could just /next it away.
+        private bool RequireAdmin(SfClient sender)
+        {
+            if (IsAdminSender(sender)) return true;
+            SendChatToPlayer(sender, "Admin only.");
+            return false;
+        }
+
         private static bool IsAdminSender(SfClient sender)
         {
             EnsureAdminEnvLoaded();
@@ -117,6 +127,7 @@ namespace SFHeadlessHost
                         SendChatToPlayer(sender, "pong");
                         break;
                     case "/start":
+                        if (!RequireAdmin(sender)) break;
                         if (_matchStarted)
                         {
                             SendChatToPlayer(sender, "Match already in progress.");
@@ -132,6 +143,7 @@ namespace SFHeadlessHost
                         break;
                     case "/restart":
                     case "/next":
+                        if (!RequireAdmin(sender)) break;
                         if (_pendingRoundAdvanceAt > 0f)
                             SendChatToPlayer(sender, "Round advance already pending.");
                         else
@@ -148,6 +160,7 @@ namespace SFHeadlessHost
                             SendChatToPlayer(sender, $"Current map: scene {_currentSceneIndex}. Usage: /map <1-124>. Random next: /next.");
                             break;
                         }
+                        if (!RequireAdmin(sender)) break;
                         if (!int.TryParse(arg, out int sceneIdx) || sceneIdx < 1 || sceneIdx > 124 || sceneIdx == 102)
                         {
                             SendChatToPlayer(sender, "Usage: /map <1-124> (102 excluded — non-MP scene). Use /listmaps to browse.");
@@ -167,7 +180,8 @@ namespace SFHeadlessHost
                         // AdvanceRound picks a random map though, so we need a direct call shape.
                         _pendingRoundAdvanceAt = -1f;
                         BroadcastMapChange(_currentSceneIndex);
-                        _pendingStartMatchAt = Time.realtimeSinceStartup + NextMatchDelaySec;
+                        ResetDeathTrackingForNewRound();
+                        ArmStartMatchAfterLoad(NextMatchDelaySec);
                         ScheduleOracleReloadCurrentMap("chat-/map");
                         foreach (var kv in _sfClients) kv.Value.Spawned = false;
                         break;
@@ -273,7 +287,7 @@ namespace SFHeadlessHost
                         {
                             if (_allowedWeaponIds.Count == 0)
                             {
-                                SendChatToPlayer(sender, "Weapons: all (default 0-7 round-robin). Set: /weapons 0,1,3");
+                                SendChatToPlayer(sender, "Weapons: all (random, weighted by rarity like stock). Set: /weapons 0,1,3");
                             }
                             else
                             {
@@ -283,10 +297,11 @@ namespace SFHeadlessHost
                                 SendChatToPlayer(sender, $"Weapons allow-list: {string.Join(",", System.Array.ConvertAll(arr, i => i.ToString()))}");
                             }
                         }
+                        else if (!RequireAdmin(sender)) { }
                         else if (arg == "all" || arg == "clear" || arg == "default")
                         {
                             _allowedWeaponIds.Clear();
-                            _allowedWeaponCycleIdx = 0;
+                            ResetWeaponBag();
                             SendChatToPlayer(sender, "Weapons reset to default (all).");
                         }
                         else
@@ -305,7 +320,7 @@ namespace SFHeadlessHost
                             {
                                 _allowedWeaponIds.Clear();
                                 foreach (var i in newList) _allowedWeaponIds.Add(i);
-                                _allowedWeaponCycleIdx = 0;
+                                ResetWeaponBag();
                                 SendChatToPlayer(sender, $"Weapons set to: {string.Join(",", newList.ConvertAll(i => i.ToString()).ToArray())}");
                             }
                         }
