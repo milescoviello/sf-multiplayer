@@ -149,5 +149,27 @@ namespace SFHeadlessHost
             string cols = (object)col != null ? $"col.enabled={col.enabled},layer={col.gameObject.layer}" : "no-col";
             return $"{rbs},{cols}";
         }
-    }
+    
+        // Cheap per-call profiler for the Running loop (see heartbeat "hot:").
+        private readonly System.Diagnostics.Stopwatch _profSw = new System.Diagnostics.Stopwatch();
+        private readonly Dictionary<string, double> _profMs = new Dictionary<string, double>();
+        private void ProfBegin() { _profSw.Reset(); _profSw.Start(); }
+        private void ProfEnd(string name)
+        {
+            _profSw.Stop();
+            double v; _profMs.TryGetValue(name, out v);
+            _profMs[name] = v + _profSw.Elapsed.TotalMilliseconds;
+        }
+        internal string ProfTopAndReset(int frames)
+        {
+            if (frames <= 0 || _profMs.Count == 0) return "";
+            var list = new List<KeyValuePair<string, double>>(_profMs);
+            list.Sort((a, b) => b.Value.CompareTo(a.Value));
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < list.Count && i < 4; i++)
+                sb.Append($" {list[i].Key}={list[i].Value / frames:0.00}");
+            _profMs.Clear();
+            return sb.ToString();
+        }
+}
 }

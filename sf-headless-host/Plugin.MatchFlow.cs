@@ -370,6 +370,7 @@ namespace SFHeadlessHost
             // map change and nudge/blast the NEXT map's crates (or, with bullet-damage on,
             // phantom-hit a freshly spawned player) within its remaining lifetime.
             _projectiles.Clear();
+            ResetWeaponOwnershipForRound();
             ClearAuthoritativeRigsForRoundAdvance();
         }
 

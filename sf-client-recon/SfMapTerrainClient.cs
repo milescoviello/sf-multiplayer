@@ -57,25 +57,11 @@ namespace SFClientRecon
                         Log.LogInfo("[v26.6] Patched RequestWeaponThrow postfix.");
                     }
                 }
-                // THROW FIX — a weapon you throw must never stick to or damage YOU.
-                // Vanilla only guards self-hit for 0.2s (sinceThrow<0.2f). At high
-                // FPS the dropped weapon spawns overlapping your body and the solver
-                // keeps it there past 0.2s, so it "stays on the character" and then
-                // deals 55 dmg to its own thrower. On Throw(Controller) we ignore
-                // collision between the weapon's colliders and the thrower's body →
-                // flies clean, no self-hit, FPS-independent.
-                var wpThrowType = AccessTools.TypeByName("WeaponPickUp");
-                var ctrlTypeThrow = AccessTools.TypeByName("Controller");
-                if ((object)wpThrowType != null && (object)ctrlTypeThrow != null)
-                {
-                    var throwM = AccessTools.Method(wpThrowType, "Throw", new[] { ctrlTypeThrow });
-                    if ((object)throwM != null)
-                    {
-                        harmony.Patch(throwM, postfix: new HarmonyMethod(
-                            AccessTools.Method(typeof(Plugin), nameof(WeaponPickUp_Throw_IgnoreThrowerPostfix))));
-                        Log.LogInfo("[throw-fix] Patched WeaponPickUp.Throw (no self-hit / no sticking).");
-                    }
-                }
+                // (Removed: a WeaponPickUp.Throw patch that ignored collision between a
+                // thrown weapon and its thrower for 0.8 s and forced continuous
+                // collision on throws. Stock allows self-hits after 0.2 s, "throw
+                // hop" needs that collision, and whiffed throws are part of the
+                // game, so it changed gameplay. Vanilla only.)
                 // THROW BUTTON UNSTICK — Fighting.mRequestedThrow is set true on a
                 // networked throw and ONLY cleared in Dissarm(). On the oracle a
                 // throw sometimes doesn't trigger Dissarm (no server echo), so the
@@ -88,12 +74,12 @@ namespace SFClientRecon
                     var tw = AccessTools.Method(fightingType, "ThrowWeapon", new[] { typeof(bool) });
                     if ((object)tw != null)
                     {
-                        // PREFIX rate-limits throws (no duplicate spam), POSTFIX
-                        // unsticks a genuinely stuck mRequestedThrow.
+                        // POSTFIX only: unsticks a genuinely stuck mRequestedThrow.
+                        // (The throw cooldown prefix is gone: duplicate weapons from
+                        // throw spam are refused by the server now.)
                         harmony.Patch(tw,
-                            prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(Fighting_ThrowWeapon_CooldownPrefix))),
                             postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(Fighting_ThrowWeapon_UnstickPostfix))));
-                        Log.LogInfo("[throw-fix] Patched Fighting.ThrowWeapon (rate-limit + unstick).");
+                        Log.LogInfo("[throw-fix] Patched Fighting.ThrowWeapon (unstick safety net only).");
                     }
                 }
                 InstallMapInfoSyncQuantizeClient();
@@ -543,81 +529,6 @@ namespace SFClientRecon
             if (Instance != null) Instance._lastFastInputAt = 0f;
         }
 
-        // Postfix of WeaponPickUp.Throw(Controller d): ignore collision between the
-        // just-thrown weapon and the thrower's body so it can never stick to or
-        // damage the player who threw it (param name 'd' = the thrower Controller).
-        internal static void WeaponPickUp_Throw_IgnoreThrowerPostfix(object __instance, object d)
-        {
-            try
-            {
-                var wp = __instance as Component;
-                var ctrl = d as Component;
-                if ((object)wp == null || (object)ctrl == null) return;
-                // WHIFF FIX — a thrown weapon flies fast (impulse 35) and the stick
-                // bodies are thin, so discrete collision lets it TUNNEL straight
-                // through the enemy ("le cuesta detectarlo / le pegás y no le sacás
-                // vida"). Speculative continuous detection catches the hit without
-                // touching hitboxes or the damage values.
-                var wrb = wp.GetComponent<Rigidbody>();
-                if ((object)wrb != null && !wrb.isKinematic)
-                    wrb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-                var weaponCols = wp.GetComponentsInChildren<Collider>(true);
-                var bodyCols = ctrl.transform.root.GetComponentsInChildren<Collider>(true);
-                if (weaponCols == null || bodyCols == null) return;
-                SetThrowIgnore(weaponCols, bodyCols, true);
-                // TEMPORARY: re-enable after the weapon has cleared the body so it
-                // can be picked up again later. A PERMANENT ignore made thrown
-                // weapons un-pickable forever ("se vuelven traspasables, no las
-                // puedo volver a agarrar"). 0.8s > vanilla cantBePickledUpFor (0.5)
-                // and by then the weapon has flown off / slowed below the 20 m/s
-                // damage threshold, so re-enabling can't re-introduce a self-hit.
-                if (Instance != null) Instance.StartCoroutine(ReenableThrowCollision(weaponCols, bodyCols, 0.8f));
-            }
-            catch (Exception e) { Log.LogWarning("[throw-fix] " + e.Message); }
-        }
-
-        private static void SetThrowIgnore(Collider[] weaponCols, Collider[] bodyCols, bool ignore)
-        {
-            for (int i = 0; i < weaponCols.Length; i++)
-            {
-                var wc = weaponCols[i];
-                if ((object)wc == null) continue;
-                for (int j = 0; j < bodyCols.Length; j++)
-                {
-                    var bc = bodyCols[j];
-                    if ((object)bc != null) Physics.IgnoreCollision(wc, bc, ignore);
-                }
-            }
-        }
-
-        private static System.Collections.IEnumerator ReenableThrowCollision(Collider[] weaponCols, Collider[] bodyCols, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            try { SetThrowIgnore(weaponCols, bodyCols, false); }
-            catch (Exception e) { Log.LogWarning("[throw-fix] reenable: " + e.Message); }
-        }
-
-        // Rate-limit throws: spamming the throw key on a fresh pickup made the
-        // server spawn DUPLICATE weapons ("se duplica si tiras muy rápido"). Block
-        // throws within a short cooldown of the last accepted one (per Fighting).
-        private static readonly Dictionary<int, float> _lastThrowAt = new Dictionary<int, float>();
-        private const float ThrowCooldown = 0.35f;
-        internal static bool Fighting_ThrowWeapon_CooldownPrefix(object __instance)
-        {
-            try
-            {
-                var comp = __instance as Component;
-                if ((object)comp == null) return true;
-                int id = comp.GetInstanceID();
-                float now = Time.realtimeSinceStartup;
-                float last;
-                if (_lastThrowAt.TryGetValue(id, out last) && now - last < ThrowCooldown)
-                    return false;   // skip — too soon, would duplicate
-                _lastThrowAt[id] = now;
-            }
-            catch { }
-            return true;
-        }
 
         internal static void Fighting_ThrowWeapon_UnstickPostfix(object __instance)
         {

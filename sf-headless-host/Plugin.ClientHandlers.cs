@@ -18,6 +18,52 @@ namespace SFHeadlessHost
         // Pickup: re-broadcast incoming ClientRequestingWeaponPickUp body as
         // WeaponWasPickedUp to ALL clients (including the sender, so their
         // local game updates the weapon-attached state). Body is identical.
+        // Weapon ownership checks (the stock host validates pickups against its
+        // spawned-weapon list; this server used to grant everything):
+        //  * a player may only pick up for its OWN slot (the index is in the body);
+        //  * each weapon instance is granted once: the first request to reach the
+        //    server gets it, a second one for the same weapon id is refused (two
+        //    players grabbing at once both got it = a duplicated weapon). Thrown or
+        //    dropped weapons get fresh ids, so they can be picked up again;
+        //  * a throw/drop needs a pickup since the last one. Spamming throw before
+        //    the server's echo arrived used to spawn a copy per request. The 1 s
+        //    valve means a missed pickup can never lock a player's throw.
+        private readonly HashSet<ushort> _pickedWeaponIds = new HashSet<ushort>();
+        private readonly Dictionary<int, int> _pickupsSinceRelease = new Dictionary<int, int>();
+        private readonly Dictionary<int, float> _lastReleaseAt = new Dictionary<int, float>();
+        private int _weaponRequestsRejected;
+        private const float ReleaseRepeatValveSec = 1.0f;
+
+        private void RejectWeaponRequest(SfClient sender, string why)
+        {
+            if (_weaponRequestsRejected++ < 10 || _weaponRequestsRejected % 50 == 0)
+                Log.LogWarning($"[weapons] rejected from slot {sender.Slot}: {why} (#{_weaponRequestsRejected})");
+        }
+
+        // A throw or drop releases the held weapon.
+        private bool AcceptWeaponRelease(SfClient sender, string kind)
+        {
+            int slot = sender.Slot;
+            float now = Time.realtimeSinceStartup;
+            int pickups; _pickupsSinceRelease.TryGetValue(slot, out pickups);
+            float last; bool hadRelease = _lastReleaseAt.TryGetValue(slot, out last);
+            if (pickups == 0 && hadRelease && now - last < ReleaseRepeatValveSec)
+            {
+                RejectWeaponRequest(sender, $"repeated {kind} without a pickup");
+                return false;
+            }
+            _pickupsSinceRelease[slot] = 0;
+            _lastReleaseAt[slot] = now;
+            return true;
+        }
+
+        internal void ResetWeaponOwnershipForRound()
+        {
+            _pickedWeaponIds.Clear();
+            _pickupsSinceRelease.Clear();
+            _lastReleaseAt.Clear();
+        }
+
         private void HandlePickupRequest(SfClient sender, byte[] data, int off, int len)
         {
             if (len < 3) { Log.LogWarning($"[SF] pickup request too short ({len} bytes)"); return; }
@@ -25,6 +71,10 @@ namespace SFHeadlessHost
             Buffer.BlockCopy(data, off, body, 0, len);
             byte playerIdx = body[0];
             ushort weaponNetId = (ushort)(body[1] | (body[2] << 8));
+            if (sender.Slot < 0 || playerIdx != sender.Slot) { RejectWeaponRequest(sender, $"pickup for slot {playerIdx}"); return; }
+            if (!_pickedWeaponIds.Add(weaponNetId)) { RejectWeaponRequest(sender, $"weapon {weaponNetId} already taken"); return; }
+            int n; _pickupsSinceRelease.TryGetValue(sender.Slot, out n);
+            _pickupsSinceRelease[sender.Slot] = n + 1;
             Log.LogInfo($"[SF] Pickup: player={playerIdx} weapon={weaponNetId} → broadcasting WeaponWasPickedUp");
             foreach (var kv in _sfClients)
             {
@@ -35,6 +85,7 @@ namespace SFHeadlessHost
         private void HandleDropRequest(SfClient sender, byte[] data, int off, int len)
         {
             if (len < 7) { Log.LogWarning($"[SF] drop request too short ({len} bytes)"); return; }
+            if (!AcceptWeaponRelease(sender, "drop")) return;
             byte[] body = new byte[len + 4];
             Buffer.BlockCopy(data, off, body, 0, len);
             ushort wid = _droppedWeaponNextId++;
@@ -62,6 +113,7 @@ namespace SFHeadlessHost
         private void HandleThrowRequest(SfClient sender, byte[] data, int off, int len)
         {
             if (len < 1) { Log.LogWarning($"[SF] throw request too short ({len} bytes)"); return; }
+            if (!AcceptWeaponRelease(sender, "throw")) return;
             byte[] body = new byte[len + 4];
             Buffer.BlockCopy(data, off, body, 0, len);
             ushort wid = _droppedWeaponNextId++;

@@ -529,12 +529,12 @@ namespace SFHeadlessHost
 
                 case BootState.Running:
                     // Drain any incoming bridge commands (debug bridge on 1341).
-                    DrainBridgeCommands();
+                    ProfBegin(); DrainBridgeCommands(); ProfEnd("DrainBridgeCommands");
                     // Drain raw v25 protocol packets from patched DLL clients.
-                    DrainSfServer();
+                    ProfBegin(); DrainSfServer(); ProfEnd("DrainSfServer");
                     // Drop stale clients so we don't keep forwarding broadcasts
                     // to ghosts after ungraceful disconnects.
-                    SweepStaleClients();
+                    ProfBegin(); SweepStaleClients(); ProfEnd("SweepStaleClients");
                     // Fire scheduled match-start if /start was issued (user-driven now,
                     // no longer auto-armed by ClientRequestingToSpawn).
                     if (_autoStartAt > 0f && Time.realtimeSinceStartup >= _autoStartAt && !_matchStarted)
@@ -595,22 +595,22 @@ namespace SFHeadlessHost
                     }
                     // After a MapChange: StartMatch once every player has loaded
                     // (ClientReadyUp), bounded by an earliest time and a deadline.
-                    TickStartMatchGate();
-                    TickServerPings();
+                    ProfBegin(); TickStartMatchGate(); ProfEnd("TickStartMatchGate");
+                    ProfBegin(); TickServerPings(); ProfEnd("TickServerPings");
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;
                         RearmOracleCombatLoop("delayed-post-StartMatch");
                         FlushGroundWeaponsAfterCheck("post-StartMatch");
                     }
-                    TickOracleMapLoadTimeout();
-                    TickPeriodicWeaponRearm();
-                    TickOracleSkyWeaponSpawner();
+                    ProfBegin(); TickOracleMapLoadTimeout(); ProfEnd("TickOracleMapLoadTimeout");
+                    ProfBegin(); TickPeriodicWeaponRearm(); ProfEnd("TickPeriodicWeaponRearm");
+                    ProfBegin(); TickOracleSkyWeaponSpawner(); ProfEnd("TickOracleSkyWeaponSpawner");
                     // Push the latest per-slot inputs into each spawned rig's
                     // CharacterActions. Done every frame even if no new input
                     // arrived — analog sticks need their last value held so
                     // the rig keeps moving between input packets.
-                    WriteInputsToRigs();
+                    ProfBegin(); WriteInputsToRigs(); ProfEnd("WriteInputsToRigs");
                     // Emit a state snapshot at 30 Hz if anyone has pinged us.
                     if (_bridgePeer != null && Time.realtimeSinceStartup - _lastStateEmit >= (1.0f / 30.0f))
                     {
@@ -636,7 +636,7 @@ namespace SFHeadlessHost
                         _heartbeatLastFrame = Time.frameCount;
                         int bodies = 0;
                         try { foreach (var rb in UnityEngine.Object.FindObjectsOfType<Rigidbody>()) if (!rb.isKinematic && !rb.IsSleeping()) bodies++; } catch { }
-                        Log.LogInfo($"heartbeat: scene={SceneManager.GetActiveScene().name} tick={_heartbeatTicks} | clients={connected} spawned={spawned} | rx={pktRate:0.0}/s snap={snapRate:0.0}/s input={inputRate:0.0}/s | rigs={SlotToRig.Count} matchStarted={_matchStarted} | fps={fps:0} awakeBodies={bodies} pluginMs/frame={(_updateFrames > 0 ? _updateMsAccum / _updateFrames : 0):0.00}");
+                        Log.LogInfo($"heartbeat: scene={SceneManager.GetActiveScene().name} tick={_heartbeatTicks} | clients={connected} spawned={spawned} | rx={pktRate:0.0}/s snap={snapRate:0.0}/s input={inputRate:0.0}/s | rigs={SlotToRig.Count} matchStarted={_matchStarted} | fps={fps:0} awakeBodies={bodies} pluginMs/frame={(_updateFrames > 0 ? _updateMsAccum / _updateFrames : 0):0.00} hot:{ProfTopAndReset(_updateFrames)}");
                         _updateMsAccum = 0; _updateFrames = 0;
                     }
                     // Phase 6.5 — periodic state probe (only after match has started).
@@ -651,11 +651,11 @@ namespace SFHeadlessHost
                         TickOracleMapInfoBootstrap();
                         TickOraclePreCombatGrace();
                         TickBoxDiagnostic();
-                        TickAuthRigDeathCheck();
+                        ProfBegin(); TickAuthRigDeathCheck(); ProfEnd("TickAuthRigDeathCheck");
                     }
                     // Phase 6.10 — 30Hz authoritative-state broadcast (msgType 39).
                     // (Projectiles advance in FixedUpdate now — fixed-step, FPS-independent.)
-                    TickWorldStateSnapshot();
+                    ProfBegin(); TickWorldStateSnapshot(); ProfEnd("TickWorldStateSnapshot");
                     return;
             }
         }
