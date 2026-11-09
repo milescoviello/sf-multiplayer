@@ -194,32 +194,25 @@ namespace SFHeadlessHost
         // Y > -30 filter (don't ship killbox-fallen NSOs).
         private List<NsoSnap> CollectAllNsoSnapshot()
         {
+            // From the same per-map cache the 60 Hz path uses (rebuilt every 2 s
+            // or when an object is gone). This used to run its own
+            // FindObjectsOfType + a reflection read and a scene-name compare per
+            // object every keyframe, which was a big share of the snapshot cost
+            // on object-heavy maps.
             var result = new List<NsoSnap>();
             try
             {
-                if ((object)_nsoType == null)
+                EnsureNsoSrvCache();
+                foreach (var ent in _nsoSrvEntries)
                 {
-                    _nsoType = CachedType("NetworkSyncableObject");
-                    if ((object)_nsoType == null) return result;
-                    _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
-                    _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
-                }
-                var all = UnityEngine.Object.FindObjectsOfType(_nsoType);
-                if (all == null) return result;
-                foreach (var nso in all)
-                {
-                    var comp = nso as Component;
-                    if ((object)comp == null) continue;
-                    if (!SceneMatchesCurrentMap(comp)) continue;
-                    if (IsWeaponNsoRoot(comp.gameObject)) continue;
-                    ushort id = 0;
-                    if ((object)_nsoIndexProp != null) id = (ushort)_nsoIndexProp.GetValue(nso, null);
-                    else if ((object)_nsoIndexField != null) id = (ushort)_nsoIndexField.GetValue(nso);
-                    var p = comp.transform.position;
+                    var comp = ent.Comp;
+                    if (!comp || ent.Weapon) continue;
+                    var t = comp.transform;
+                    var p = t.position;
                     if (!IsFiniteVec3(p) || p.y < -30f) continue;
-                    var e = comp.transform.eulerAngles;
-                    var up = comp.transform.up;
-                    result.Add(new NsoSnap { Id = id, X = p.x, Y = p.y, Z = p.z, RotZ = e.z, UpY = up.y, UpZ = up.z });
+                    var e = t.eulerAngles;
+                    var up = t.up;
+                    result.Add(new NsoSnap { Id = ent.Id, X = p.x, Y = p.y, Z = p.z, RotZ = e.z, UpY = up.y, UpZ = up.z });
                 }
             }
             catch (Exception ex) { Log.LogWarning($"[P0-13 keyframe collect] {ex.Message}"); }

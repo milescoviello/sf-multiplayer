@@ -637,7 +637,21 @@ namespace SFHeadlessHost
         // on clients, worse the more crates a map had.
         private class NsoSrvEntry { public ushort Id; public Component Comp; public Rigidbody Rb; public bool Pushable; public bool Weapon; }
 
+        private readonly System.Diagnostics.Stopwatch _nsoRebuildSw = new System.Diagnostics.Stopwatch();
         private void RebuildNsoIndexCache()
+        {
+            _nsoRebuildSw.Reset(); _nsoRebuildSw.Start();
+            try { RebuildNsoIndexCacheInner(); }
+            finally
+            {
+                double v; _profMs.TryGetValue("nso.rebuild", out v);
+                _profMs["nso.rebuild"] = v + _nsoRebuildSw.Elapsed.TotalMilliseconds;
+                _profMs.TryGetValue("nso.rebuilds#", out v);
+                _profMs["nso.rebuilds#"] = v + 1;   // count (shown per frame)
+            }
+        }
+
+        private void RebuildNsoIndexCacheInner()
         {
             _nsoByIndexCache.Clear();
             _nsoSrvEntries.Clear();
