@@ -271,6 +271,7 @@ namespace SFClientRecon
             InstallClientTerrainPatches();
             InstallOracleLobbyConnectPatches();
             InstallRoundSpawnPatch();
+            InstallServerChatCommandPatch();
             InstallNsoClientPushPatches();
             // Defensive NetworkSyncableObject burst/NaN guard (credit: z7572/NaNFixer).
             // Runs regardless of connect mode; SF_NANGUARD=0 disables it.

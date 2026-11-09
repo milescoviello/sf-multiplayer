@@ -1,3 +1,49 @@
+# What's new — 2026-11-08/09: comp readiness pass (new host, replays)
+
+New host (a LAN VM; not public yet). Goal: a fair, vanilla-feeling 1v1 comp lobby
+following the DSF Discord's rules, plus a stock CASUAL lobby.
+
+**Match flow and rules.** Stock round flow (winner sent with MapChange, players
+ready up after loading, StartMatch then), stock lobby options pushed to clients
+(HP, regen, weapon spawn rate, also in ClientInit, which used to say regen on),
+the stock rarity-weighted weapon bag and drop timers (incl. the 10% double drop and
+left/right alternation), the stock map list by name. COMP: two sets of first-to-25,
+`/discount`, `/score`, random spawns each round, ping-compensated winner on trades
+(never a draw), a mid-round disconnect voids and replays the round, 2 spectators.
+
+**Fairness.** Pickups and throws validated on the server (no duplication or
+spoofed slots), spawn requests pinned to the sender's slot, a generous position
+range check (enforced in COMP only), and no client-side FPS/vSync/physics
+overrides: the player's own settings decide, as in stock (FPS changes how the game
+plays).
+
+**Replays.** Every lobby records what a spectator would receive
+(`~/sf-replays/<LOBBY>/`, one file per COMP match). The REPLAY lobby plays COMP's
+recordings back in the real game with the original timing; keys 1-9 pick a
+replay, R restarts, L lists.
+
+**Client fixes.** The old scoreboard switched the stock win counter off and made
+the game's own StartMatch throw when a round had a winner; the stock counter is now
+kept and shown in every lobby (F4 hides it). Ping display shows each player's
+ping to the server. Spectators and replay viewers have no character, so server
+text reaches them as the top banner, and they tell the server where to send
+snapshots. The game socket now sends a silent router BIND, so two players behind
+one IP in different lobbies are no longer routed into each other's lobby.
+With QOL Mod installed (allowed in DSF comp), QOL swallowed every `/` message it
+didn't know, so `/score`, `/discount` etc. never reached the server; the client now
+sends the server's own commands first (QOL keeps /help, /ping, /maps, /weapons).
+
+**Server stability.** Music is disabled on the server (starting the next track
+crashed Unity's native audio under Wine and left the process hung); the
+watchdog now probes every lobby, not only MAIN. Note for deploys: replace plugin
+DLLs with a temp file + rename, never an in-place overwrite of a loaded DLL.
+
+**Verified with headless bots and a rendered spectator client:** round flow,
+scoring, match splits, replays end to end, pings, banners, the stock win counter,
+laser spin (smooth, frame by frame), spawn fly-in, crate stacks at rest, server
+commands with QOL Mod 1.18.1 installed. **Still needs real players:** crate feel
+under real play, hit feel at real pings, snake bites.
+
 # What's new — 2026-07-02: always-on lobbies + in-game create/restart (no website)
 
 Finishing the server-browser work — named lobbies are now always-on, and players

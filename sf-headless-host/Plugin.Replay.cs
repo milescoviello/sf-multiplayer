@@ -56,9 +56,8 @@ namespace SFHeadlessHost
 
         // ---------------- recorder ----------------
         // Raw records through a 64 KB buffered FileStream, written on the main
-        // thread: no extra thread and no native zlib inside the game process (a
-        // gzip writer thread was the one new native piece when COMP crashed in
-        // Mono on 11-09). Raw is ~3 MB per minute of 1v1; pruning caps the total.
+        // thread: no extra thread and no native zlib inside the game process.
+        // A 1v1 is ~5 MB per minute (mostly world snapshots); pruning caps the total.
         private class ReplayWriter
         {
             private FileStream _out;
@@ -103,7 +102,9 @@ namespace SFHeadlessHost
                 foreach (var kv in _sfClients)
                     if (IsParticipant(kv.Value)) roster.Add($"{kv.Value.Slot}:{kv.Value.SteamID}");
                 string header = $"lobby={code};scene={_currentSceneIndex};options={BitConverter.ToString(LobbyOptionsBody()).Replace("-", "")};roster={string.Join(",", roster.ToArray())}";
-                string path = Path.Combine(dir, DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + ".sfrp.part");
+                string stamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss"), path = Path.Combine(dir, stamp + ".sfrp.part");
+                for (int n = 2; File.Exists(path) || File.Exists(path.Substring(0, path.Length - 5)); n++)
+                    path = Path.Combine(dir, $"{stamp}-{n}.sfrp.part");
                 var w = new ReplayWriter { StartedAt = Time.realtimeSinceStartup };
                 w.Open(path, header);
                 _replay = w;
@@ -413,7 +414,14 @@ namespace SFHeadlessHost
                         to = new IPEndPoint(v.Cli.Addr.Address, V26_CLIENT_PORT);
                     ulong sid = r.SteamId, swapped;
                     if (sid != 0 && v.SidSwap.TryGetValue(sid, out swapped)) sid = swapped;
-                    SendSfPacket(to, r.Type, r.Body, sid, r.Ch);
+                    byte[] body = r.Body;
+                    if (r.Type == PktClientJoined && body.Length >= 9 && v.SidSwap.Count > 0
+                        && v.SidSwap.TryGetValue(BitConverter.ToUInt64(body, 1), out swapped))
+                    {
+                        body = (byte[])body.Clone();   // [u8 slot][u64 steamId]: the joiner can be the viewer too
+                        for (int b = 0; b < 8; b++) body[1 + b] = (byte)(swapped >> (8 * b));
+                    }
+                    SendSfPacket(to, r.Type, body, sid, r.Ch);
                     sent++;
                     v.Pending = v.Reader.Next();
                     if (r.Type == PktMapChange) { v.Paused = true; v.ReadySincePause = false; v.PauseStart = now; break; }
