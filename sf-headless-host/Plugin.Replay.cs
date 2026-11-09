@@ -285,6 +285,7 @@ namespace SFHeadlessHost
             public bool Streaming, PlayersSpawned;
             public bool Paused, ReadySincePause; public float PauseStart;   // held at a MapChange until the viewer has loaded
             public string LastPath;
+            public float BeganAt;
         }
         private readonly Dictionary<string, ReplayViewer> _viewers = new Dictionary<string, ReplayViewer>();
         private ReplayReader _replaySelected;   // set by /play: what the next join (or a switch) plays
@@ -378,6 +379,7 @@ namespace SFHeadlessHost
             }
             v.LastPath = v.Reader.Path;
             v.Paused = false;
+            v.BeganAt = Time.realtimeSinceStartup;
             v.T0 = Time.realtimeSinceStartup;
             v.Pending = v.Reader.Next();
             v.Streaming = true;
@@ -396,6 +398,14 @@ namespace SFHeadlessHost
                 var v = kv.Value;
                 if (!_sfClients.ContainsKey(kv.Key)) { (gone ?? (gone = new List<string>())).Add(kv.Key); continue; }
                 if (!v.Streaming || v.Reader == null) continue;
+                // Hold the start until we know the viewer's v26 address (its first
+                // PlayerInput or hello): the recording opens with v26 messages (the
+                // round's spawn assignment) that would otherwise go to a default port.
+                if (v.Pending != null && v.Pending.Ms < 1000 && !_slotV26Endpoint.ContainsKey(v.Cli.Slot) && now - v.BeganAt < 5f)
+                {
+                    v.T0 = now;
+                    continue;
+                }
                 if (v.Paused)
                 {
                     // Recorded time stands still while the viewer loads the map, so
