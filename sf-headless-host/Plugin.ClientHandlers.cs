@@ -238,7 +238,7 @@ namespace SFHeadlessHost
             {
                 bw.Write((byte)1);            // accept
                 bw.Write((byte)slot);         // playerIndex
-                bw.Write((byte)4);            // maxPlayers — patched-only field
+                bw.Write((byte)MaxPlayers);   // maxPlayers — patched-only field (lobby cap; was always 4)
                 bw.Write((byte)0);            // mapType 0=Landfall
                 bw.Write((int)4);             // mapSize
                 bw.Write((int)sceneIndex);    // mapData (sceneIndex)

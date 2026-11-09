@@ -21,12 +21,12 @@ export WINEDLLOVERRIDES="winhttp=n,b"
 export WINEDEBUG=-all
 export PROTON_USE_XALIA=0
 export SF_LOBBY="$LOBBY"
-export SFCLIENTRECON_PORT=$((1339 + N))     # distinct v26 listen port per client
+export SFCLIENTRECON_PORT=$((1400 + N))     # distinct v26 listen port per client (clear of lobby ports 1337-1350)
 export SFGYM_PORT=$((5555 + N))             # distinct bot control port per client
 export SFGYM_MUTE=1                         # never make sound
 export SFGYM_BOT_AUTOSPAWN=0                # never create extra local players
 if [ "$BOT" = "1" ]; then
-  export SFGYM_BOT_SLOTS=0 SFGYM_BOT_FOLLOW_LOCAL=1
+  export SFGYM_BOT_SLOTS=0 SFGYM_BOT_FOLLOW_LOCAL=1 SFGYM_BOT_PROFILE="${SFGYM_BOT_PROFILE:-aggressive}"
 fi
 cd "$DIR"
 if [ "${SF_HEADLESS:-0}" = "1" ]; then

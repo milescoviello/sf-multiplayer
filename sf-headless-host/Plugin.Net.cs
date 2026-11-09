@@ -96,9 +96,13 @@ namespace SFHeadlessHost
             }
             if (toRemove != null)
             {
+                bool participantLeft = false;
                 foreach (var k in toRemove)
                 {
                     var cli = _sfClients[k];
+                    // Only a joined player leaving matters to the round; health-check
+                    // probes and half-open connections are swept here too.
+                    if (cli.Initialized && cli.Slot >= 0) participantLeft = true;
                     Log.LogInfo($"[SF] Dropping stale client {k} (slot={cli.Slot} steamID={cli.SteamID}, last seen {Time.realtimeSinceStartup - cli.LastSeen:0.0}s ago)");
                     _sfClients.Remove(k);
                     // Also forget the v26 endpoint + death-tracking for the slot,
@@ -136,7 +140,7 @@ namespace SFHeadlessHost
                 }
                 // A player leaving can end the round (last one standing wins);
                 // in COMP it voids the round instead (replayed on the same map).
-                if (_matchStarted)
+                if (_matchStarted && participantLeft)
                 {
                     if (CompMode) OnCompPlayerLeftMidRound();
                     else CheckRoundEnd("player left");

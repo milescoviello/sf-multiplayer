@@ -99,6 +99,7 @@ namespace SFHeadlessHost
         private bool _roundAdvanceQueuedAfterMapLoad;
         private readonly HashSet<int> _deathSlotsHandled = new HashSet<int>();
         private float _authDeathCheckAt = -1f;
+        private int _heartbeatLastFrame;
 
         private void Awake()
         {
@@ -503,8 +504,13 @@ namespace SFHeadlessHost
 
         private int _updateErrorTicks;
         private string _updateErrorFirstStackTrace;
+        // Per-frame cost of this plugin's Update (ms), reported in the heartbeat.
+        private readonly System.Diagnostics.Stopwatch _updateSw = new System.Diagnostics.Stopwatch();
+        internal double _updateMsAccum;
+        internal int _updateFrames;
         private void Update()
         {
+            _updateSw.Reset(); _updateSw.Start();
             try { TickOracleDebugConsole(); } catch { }
             try
             {
@@ -528,6 +534,9 @@ namespace SFHeadlessHost
                     Log.LogError($"  stack[current]: {e.StackTrace}");
                 }
             }
+            _updateSw.Stop();
+            _updateMsAccum += _updateSw.Elapsed.TotalMilliseconds;
+            _updateFrames++;
         }
 
         private int _fixedUpdateErrors;

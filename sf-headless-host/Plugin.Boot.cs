@@ -617,7 +617,7 @@ namespace SFHeadlessHost
                         _lastStateEmit = Time.realtimeSinceStartup;
                         EmitStateSnapshot();
                     }
-                    var interval = Verbose ? 5.0f : 30.0f;
+                    var interval = Verbose ? 5.0f : 30.0f;   // see _heartbeatLastFrame for fps
                     if (Time.realtimeSinceStartup - _lastHeartbeat >= interval)
                     {
                         float elapsed = Time.realtimeSinceStartup - _lastHeartbeat;
@@ -632,7 +632,12 @@ namespace SFHeadlessHost
                         _heartbeatLastInput = _inputPacketsRx;
                         int spawned = 0, connected = 0;
                         foreach (var kv in _sfClients) { connected++; if (kv.Value.Spawned) spawned++; }
-                        Log.LogInfo($"heartbeat: scene={SceneManager.GetActiveScene().name} tick={_heartbeatTicks} | clients={connected} spawned={spawned} | rx={pktRate:0.0}/s snap={snapRate:0.0}/s input={inputRate:0.0}/s | rigs={SlotToRig.Count} matchStarted={_matchStarted}");
+                        float fps = (Time.frameCount - _heartbeatLastFrame) / elapsed;
+                        _heartbeatLastFrame = Time.frameCount;
+                        int bodies = 0;
+                        try { foreach (var rb in UnityEngine.Object.FindObjectsOfType<Rigidbody>()) if (!rb.isKinematic && !rb.IsSleeping()) bodies++; } catch { }
+                        Log.LogInfo($"heartbeat: scene={SceneManager.GetActiveScene().name} tick={_heartbeatTicks} | clients={connected} spawned={spawned} | rx={pktRate:0.0}/s snap={snapRate:0.0}/s input={inputRate:0.0}/s | rigs={SlotToRig.Count} matchStarted={_matchStarted} | fps={fps:0} awakeBodies={bodies} pluginMs/frame={(_updateFrames > 0 ? _updateMsAccum / _updateFrames : 0):0.00}");
+                        _updateMsAccum = 0; _updateFrames = 0;
                     }
                     // Phase 6.5 — periodic state probe (only after match has started).
                     if (_matchStarted)
@@ -681,9 +686,11 @@ namespace SFHeadlessHost
             // different step makes the two diverge. (This used to force 60 Hz.)
             // Frame cap: headless Unity otherwise spins uncapped (~half a core
             // per idle lobby). Packets are drained once per frame, so a high cap
-            // keeps added delay small: 200 fps = at most 5 ms. SF_SERVER_FPS overrides.
+            // keeps added delay small: 100 fps = at most 10 ms, the same for every
+            // player. (Idle cost is mostly the game itself, not this plugin.)
+            // SF_SERVER_FPS overrides.
             {
-                int fpsCap = 200;
+                int fpsCap = 100;
                 int v;
                 if (int.TryParse(Environment.GetEnvironmentVariable("SF_SERVER_FPS"), out v) && v >= 30 && v <= 1000) fpsCap = v;
                 Application.targetFrameRate = fpsCap;
