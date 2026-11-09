@@ -486,7 +486,7 @@ namespace SFHeadlessHost
         private bool TryGetNsoWorldPosition(ushort idx, out Vector3 pos)
         {
             pos = default;
-            if (_nsoByIndexCache.Count == 0 || Time.realtimeSinceStartup - _nsoCacheLastRebuildAt > 5f)
+            if (NsoCacheDue(5f))
             {
                 RebuildNsoIndexCache();
                 _nsoCacheLastRebuildAt = Time.realtimeSinceStartup;
@@ -530,7 +530,7 @@ namespace SFHeadlessHost
 
                 // Index→Component cache (shared with ApplyClientObjectUpdate).
                 float now = Time.realtimeSinceStartup;
-                if (_nsoCacheLastRebuildAt < 0f || now - _nsoCacheLastRebuildAt > 5f || _nsoByIndexCache.Count == 0)
+                if (NsoCacheDue(5f))
                 {
                     RebuildNsoIndexCache();
                     _nsoCacheLastRebuildAt = now;
@@ -598,7 +598,7 @@ namespace SFHeadlessHost
             // get re-assigned on every scene load, so a stale cache after
             // a map change would point at destroyed objects.
             float now = Time.realtimeSinceStartup;
-            if (_nsoCacheLastRebuildAt < 0f || now - _nsoCacheLastRebuildAt > 5f || _nsoByIndexCache.Count == 0)
+            if (NsoCacheDue(5f))
             {
                 RebuildNsoIndexCache();
                 _nsoCacheLastRebuildAt = now;
@@ -691,11 +691,22 @@ namespace SFHeadlessHost
             catch (Exception ex) { Log.LogWarning($"[BOXES NSO cache] {ex.Message}"); }
         }
 
+        // Rebuild due? Every maxAge seconds, at once after a round reset, and
+        // when the cache is empty at most 4 times a second. (An empty cache used
+        // to force a rebuild on EVERY call: on maps without networked objects
+        // that was a full FindObjectsOfType per snapshot, 2+ per frame, which
+        // dropped the server to 12-40 fps.)
+        private bool NsoCacheDue(float maxAge)
+        {
+            if (_nsoCacheLastRebuildAt < 0f) return true;
+            float age = Time.realtimeSinceStartup - _nsoCacheLastRebuildAt;
+            return age > maxAge || (_nsoByIndexCache.Count == 0 && age > 0.25f);
+        }
+
         // Ensure the NSO cache is fresh enough for per-tick iteration.
         private void EnsureNsoSrvCache()
         {
-            if (_nsoSrvEntries.Count == 0 || _nsoCacheLastRebuildAt < 0f
-                || Time.realtimeSinceStartup - _nsoCacheLastRebuildAt > 2f)
+            if (NsoCacheDue(2f))
             {
                 RebuildNsoIndexCache();
                 _nsoCacheLastRebuildAt = Time.realtimeSinceStartup;
@@ -713,13 +724,13 @@ namespace SFHeadlessHost
                 foreach (var ent in _nsoSrvEntries)
                 {
                     var comp = ent.Comp;
-                    if (!comp) { needRebuild = true; continue; }
+                    if (!comp) { needRebuild = true; NoteRebuildReason("destroyed", ent.Id, null); continue; }
                     if (ent.Weapon) continue;
 
                     ushort id = ent.Id;
                     Vector3 p;
                     try { p = comp.transform.position; }
-                    catch { needRebuild = true; continue; }
+                    catch (Exception tex) { needRebuild = true; NoteRebuildReason("transform " + tex.GetType().Name, id, comp); continue; }
 
                     var rb = ent.Rb;
                     if (!IsFiniteVec3(p) || p.y < -30f) continue;
@@ -743,7 +754,7 @@ namespace SFHeadlessHost
                             dynamicMoving = rb.velocity.sqrMagnitude > 0.0001f
                                 || rb.angularVelocity.sqrMagnitude > 0.0001f;
                         }
-                        catch { needRebuild = true; continue; }
+                        catch (Exception vex) { needRebuild = true; NoteRebuildReason("velocity " + vex.GetType().Name, id, comp); continue; }
                     }
 
                     bool positionDrifted = !_nsoLastBroadcastPos.TryGetValue(id, out var lastPos)
@@ -771,6 +782,17 @@ namespace SFHeadlessHost
             catch (Exception ex) { Log.LogWarning($"[P6.14 NSO collect] {ex.GetType().Name}: {ex.Message}"); }
             return result;
         }
+        // Diagnostic: why the 60 Hz NSO pass asked for a cache rebuild (first few per map).
+        private string _rebuildReasonScene; private int _rebuildReasonLogs;
+        private void NoteRebuildReason(string why, ushort id, Component comp)
+        {
+            if (_rebuildReasonScene != _currentMapSceneName) { _rebuildReasonScene = _currentMapSceneName; _rebuildReasonLogs = 0; }
+            if (_rebuildReasonLogs++ >= 4) return;
+            string name = "?";
+            try { if (comp) name = comp.gameObject.name; } catch { }
+            Log.LogInfo($"[nso-cache] rebuild requested on {_currentMapSceneName}: {why} (id {id} '{name}')");
+        }
+
         private void TickStaleNsoFreezer()
         {
             if (_nsoFreezerNextAt < 0f) _nsoFreezerNextAt = Time.realtimeSinceStartup + 5f;
