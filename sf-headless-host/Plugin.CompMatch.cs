@@ -90,9 +90,26 @@ namespace SFHeadlessHost
             if (!CompMode || !_matchStarted || !_startMatchSentThisRound || _pendingRoundAdvanceAt >= 0f) return;
             _roundVoid = true;
             _replaySameMap = true;
-            BroadcastChatToAll("A player left: this round doesn't count and will be replayed on the same map.");
+            Announce("A player left: this round doesn't count and will be replayed on the same map.");
             _pendingRoundAdvanceAt = Time.realtimeSinceStartup + RoundEndDelaySec;
             Log.LogInfo("[comp] player left mid-round → round voided, same map will be replayed.");
+        }
+
+        // Score / match messages: chat for the players, plus the top-of-screen
+        // banner (msgType 42, drawn by SFClientRecon) for everyone. Spectators
+        // have no player of their own, so chat never shows for them.
+        private void Announce(string text)
+        {
+            BroadcastChatToAll(text);
+            byte[] body = System.Text.Encoding.UTF8.GetBytes(text.Length > 200 ? text.Substring(0, 200) : text);
+            foreach (var kv in _sfClients)
+            {
+                if (!kv.Value.Initialized) continue;
+                IPEndPoint v26Ep;
+                if (!_slotV26Endpoint.TryGetValue(kv.Value.Slot, out v26Ep))
+                    v26Ep = new IPEndPoint(kv.Value.Addr.Address, V26_CLIENT_PORT);
+                SendSfPacket(v26Ep, PktV26Announce, body, 0, 0);
+            }
         }
 
         // ---------------- COMP random spawns ----------------
@@ -106,7 +123,7 @@ namespace SFHeadlessHost
             if (!CompMode) return;
             var slots = new List<int>();
             foreach (var kv in _sfClients)
-                if (kv.Value.Initialized && kv.Value.Slot >= 0 && !slots.Contains(kv.Value.Slot)) slots.Add(kv.Value.Slot);
+                if (IsParticipant(kv.Value) && !slots.Contains(kv.Value.Slot)) slots.Add(kv.Value.Slot);
             if (slots.Count == 0) return;
             slots.Sort();
             var spawn = new List<int>();
@@ -144,7 +161,7 @@ namespace SFHeadlessHost
         private string ScoreLine()
         {
             var slots = new List<int>();
-            foreach (var kv in _sfClients) if (kv.Value.Initialized && kv.Value.Slot >= 0 && !slots.Contains(kv.Value.Slot)) slots.Add(kv.Value.Slot);
+            foreach (var kv in _sfClients) if (IsParticipant(kv.Value) && !slots.Contains(kv.Value.Slot)) slots.Add(kv.Value.Slot);
             foreach (var s in _setScore.Keys) if (!slots.Contains(s)) slots.Add(s);
             slots.Sort();
             var parts = new List<string>();
@@ -160,16 +177,16 @@ namespace SFHeadlessHost
             _matchRounds[w] = Get(_matchRounds, w) + 1;
             _pointLog.Add(w);
             Log.LogInfo($"[comp] point {SlotName(w)} → {ScoreLine()}");
-            if (Get(_setScore, w) < FirstTo) { BroadcastChatToAll(ScoreLine()); return; }
+            if (Get(_setScore, w) < FirstTo) { Announce(ScoreLine()); return; }
 
             _setsWon[w] = Get(_setsWon, w) + 1;
-            BroadcastChatToAll($"{SlotName(w)} wins set {_currentSet}! {ScoreLine()}");
+            Announce($"{SlotName(w)} wins set {_currentSet}! {ScoreLine()}");
             if (_currentSet < SetsPerMatch)
             {
                 _currentSet++;
                 _setScore.Clear();
                 _pointLog.Clear();
-                BroadcastChatToAll($"Set {_currentSet} of {SetsPerMatch} starts now: first to {FirstTo}.");
+                Announce($"Set {_currentSet} of {SetsPerMatch} starts now: first to {FirstTo}.");
                 return;
             }
             // Match over: most sets wins; on equal sets, most rounds won overall.
@@ -183,7 +200,7 @@ namespace SFHeadlessHost
             var summary = new List<string>();
             foreach (var kv in _matchRounds) summary.Add($"{SlotName(kv.Key)}: {Get(_setsWon, kv.Key)} set(s), {kv.Value} round(s)");
             string result = tie ? "The match is tied" : $"{SlotName(bestSlot)} wins the match";
-            BroadcastChatToAll($"{result}! " + string.Join(", ", summary.ToArray()) + ". New match starting.");
+            Announce($"{result}! " + string.Join(", ", summary.ToArray()) + ". New match starting.");
             Log.LogInfo($"[comp] MATCH OVER: {result}. " + string.Join(", ", summary.ToArray()));
             ResetCompMatch();
         }
@@ -204,7 +221,7 @@ namespace SFHeadlessHost
             _setScore[w] = Math.Max(0, Get(_setScore, w) - 1);
             _matchRounds[w] = Math.Max(0, Get(_matchRounds, w) - 1);
             Log.LogInfo($"[comp] /discount by slot {by?.Slot}: removed a point from {SlotName(w)} → {ScoreLine()}");
-            BroadcastChatToAll($"Last round discounted ({SlotName(w)} -1, by {SlotName(by?.Slot ?? -1)}). {ScoreLine()}");
+            Announce($"Last round discounted ({SlotName(w)} -1, by {SlotName(by?.Slot ?? -1)}). {ScoreLine()}");
             return null;
         }
 
@@ -212,7 +229,7 @@ namespace SFHeadlessHost
         {
             var pings = new List<string>();
             foreach (var kv in _sfClients)
-                if (kv.Value.Initialized && kv.Value.Slot >= 0)
+                if (IsParticipant(kv.Value))
                     pings.Add($"{SlotName(kv.Value.Slot)} {(kv.Value.RttMs > 0f ? Mathf.RoundToInt(kv.Value.RttMs) + "ms" : "?")}");
             string ping = "Ping: " + string.Join(", ", pings.ToArray());
             return CompMode ? ScoreLine() + " | " + ping : ping;

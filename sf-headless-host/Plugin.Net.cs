@@ -36,7 +36,30 @@ namespace SFHeadlessHost
             public bool IsAdmin;
             // Smoothed round-trip time to the server (server-measured), ms.
             public float RttMs;
+            // COMP spectator: connected and receives everything, but has no body
+            // and never counts as a player (SF_SPECTATORS slots after the players).
+            public bool IsSpectator;
         }
+
+        // A joined player (not a spectator, not a half-open connection).
+        private static bool IsParticipant(SfClient c) => c != null && c.Initialized && c.Slot >= 0 && !c.IsSpectator;
+
+        // Spectator slots after the player slots (COMP: 2). Total slots stay <= 4.
+        internal static int SpectatorSlots
+        {
+            get
+            {
+                int v;
+                int n = int.TryParse(Environment.GetEnvironmentVariable("SF_SPECTATORS"), out v) && v > 0 ? v : 0;
+                return Math.Min(n, 4 - MaxPlayers);
+            }
+        }
+
+        // Packets a spectator may send: handshake, ping, chat, spawn request (refused), ready.
+        private static bool SpectatorMayDispatch(byte msgType) =>
+            msgType == PktPing || msgType == PktPingResponse || msgType == PktClientRequestingAccepting
+            || msgType == PktClientRequestingIndex || msgType == PktClientRequestingToSpawn
+            || msgType == PktClientReadyUp || msgType == PktPlayerTalked;
 
         // Per-slot input frame the bridge has most recently received. Drained by
         // the per-frame input-write hook so values are written every Update
@@ -102,7 +125,7 @@ namespace SFHeadlessHost
                     var cli = _sfClients[k];
                     // Only a joined player leaving matters to the round; health-check
                     // probes and half-open connections are swept here too.
-                    if (cli.Initialized && cli.Slot >= 0) participantLeft = true;
+                    if (IsParticipant(cli)) participantLeft = true;
                     Log.LogInfo($"[SF] Dropping stale client {k} (slot={cli.Slot} steamID={cli.SteamID}, last seen {Time.realtimeSinceStartup - cli.LastSeen:0.0}s ago)");
                     _sfClients.Remove(k);
                     // Also forget the v26 endpoint + death-tracking for the slot,
@@ -256,6 +279,9 @@ namespace SFHeadlessHost
                 // direct ClientRequestingAccepting before ClientRequestingIndex).
                 cli.SteamID = steamID;
             }
+
+            // Spectators watch: drop anything from them that would act on the game.
+            if (cli.IsSpectator && !SpectatorMayDispatch(msgType)) return;
 
             // ALKA P0-5 defense: a bad/malformed packet in one handler should
             // log + drop, not bubble out and skip the rest of the batch (which
@@ -537,11 +563,11 @@ namespace SFHeadlessHost
         private int AllocSlot(SfClient cli)
         {
             if (cli.Slot >= 0) return cli.Slot;
-            for (int s = 0; s < MaxPlayers; s++)
+            for (int s = 0; s < MaxPlayers + SpectatorSlots; s++)
             {
                 bool taken = false;
                 foreach (var kv in _sfClients) if (kv.Value.Slot == s) { taken = true; break; }
-                if (!taken) return s;
+                if (!taken) { cli.IsSpectator = s >= MaxPlayers; return s; }
             }
             // H-P1-2 — server full. Returning 0 here crammed a 5th client into
             // slot 0: channel routing (slot*2+2 / slot*2+3), SlotToRig[0] and

@@ -19,7 +19,7 @@ namespace SFHeadlessHost
         {
             int n = 0;
             foreach (var kv in _sfClients)
-                if (kv.Value.Initialized) n++;
+                if (IsParticipant(kv.Value)) n++;
             return n;
         }
 
@@ -66,7 +66,7 @@ namespace SFHeadlessHost
             foreach (var kv in _sfClients)
             {
                 var c = kv.Value;
-                if (!c.Initialized || c.Slot < 0) continue;
+                if (!IsParticipant(c)) continue;
                 n++;
                 if (!_readySlots.Contains(c.Slot)) return false;
             }
@@ -91,7 +91,7 @@ namespace SFHeadlessHost
 
         private void OnClientReadyUp(SfClient cli)
         {
-            if (!cli.Initialized || cli.Slot < 0) return;
+            if (!IsParticipant(cli)) return;
             _readySlots.Add(cli.Slot);
             // Stock host: a ReadyUp that arrives while the fight is already on
             // (late joiner / late loader) gets StartMatch sent to that user only.
@@ -102,7 +102,7 @@ namespace SFHeadlessHost
         // A client reported its own death. `channel` is the packet's channel.
         private void OnClientReportedDeath(SfClient cli, byte channel, string reason)
         {
-            if (cli == null || !cli.Initialized || cli.Slot < 0) return;
+            if (!IsParticipant(cli)) return;
             int victim = channel >= 2 ? (channel - 2) / 2 : -1;
             if (victim != cli.Slot)
             {
@@ -126,7 +126,7 @@ namespace SFHeadlessHost
             foreach (var kv in _sfClients)
             {
                 var c = kv.Value;
-                if (!c.Initialized || c.Slot < 0 || !seen.Add(c.Slot)) continue;
+                if (!IsParticipant(c) || !seen.Add(c.Slot)) continue;
                 participants++;
                 if (!_deadThisRound.Contains(c.Slot)) { alive++; lastAlive = c.Slot; }
             }
@@ -445,7 +445,7 @@ namespace SFHeadlessHost
             _startMatchSentThisRound = true;
             _roundParticipantsAtStart = 0;
             foreach (var kv in _sfClients)
-                if (kv.Value.Initialized && kv.Value.Slot >= 0) _roundParticipantsAtStart++;
+                if (IsParticipant(kv.Value)) _roundParticipantsAtStart++;
             // Clear per-round spawn flag so next ClientRequestingToSpawn
             // is treated as a fresh round-start rather than a respawn.
             foreach (var kv in _sfClients) kv.Value.Spawned = false;

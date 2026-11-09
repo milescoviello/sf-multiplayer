@@ -86,6 +86,7 @@ namespace SFHeadlessHost
                     skipped++;
                     continue;
                 }
+                if (cli.IsSpectator) { skipped++; continue; }   // spectators have no body
                 if (SlotToRig.ContainsKey(cli.Slot))
                 {
                     Log.LogInfo($"[P6.9] Skip {kv.Key}: rig already exists for slot {cli.Slot}.");

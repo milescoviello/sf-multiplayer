@@ -252,6 +252,7 @@ namespace SFHeadlessHost
                         evict.Add(kv.Key);
                         Log.LogInfo($"[SF] Evicting stale reconnect: SteamID={other.SteamID} was on {kv.Key} slot={other.Slot}; new conn from {cli.Addr} reusing slot {other.Slot}.");
                         cli.Slot = other.Slot;
+                        cli.IsSpectator = other.IsSpectator;
                         // (A2) Invalidate the prior occupant's slot-keyed state so
                         // it doesn't outlive them: the stale v26 endpoint (re-set on
                         // the reconnect's first input) and the death-handled mark
@@ -290,7 +291,7 @@ namespace SFHeadlessHost
             {
                 bw.Write((byte)1);            // accept
                 bw.Write((byte)slot);         // playerIndex
-                bw.Write((byte)MaxPlayers);   // maxPlayers — patched-only field (lobby cap; was always 4)
+                bw.Write((byte)(MaxPlayers + SpectatorSlots));   // slot count incl. spectators (a spectator's index must fit the client's arrays)
                 bw.Write((byte)0);            // mapType 0=Landfall
                 bw.Write((int)4);             // mapSize
                 bw.Write((int)sceneIndex);    // mapData (sceneIndex)
@@ -358,6 +359,19 @@ namespace SFHeadlessHost
             float ry = ReadF32LE(data, off + 17);
             float rz = ReadF32LE(data, off + 21);
             Log.LogInfo($"[SF] ClientRequestingToSpawn slot={pIdx} pos=({px:0.0},{py:0.0},{pz:0.0})");
+            if (cli.Slot < 0) return;
+            if (pIdx != cli.Slot)
+            {
+                // The slot comes from the client; it may only spawn itself.
+                Log.LogWarning($"[SF] spawn request for slot {pIdx} from slot {cli.Slot} — using {cli.Slot}.");
+                pIdx = (byte)cli.Slot;
+            }
+            if (cli.IsSpectator)
+            {
+                if (!cli.Spawned) SendChatToPlayer(cli, "You're spectating this lobby (players: " + MaxPlayers + ").");
+                cli.Spawned = true;   // no body: nothing is broadcast
+                return;
+            }
 
             using (var ms = new System.IO.MemoryStream())
             using (var bw = new System.IO.BinaryWriter(ms))
