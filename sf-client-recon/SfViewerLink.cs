@@ -57,9 +57,28 @@ namespace SFClientRecon
             if (!RefOk(_npLocalCtlF)) return false;
             foreach (var np in UnityEngine.Object.FindObjectsOfType(npT))
             {
-                try { if ((bool)_npLocalCtlF.GetValue(np)) return true; } catch { }
+                try
+                {
+                    if (!(bool)_npLocalCtlF.GetValue(np)) continue;
+                    LogLocalControlOnce(np as Component);
+                    return true;
+                }
+                catch { }
             }
             return false;
+        }
+
+        // Diagnostic: stock gates local-only effects (a snake's bite, some
+        // breakables) on the victim's Controller.HasControl; log it once per body.
+        private static int _loggedCtlFor = -1;
+        private static void LogLocalControlOnce(Component np)
+        {
+            if (np == null || np.GetInstanceID() == _loggedCtlFor) return;
+            _loggedCtlFor = np.GetInstanceID();
+            var ctlT = CachedType("Controller");
+            var ctl = RefOk(ctlT) ? np.GetComponent(ctlT) : null;
+            var f = RefOk(ctlT) ? AccessTools.Field(ctlT, "mHasControl") : null;
+            Log.LogInfo($"[diag] local body: Controller.mHasControl={(RefOk(ctl) && RefOk(f) ? f.GetValue(ctl) : "?")}");
         }
 
         private static bool InitializedFromServer()
