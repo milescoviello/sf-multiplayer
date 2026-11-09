@@ -35,7 +35,7 @@ namespace SFServerBrowser
             { "TAB_BROWSE",     new[] { "BROWSE",       "PARTIDAS" } },
             { "TAB_JOIN",       new[] { "JOIN",         "UNIRSE" } },
             { "TAB_SETTINGS",   new[] { "SETTINGS",     "AJUSTES" } },
-            { "SUBTITLE",       new[] { "Centralized multiplayer lobby", "Sala multijugador centralizada" } },
+            { "SUBTITLE",       new[] { "Dedicated servers", "Servidores dedicados" } },
             { "LOBBY_CODE",     new[] { "LOBBY CODE",   "CÓDIGO DE SALA" } },
             { "COPY_CODE",      new[] { "COPY CODE",    "COPIAR CÓDIGO" } },
             { "INVITE",         new[] { "INVITE (COPY)", "INVITAR (COPIAR)" } },
@@ -63,13 +63,13 @@ namespace SFServerBrowser
             { "FULL",           new[] { "FULL",         "LLENA" } },
             { "ALIVE",          new[] { "ALIVE",        "ACTIVA" } },
             { "DOWN",           new[] { "DOWN",         "CAÍDA" } },
-            { "FOOTER",         new[] { "F2 toggle  ·  Esc close  ·  ALKA Online", "F2 abrir/cerrar  ·  Esc cerrar  ·  ALKA Online" } },
+            { "FOOTER",         new[] { "F2 toggle  ·  Esc close  ·  Stick Fight Online", "F2 abrir/cerrar  ·  Esc cerrar  ·  Stick Fight Online" } },
             { "SET_LANGUAGE",   new[] { "LANGUAGE",     "IDIOMA" } },
             { "SET_LANG_HINT",  new[] { "Choose your interface language.", "Elige el idioma de la interfaz." } },
             { "ENGLISH",        new[] { "ENGLISH",      "INGLÉS" } },
             { "SPANISH",        new[] { "SPANISH",      "ESPAÑOL" } },
-            { "SET_ABOUT",      new[] { "ALKA Online — native lobby. English is the default; Spanish optional.",
-                                       "ALKA Online — sala nativa. Inglés por defecto; español opcional." } },
+            { "SET_ABOUT",      new[] { "Stick Fight Online — dedicated servers. English is the default; Spanish optional.",
+                                       "Stick Fight Online — servidores dedicados. Inglés por defecto; español opcional." } },
         };
 
         internal static string T(string key)

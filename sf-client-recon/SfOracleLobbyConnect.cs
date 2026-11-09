@@ -400,9 +400,44 @@ namespace SFClientRecon
                 try { inst.SendSelectLobbyPacket(); }
                 catch (Exception e) { Log.LogWarning($"[oracle-lobby] SELECT send: {e.Message}"); }
             }
+            // Switching from a lobby we're in: leave it the stock way first
+            // (MultiplayerManager.OnDisconnected: ClientLeft to the old lobby,
+            // which the game socket is still bound to; "accepted" reset; old
+            // players' bodies removed). Without it the patched client ignored
+            // the new lobby's ClientAccepted (mHasBeenAcceptedFromServer stayed
+            // true) and the switch stalled; the old lobby's players stayed too.
+            LeaveCurrentLobbyForSwitch();
             // Allow a re-connect from the menu (the autoconnect guard latches this).
             _oracleConnectStarted = false;
             BeginOracleLobbyConnect("ServerBrowser:" + code);
+        }
+
+        private static void LeaveCurrentLobbyForSwitch()
+        {
+            try
+            {
+                if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
+                var mm = RefOk(_mmType) ? UnityEngine.Object.FindObjectOfType(_mmType) : null;
+                if (!RefOk(mm)) return;
+                var accF = AccessTools.Field(_mmType, "mHasBeenAcceptedFromServer");
+                bool accepted = RefOk(accF) && (bool)accF.GetValue(mm);
+                if (!accepted) return;
+                var onDisc = AccessTools.Method(_mmType, "OnDisconnected");
+                if (RefOk(onDisc)) onDisc.Invoke(mm, new object[] { true });
+                if (RefOk(accF)) accF.SetValue(mm, false);
+                // Forget the old lobby's roster too: the new lobby's ClientInit
+                // first "removes disconnected clients" still listed here, by
+                // indexing m_Players with their slot (it threw once m_Players
+                // was emptied, and the join never finished).
+                var ccF = AccessTools.Field(_mmType, "mConnectedClients");
+                var cc = RefOk(ccF) ? ccF.GetValue(mm) as Array : null;
+                if (cc != null) ccF.SetValue(mm, Array.CreateInstance(cc.GetType().GetElementType(), cc.Length));
+                var playersF = AccessTools.Field(_mmType, "m_Players");
+                var players = RefOk(playersF) ? playersF.GetValue(mm) as System.Collections.IList : null;
+                if (players != null) players.Clear();   // their bodies were just destroyed
+                Log.LogInfo("[oracle-lobby] left the current lobby (ClientLeft sent) before switching.");
+            }
+            catch (Exception e) { Log.LogWarning($"[oracle-lobby] leave before switch: {(e.InnerException ?? e).Message}"); }
         }
 
         // True if a match is actively in progress. GameManager.inFight is a

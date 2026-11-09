@@ -399,6 +399,16 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 			r.sendCtlAck(cliAddr, nonce, ctlRejected)
 			return
 		}
+		// RESTART kills a running lobby. Anyone can send it (the in-game
+		// browser's RST button), so it is only honoured for an empty lobby:
+		// otherwise any player could end a COMP match for both players.
+		if op == opRestart {
+			if n := r.Stats().ByCode[code]; n > 0 {
+				r.sendCtlAck(cliAddr, nonce, ctlRejected)
+				log.Printf("[router] RESTART %q from %s refused: %d live flow(s) in that lobby", code, cliAddr, n)
+				return
+			}
+		}
 		go ctl(op, code)
 		r.sendCtlAck(cliAddr, nonce, ctlAccepted)
 		verb := "CREATE"

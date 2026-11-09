@@ -1,7 +1,7 @@
 # Stick Fight Online - uninstaller. Puts Stick Fight back the way it was,
 # without touching other mods:
-#  - restores the Assembly-CSharp.dll backed up at install time;
-#  - removes only our plugins (SFClientRecon, SFServerBrowser);
+#  - restores the game file if an older install had patched it;
+#  - removes only our files (plugins, launcher, firewall rule);
 #  - removes BepInEx only if this installer put it there and nothing else
 #    is in BepInEx\plugins;
 #  - removes the launcher folder and the shortcuts.
@@ -22,21 +22,25 @@ $Backup  = Join-Path $Managed 'Assembly-CSharp.dll.vanilla.bak'
 $Plug    = Join-Path $Sf 'BepInEx\plugins'
 $Online  = Join-Path $Sf 'sf-online'
 
+# The current installer never touches the game file; an older one did.
 if (Test-Path $Backup) {
     Copy-Item $Backup (Join-Path $Managed 'Assembly-CSharp.dll') -Force
     Remove-Item $Backup -Force
-    Ok 'Restored your original Assembly-CSharp.dll'
-} else { Warn 'No backup found: Steam > Stick Fight > Properties > Verify integrity restores the game file.' }
+    Ok 'Restored your original Assembly-CSharp.dll (from an older install)'
+}
 
 foreach ($p in @('SFClientRecon.dll', 'SFServerBrowser.dll')) {
     $f = Join-Path $Plug $p
     if (Test-Path $f) { Remove-Item $f -Force; Ok "Removed $p" }
 }
+$pre = Join-Path $Sf 'BepInEx\patchers\SFOnlinePreloader.dll'
+if (Test-Path $pre) { Remove-Item $pre -Force; Ok 'Removed SFOnlinePreloader.dll' }
+try { Get-NetFirewallRule -DisplayName 'Stick Fight Online' -ErrorAction SilentlyContinue | Remove-NetFirewallRule; Ok 'Removed the firewall rule' } catch { }
 $doorstop = Join-Path $Sf 'doorstop_config.ini'
 if (Test-Path "$doorstop.sf-online.bak") { Move-Item "$doorstop.sf-online.bak" $doorstop -Force; Ok 'Restored doorstop_config.ini' }
 
 $weInstalledBep = Test-Path (Join-Path $Online 'installed-bepinex.txt')
-$otherPlugins = @(Get-ChildItem $Plug -ErrorAction SilentlyContinue)
+$otherPlugins = @(Get-ChildItem $Plug -ErrorAction SilentlyContinue) + @(Get-ChildItem (Join-Path $Sf 'BepInEx\patchers') -ErrorAction SilentlyContinue)
 if ($weInstalledBep -and $otherPlugins.Count -eq 0) {
     foreach ($p in @('BepInEx', 'winhttp.dll', 'doorstop_config.ini', '.doorstop_version', 'changelog.txt')) {
         $f = Join-Path $Sf $p

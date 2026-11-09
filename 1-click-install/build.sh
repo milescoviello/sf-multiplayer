@@ -25,8 +25,10 @@ entry() { printf '    {"path": "%s", "url": "%s/%s", "sha256": "%s"}' "$1" "$raw
 {
   echo '{'
   echo "  \"version\": \"$ver\","
+  srv="$(head -1 "$here/server.txt" | tr -d '\r')"
+  echo "  \"server\": \"${srv%%:*}\", \"port\": ${srv##*:},"
   echo '  "files": ['
-  entry "StickFight_Data/Managed/Assembly-CSharp.dll" "Assembly-CSharp.srv.v25.dll"; echo ','
+  entry "sf-online/Assembly-CSharp.dll" "Assembly-CSharp.srv.v25.dll"; echo ','
   entry "BepInEx/plugins/SFClientRecon.dll" "SFClientRecon.dll"; echo ','
   entry "BepInEx/plugins/SFServerBrowser.dll" "SFServerBrowser.dll"; echo ','
   entry "sf-online/launch.ps1" "launch.ps1"; echo ','

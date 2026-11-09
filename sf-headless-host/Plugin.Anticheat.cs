@@ -90,8 +90,7 @@ namespace SFHeadlessHost
             BroadcastChatToAll(msg);
             SendAnnouncementToAll(msg);   // recon plugin shows a top banner for 3s
             Log.LogWarning($"[anticheat behavior] KICK slot={slot}: {reason}");
-            byte[] kickBody = new byte[1] { (byte)slot };
-            BroadcastSfPacket(PktKickPlayer, kickBody, 0uL, 0);
+            KickClient(ClientInSlot(slot), "anti-cheat: " + reason);
         }
 
         private bool ValidateDamagePacket(SfClient sender, byte[] data, int off, int len)

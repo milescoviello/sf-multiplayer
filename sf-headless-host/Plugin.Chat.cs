@@ -66,6 +66,8 @@ namespace SFHeadlessHost
             byte ch = (byte)((target.Slot * 2) + 3);
             SendSfPacket(target.Addr, PktPlayerTalked, body, 0uL, ch);
         }
+        private static readonly string[] CompLockedCommands = { "/kick", "/next", "/map", "/restart", "/weapons", "/anticheat", "/tickrate", "/tick" };
+
         private static void EnsureAdminEnvLoaded()
         {
             if (_adminEnvLoaded) return;
@@ -118,6 +120,13 @@ namespace SFHeadlessHost
                 // Don't echo /admin arguments (the password) into the log.
                 Log.LogInfo($"[chat] slot={sender.Slot} command='{(cmd == "/admin" ? "/admin ***" : text)}'");
                 if (ReplayMode) { HandleReplayChat(sender, cmd, space < 0 ? "" : text.Substring(space + 1).Trim()); return; }
+                // COMP: nobody may change the match from chat (kick the opponent,
+                // skip a map, swap the weapon/map pool, switch the anti-cheat off).
+                if (CompMode && Array.IndexOf(CompLockedCommands, cmd) >= 0)
+                {
+                    SendChatToPlayer(sender, cmd + " is off in COMP (fair play). /score and /discount work.");
+                    return;
+                }
                 switch (cmd)
                 {
                     case "/code":
@@ -254,10 +263,9 @@ namespace SFHeadlessHost
                             SendChatToPlayer(sender, "Can't kick yourself. Use Steam's Disconnect.");
                             break;
                         }
-                        // Send PktKickPlayer to everyone (including the victim, who'll
-                        // disconnect on receipt). Body = single byte slot.
-                        byte[] kickBody = new byte[1] { (byte)targetSlot };
-                        BroadcastSfPacket(PktKickPlayer, kickBody, 0uL, 0);
+                        // Only the target: the patched client leaves on any KickPlayer
+                        // it receives (broadcasting it emptied the whole lobby).
+                        KickClient(ClientInSlot(targetSlot), "/kick by slot " + sender.Slot);
                         Log.LogInfo($"[chat] /kick slot={targetSlot} by slot={sender.Slot}");
                         SendChatToPlayer(sender, $"Kicked slot {targetSlot}.");
                         break;

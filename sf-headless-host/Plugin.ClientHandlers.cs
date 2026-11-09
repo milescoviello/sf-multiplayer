@@ -334,6 +334,7 @@ namespace SFHeadlessHost
                 byte[] body = ms.ToArray();
                 SendSfPacket(cli.Addr, PktClientInit, body, cli.SteamID, 0);
                 cli.Initialized = true;
+                cli.InitializedAt = Time.realtimeSinceStartup;
             }
 
             // Post-init bundle. Per sfdsrv comment: without these (specifically

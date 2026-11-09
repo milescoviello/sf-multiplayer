@@ -1,3 +1,39 @@
+# What's new — 2026-11-09 (release): installer, auto-update, lobby list, fairness
+
+**Install once, updates are automatic.** One installer (one admin prompt): it
+finds Stick Fight, installs BepInEx if needed, the mod and a launcher, allows the
+game through Windows Firewall and adds a "Stick Fight Online" shortcut. The
+shortcut checks a small manifest on GitHub before every start, installs any
+changed mod file (SHA-256 checked, no admin needed), then starts the game on the
+server with the lobby list open. Publishing an update is `1-click-install/build.sh`
++ commit + push. The manifest can also move every install to a new server address.
+
+**Steam stays the normal game.** The game's own files are never changed. The
+shortcut has BepInEx's Doorstop load the patched Assembly-CSharp from
+`<game>\sf-online\` for that launch only; without `-address` the plugins stay
+idle. An older install that patched the game file is undone automatically. Other
+BepInEx mods (QOL Mod) keep working in both modes. Tested on the win11 VM: fresh
+install, repeat install, upgrade over an older install with QOL, normal launch,
+shortcut launch, second click while running, update delivery, offline start,
+uninstall (with and without other mods).
+
+**Lobby list fixes.** JOIN and RST in the lobby list never reacted to the mouse
+(their scroll-local rects were hit-tested in screen space). Switching lobbies
+stalled half way (the old lobby's "accepted" flag stayed set) and would have kept
+the old lobby's players on screen; it now leaves the old lobby the stock way
+first. Branding: "Stick Fight Online".
+
+**Fairness.**
+- COMP turns off chat commands that change the match (/kick, /next, /map,
+  /restart, /weapons, /anticheat, /tickrate); /score and /discount still work.
+- RST (lobby restart) is refused by the router while the lobby has players, and
+  greyed out in the list.
+- /kick and the anti-cheat kick reached every client, and the game leaves on any
+  kick it receives: one kick emptied the whole lobby. Kicks go to their target now.
+- Clients report their version; COMP removes an outdated client (with a message
+  saying how to update), other lobbies warn.
+- COMP weapon pool: no snake weapons (Miles: they aren't in comp).
+
 # What's new — 2026-11-09 (later): crates, players leaving, snakes
 
 **Crates no longer collapse as soon as players fight on them.** The server's copy

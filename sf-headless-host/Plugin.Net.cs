@@ -39,6 +39,11 @@ namespace SFHeadlessHost
             // COMP spectator: connected and receives everything, but has no body
             // and never counts as a player (SF_SPECTATORS slots after the players).
             public bool IsSpectator;
+            // Client plugin version (msgType 48) and when ClientInit went out.
+            public string ClientVersion;
+            public float InitializedAt;
+            public bool VersionHandled;
+            public float KickAt = -1f;
         }
 
         // A joined player (not a spectator, not a half-open connection).
@@ -264,6 +269,12 @@ namespace SFHeadlessHost
             {
                 try { HandlePlayerInput(data, bodyOffset, bodyLen, from); }
                 catch (Exception ex) { Log.LogWarning($"[SF] HandlePlayerInput threw: {ex.Message}"); }
+                return;
+            }
+            if (msgType == PktClientVersion)
+            {
+                try { HandleClientVersion(data, bodyOffset, bodyLen, from); }
+                catch (Exception ex) { Log.LogWarning($"[SF] HandleClientVersion threw: {ex.Message}"); }
                 return;
             }
             if (msgType == PktViewerHello)

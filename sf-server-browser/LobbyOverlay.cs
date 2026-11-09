@@ -159,7 +159,7 @@ namespace SFServerBrowser
         private void BuildHeader()
         {
             Ugui.Panel(_card, "Header", new Vector2(0f, 0.86f), new Vector2(1f, 1f), Ugui.Header, false);
-            Ugui.Label(_card, "<color=#3FD9F2>ALKA</color>  ONLINE", new Vector2(0.03f, 0.86f), new Vector2(0.6f, 1f),
+            Ugui.Label(_card, "<color=#3FD9F2>STICK FIGHT</color>  ONLINE", new Vector2(0.03f, 0.86f), new Vector2(0.6f, 1f),
                 30, Ugui.TextWhite, TextAnchor.MiddleLeft);
             Ugui.Label(_card, Loc.T("SUBTITLE"), new Vector2(0.03f, 0.865f), new Vector2(0.6f, 0.9f),
                 13, Ugui.TextDim, TextAnchor.LowerLeft, FontStyle.Normal);
@@ -418,7 +418,7 @@ namespace SFServerBrowser
                 string host = Owner != null ? Owner.UiEndpointHost : "SERVER_IP";
                 string args = string.IsNullOrEmpty(c)
                     ? ("-address " + host + " -port 1337")
-                    : ("Join ALKA lobby " + c + " — server " + host);
+                    : ("Join lobby " + c + " — server " + host);
                 GUIUtility.systemCopyBuffer = args;
             }
             catch { }

@@ -8,6 +8,8 @@ Where the project is and what's coming next. Refreshed continuously — see [`WH
 >
 > **Later on 11-09:** crate stacks no longer collapse when players fight on them (the server's copy of each player is now a stock remote-player ragdoll instead of an immovable statue spawned inside Desert5's stack); bullets/explosions push crates the stock way; the server replays shots (grenade blasts, snake-gun snakes now chase and bite); players who leave are removed from everyone's screen and a rejoin no longer duplicates them; a packet race in the patched client's receive loop is fixed in the client plugin; mid-round joins follow stock; COMP restarts a round a returning player wasn't there for. Players need the refreshed client for the client-side parts.
 >
+> **Release (11-09 evening):** the installer and launcher were rebuilt. Install once; the "Stick Fight Online" shortcut auto-updates from `1-click-install/manifest.json` and starts the game on the server, and Steam launches stay vanilla. Public address: `sf.milescoviello.com:1338` (DNS and UDP 1338 forwarding to the VM still to set up; until it resolves the launcher keeps the last working address). Windows only: there's no Linux/Steam Deck installer yet. Next: a stock local match with a logging-only plugin, to measure vanilla crate pushes, explosions, round timings, weapon drops and movement, and compare them with the server.
+>
 > **Still to check on a real player's client (not provable with bots):** crate feel under real play (pushing, standing on, shooting crates), hit feel at real pings, and a snake-gun bite on a real client.
 >
 > *Everything below this line is the July 2026 history.*

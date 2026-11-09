@@ -2,15 +2,20 @@
 #  Stick Fight Online - installer (sf-multiplayer)
 #
 #  1. Finds Stick Fight (any Steam library).
-#  2. Backs up your original Assembly-CSharp.dll (once, never overwritten).
+#  2. Never changes the game's own files: starting Stick Fight from Steam is
+#     the normal game. (An older install that patched the game file is
+#     undone: the backup is restored, or Steam re-checks the game.)
 #  3. Installs BepInEx 5.4.23.5 if you don't have it (bundled, official zip).
-#  4. Installs the patched Assembly-CSharp + the SFClientRecon and
-#     SFServerBrowser plugins.
-#  5. Installs the launcher (<game>\sf-online\) and lets normal users update
-#     the mod's files, so updates never need admin again.
+#  4. Installs the mod: the patched Assembly-CSharp in <game>\sf-online\ (the
+#     launcher has the game load it from there; the game's own file is never
+#     replaced) and the SFClientRecon / SFServerBrowser plugins, which stay
+#     idle unless the game was started for the server.
+#  5. Installs the launcher (<game>\sf-online\), lets normal users update the
+#     mod's files (updates never need admin) and allows the game through
+#     Windows Firewall (no prompt on first start).
 #  6. Adds "Stick Fight Online" to the desktop and the Start menu. That
 #     shortcut checks for updates (a few KB), installs any, then starts the
-#     game on the server.
+#     game on the server with the lobby list open.
 #
 #  Run it again any time: it repairs or updates. To undo everything run
 #  UNINSTALL-sf-multiplayer.bat.
@@ -47,7 +52,7 @@ Ok $Sf
 Wait-GameClosed $Sf
 
 $Managed   = Join-Path $Sf 'StickFight_Data\Managed'
-$TargetAsm = Join-Path $Managed 'Assembly-CSharp.dll'
+$GameAsm   = Join-Path $Managed 'Assembly-CSharp.dll'
 $Backup    = Join-Path $Managed 'Assembly-CSharp.dll.vanilla.bak'
 $Plug      = Join-Path $Sf 'BepInEx\plugins'
 $Online    = Join-Path $Sf 'sf-online'
@@ -57,16 +62,27 @@ foreach ($f in @($Patched, (Join-Path $Files 'SFClientRecon.dll'), (Join-Path $F
 }
 New-Item -ItemType Directory -Force -Path $Online | Out-Null
 
-# ------------------------------------------------------------ backup
-Step 2 'Backing up your original game file...'
+# ------------------------------------------------------------ game file
+Step 2 'Keeping the game itself normal (Steam = normal Stick Fight)...'
 $patchedHash = (Get-FileHash $Patched -Algorithm SHA256).Hash
-if (Test-Path $Backup) {
-    Ok 'Backup already exists (kept as is).'
-} elseif ((Test-Path $TargetAsm) -and ((Get-FileHash $TargetAsm -Algorithm SHA256).Hash -ne $patchedHash)) {
-    Copy-Item $TargetAsm $Backup -Force
-    Ok 'Saved Assembly-CSharp.dll.vanilla.bak'
+$gameHash = ''
+if (Test-Path $GameAsm) { $gameHash = (Get-FileHash $GameAsm -Algorithm SHA256).Hash }
+# Any patched build (older ones too) has the UDP client stock never had.
+$gameIsPatched = ($gameHash -eq $patchedHash)
+if (-not $gameIsPatched -and (Test-Path $GameAsm)) {
+    try { $gameIsPatched = [IO.File]::ReadAllText($GameAsm, [Text.Encoding]::ASCII).Contains('UDPReceive') } catch { }
+}
+if ($gameIsPatched) {
+    if (Test-Path $Backup) {
+        Copy-Item $Backup $GameAsm -Force
+        Remove-Item $Backup -Force
+        Ok 'An older install had patched the game file: original restored.'
+    } else {
+        Warn 'An older install patched the game file and left no backup: asking Steam to re-check Stick Fight.'
+        Start-Process 'steam://validate/674940' -ErrorAction SilentlyContinue
+    }
 } else {
-    Warn 'No original to back up (already patched). Steam > Verify integrity restores it if needed.'
+    Ok 'Game file untouched.'
 }
 
 # ------------------------------------------------------------ BepInEx
@@ -98,7 +114,9 @@ if ((Test-Path (Join-Path $Sf 'MelonLoader')) -or (Test-Path (Join-Path $Sf 'ver
 # ------------------------------------------------------------ mod files
 Step 4 'Installing the mod...'
 New-Item -ItemType Directory -Force -Path $Plug | Out-Null
-Copy-Item $Patched $TargetAsm -Force;                                          Ok 'Patched Assembly-CSharp.dll'
+Copy-Item $Patched (Join-Path $Online 'Assembly-CSharp.dll') -Force;           Ok 'Patched Assembly-CSharp (sf-online, used only for the server)'
+$oldPre = Join-Path $Sf 'BepInEx\patchers\SFOnlinePreloader.dll'                  # test builds only
+if (Test-Path $oldPre) { Remove-Item $oldPre -Force }
 Copy-Item (Join-Path $Files 'SFClientRecon.dll')   (Join-Path $Plug 'SFClientRecon.dll') -Force;   Ok 'SFClientRecon.dll'
 Copy-Item (Join-Path $Files 'SFServerBrowser.dll') (Join-Path $Plug 'SFServerBrowser.dll') -Force; Ok 'SFServerBrowser.dll'
 foreach ($srv in @('SFHeadlessHost.dll', 'SFBoxFix.dll')) {     # server-only: never on a player's PC
@@ -132,8 +150,12 @@ Ok ("Server {0}:{1}" -f $hostPart, $portPart)
 # Updates run as the normal user: let Users modify the mod's own files.
 $users = '*S-1-5-32-545:(OI)(CI)M'          # BUILTIN\Users, any Windows language
 foreach ($d in @($Plug, $Online)) { & icacls $d /grant $users /T /C /Q | Out-Null }
-& icacls $TargetAsm /grant '*S-1-5-32-545:M' /C /Q | Out-Null
 Ok 'Updates will not need admin.'
+try {
+    Get-NetFirewallRule -DisplayName 'Stick Fight Online' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+    New-NetFirewallRule -DisplayName 'Stick Fight Online' -Direction Inbound -Program (Join-Path $Sf 'StickFight.exe') -Protocol UDP -Action Allow -Profile Any | Out-Null
+    Ok 'Windows Firewall: Stick Fight allowed (no prompt on first start).'
+} catch { Warn ("Firewall rule not added ({0}); Windows may ask once on first start: click Allow." -f $_.Exception.Message) }
 
 # ------------------------------------------------------------ shortcuts
 Step 6 'Shortcuts...'

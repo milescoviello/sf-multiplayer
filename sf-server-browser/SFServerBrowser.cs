@@ -37,7 +37,7 @@ namespace SFServerBrowser
     {
         public const string PluginGuid = "com.stickfightdev.server-browser";
         public const string PluginName = "SFServerBrowser";
-        public const string PluginVersion = "0.5.8";
+        public const string PluginVersion = "0.6.0";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -113,14 +113,34 @@ namespace SFServerBrowser
             Log = Logger;
             Instance = this;
 
+            bool forServer = false;
             foreach (var arg in Environment.GetCommandLineArgs())
             {
                 if (arg == "-batchmode" || arg == "-nographics")
                 {
                     Log.LogInfo($"{PluginName}: batchmode — UI disabled.");
+                    enabled = false;
                     return;
                 }
+                if (arg == "-address") forServer = true;
             }
+            // Steam launches are the normal game; only a launch for the server
+            // (the "Stick Fight Online" shortcut passes -address) shows this UI.
+            if (!forServer)
+            {
+                Log.LogInfo($"{PluginName}: normal launch (no -address): idle.");
+                enabled = false;
+                return;
+            }
+            // Started for the server: open the lobby list on the first menu
+            // (now if the menu is already loaded, else when it loads).
+            _openListOnMenu = true;
+            try
+            {
+                _currentSceneName = SceneManager.GetActiveScene().name;
+                if (_currentSceneName == "MainScene") { _openListOnMenu = false; _openListAt = Time.unscaledTime + 3f; }
+            }
+            catch { }
 
             _lobbyEndpoint = Environment.GetEnvironmentVariable("SF_LOBBY_ENDPOINT");
             if (string.IsNullOrEmpty(_lobbyEndpoint))
@@ -174,9 +194,13 @@ namespace SFServerBrowser
         // LobbyOverlay (uGUI) is parked — see Awake. The IMGUI overlay is the UI.
         internal Scoreboard _scoreUi;
 
+        private bool _openListOnMenu;
+        private float _openListAt = -1f;
+
         private void OnSceneLoaded(Scene s, LoadSceneMode m)
         {
             _currentSceneName = s.name;
+            if (_openListOnMenu && s.name == "MainScene") { _openListOnMenu = false; _openListAt = Time.unscaledTime + 1.5f; }
             // leaving to a match scene closes the browser; entering menu closes HUD
             if (s.name != "MainScene") _overlayOpen = false;
             else _showHud = false;
@@ -191,6 +215,11 @@ namespace SFServerBrowser
 
         private void Update()
         {
+            if (_openListAt > 0f && Time.unscaledTime >= _openListAt)
+            {
+                _openListAt = -1f;
+                if (!_overlayOpen && _currentSceneName == "MainScene") { _overlayOpen = true; _tab = Tab.Browse; _focusJoinField = false; RefreshServers(); }
+            }
             // Animate overlay open/close on unscaled time (menus may pause time).
             float target = _overlayOpen ? 1f : 0f;
             _overlayAnim = Mathf.MoveTowards(_overlayAnim, target, Time.unscaledDeltaTime / 0.18f);

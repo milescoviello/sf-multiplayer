@@ -1,11 +1,11 @@
 <div align="center">
 
-## Try it: [sf-multiplayer 1-Click Installer (.zip)](https://github.com/kitslayer/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
+## Try it: [Stick Fight Online installer (.zip)](https://github.com/milescoviello/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
 
-Self-contained — BepInEx, the client plugins and the patched `Assembly-CSharp` are all inside.
-Unzip → run **`INSTALL-sf-multiplayer.bat`** → launch Stick Fight. That's it.
+Unzip → double-click **`INSTALL-sf-multiplayer.bat`** → play with the **Stick Fight Online** shortcut.
+The shortcut updates the mod by itself before every start. Starting Stick Fight from Steam stays the normal game.
 
-`SFClientRecon 0.6.2` · `SFServerBrowser 0.5.4` · native uGUI lobby (**F2**) · server-synced crates
+`SFClientRecon 0.7.0` · `SFServerBrowser 0.6.0` · lobby list opens on start (**F2** to toggle)
 
 Something not working? See [Install troubleshooting](#install-troubleshooting).
 
@@ -43,7 +43,7 @@ Everything below ships in the **1-click installer** above — drop it on any Ste
 
 ## Install troubleshooting
 
-The installer is a plain `.bat` that copies files into your Stick Fight folder — nothing exotic, and the uninstaller restores the game exactly as it was. When an install doesn't work, it's almost always one of these:
+The installer finds Stick Fight, installs BepInEx if you don't have it, puts the mod in `BepInEx\plugins` and `<game>\sf-online\`, allows the game through Windows Firewall and adds the **Stick Fight Online** shortcut. It never changes the game's own files, so Steam launches stay normal, and the uninstaller removes only what it added. The launcher logs what it did to `<game>\sf-online\launch.log`.
 
 **First: did the mod actually load?**
 Launch the game once, quit, then open your Stick Fight folder (right-click the game in Steam → Manage → Browse local files) and look for `BepInEx/LogOutput.log`.
@@ -62,13 +62,13 @@ WINEDLLOVERRIDES="winhttp=n,b" %command%
 
 Without it the game runs completely stock and `LogOutput.log` never updates.
 
-**Stuck on "Connecting to the server…"**
-The mod loaded but can't reach the server. Check the `-address` / `-port` in your launch options (the installer points at the public server by default) and that nothing is blocking outbound UDP. Backing out to the menu and hitting PLAY ONLINE again clears most one-off hangs.
+**Stuck on "Connecting to the server…"** or a "Can't find the server" message
+The mod loaded but can't reach the server: check your connection and that nothing blocks outbound UDP. Backing out to the menu and opening the lobby list again (F2) clears most one-off hangs.
 
-**The game updated, or you ran "Verify integrity of game files"**
-Steam restores the stock `Assembly-CSharp.dll`, which silently turns the whole mod off — the game still runs, it just behaves vanilla. Re-run the installer.
+**"Your client is out of date"**
+You started the game some other way than the shortcut and missed an update. Start it with **Stick Fight Online** (COMP requires the current client).
 
-**Still stuck?** Open an [issue](https://github.com/kitslayer/sf-multiplayer/issues) and attach `BepInEx/LogOutput.log` plus `StickFight_Data/output_log.txt` — between them we can see exactly what loaded and what didn't.
+**Still stuck?** Open an [issue](https://github.com/milescoviello/sf-multiplayer/issues) and attach `BepInEx/LogOutput.log` plus `StickFight_Data/output_log.txt` — between them we can see exactly what loaded and what didn't.
 
 ## Recent fixes
 

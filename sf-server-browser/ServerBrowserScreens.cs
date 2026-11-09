@@ -23,7 +23,7 @@ namespace SFServerBrowser
             // subtle attention pulse so players notice it
             float pulse = 0.5f + 0.5f * Mathf.Sin(Time.unscaledTime * 2.2f);
             DropShadow(r, 12, 10f + pulse * 4f, 0.28f);
-            if (ThemedButton(r, "PLAY ONLINE", 0, "entry", true, "Browse, create or join ALKA lobbies"))
+            if (ThemedButton(r, "PLAY ONLINE", 0, "entry", true, "Browse, create or join Stick Fight Online lobbies"))
             {
                 _overlayOpen = true;
                 _tab = Tab.Browse;
@@ -64,9 +64,9 @@ namespace SFServerBrowser
             RoundRect(new Rect(header.x, header.y, header.width, header.height), ColHeader, 22);
             RoundRect(new Rect(header.x, header.y + header.height - 22, header.width, 22), ColHeader, 1);
             GUI.Label(new Rect(header.x + S5, header.y, 520, header.height),
-                "ALKA  ·  ONLINE", StLabel(FzTitle, ColPaperText, FontStyle.Bold, TextAnchor.MiddleLeft));
+                "STICK FIGHT  ·  ONLINE", StLabel(FzTitle, ColPaperText, FontStyle.Bold, TextAnchor.MiddleLeft));
             GUI.Label(new Rect(header.x + S5, header.y + 50, 520, 24),
-                "Centralized multiplayer", StLabel(FzSmall, ColInkFaint, FontStyle.Normal, TextAnchor.MiddleLeft));
+                "Dedicated servers", StLabel(FzSmall, ColInkFaint, FontStyle.Normal, TextAnchor.MiddleLeft));
 
             // Close X
             var xR = new Rect(header.xMax - 64, header.y + 18, 46, 46);
@@ -166,10 +166,10 @@ namespace SFServerBrowser
             if (ThemedButton(joinR, full ? "FULL" : "JOIN", full ? 1 : 3, "join" + idx, !full && s.Alive))
                 JoinLobby(s.Code);
 
-            // restart (named/always-on lobbies; server no-ops ad-hoc ones). Small
-            // button left of JOIN — bounces a wedged lobby without SSH.
+            // restart: bounces a wedged lobby without SSH. Only for an EMPTY lobby
+            // (the router refuses it otherwise, so nobody can end a match by it).
             var reR = new Rect(joinR.x - 52, joinR.y, 46, 46);
-            if (ThemedButton(reR, "RST", 1, "rst" + idx, s.Alive, "Restart this lobby (named lobbies only)"))
+            if (ThemedButton(reR, "RST", 1, "rst" + idx, s.Alive && s.Players == 0, s.Players == 0 ? "Restart this lobby (only while it's empty)" : "Can't restart a lobby with players in it"))
                 RestartLobby(s.Code);
         }
 

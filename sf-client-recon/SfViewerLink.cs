@@ -21,8 +21,30 @@ namespace SFClientRecon
         private static ulong _ownSteamId;
         private static bool _steamIdTried;
 
+        // msgType 48: tell the server our version every 5 s, so it can ask an
+        // outdated client to update (COMP requires the current one).
+        private const byte PktClientVersion = 48;
+        private float _nextVersionAt;
+        private void TickClientVersion()
+        {
+            if (_socket == null || _serverEp == null || Time.unscaledTime < _nextVersionAt) return;
+            _nextVersionAt = Time.unscaledTime + 5f;
+            if (!InitializedFromServer()) return;
+            ulong sid = OwnSteamId();
+            if (sid == 0) return;
+            byte[] v = System.Text.Encoding.ASCII.GetBytes(PluginVersion);
+            byte[] pkt = new byte[5 + 9 + v.Length + 9];
+            WriteU32LE(pkt, 0, (uint)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds);
+            pkt[4] = PktClientVersion;
+            for (int i = 0; i < 8; i++) pkt[5 + i] = (byte)(sid >> (8 * i));
+            pkt[13] = (byte)v.Length;
+            Buffer.BlockCopy(v, 0, pkt, 14, v.Length);
+            try { _socket.Send(pkt, pkt.Length, _serverEp); } catch { }
+        }
+
         private void TickViewerLink()
         {
+            TickClientVersion();
             if (_socket == null || _serverEp == null) return;
             byte op = 0, arg = 0;
             for (int n = 1; n <= 9; n++)

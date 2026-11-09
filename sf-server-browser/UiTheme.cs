@@ -72,9 +72,15 @@ namespace SFServerBrowser
         }
         internal static void EndScaledUI(Matrix4x4 prev) { GUI.matrix = prev; }
 
-        // Mouse position translated into design space (GUI.matrix-aware).
+        // Mouse position in the CURRENT GUI space. Inside OnGUI, IMGUI's own
+        // event position is already in design space and local to the current
+        // scroll view / group; the screen-space fallback (outside OnGUI) is not.
+        // Using screen space everywhere made every button inside the lobby list
+        // (JOIN, RST) unclickable: their rects are scroll-local.
         internal static Vector2 VMouse()
         {
+            var e = Event.current;
+            if (e != null) return e.mousePosition;
             Vector3 m = Input.mousePosition;
             return new Vector2(m.x / UiScale, (Screen.height - m.y) / UiScale);
         }

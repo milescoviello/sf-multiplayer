@@ -134,11 +134,17 @@ namespace SFClientRecon
         // mHasControl=true appears in the scene.
         private int _localSlot = -1;
 
+        internal static bool StartedForServer()
+        {
+            foreach (var a in Environment.GetCommandLineArgs()) if (a == "-address") return true;
+            return false;
+        }
+
         private void Awake()
         {
             Log = Logger;
             Instance = this;
-            InstallUnityConsoleTee();
+            if (StartedForServer()) InstallUnityConsoleTee();
             // v0.6.0 — track the current map scene (mirrors the oracle's
             // _currentMapSceneName). NSO ids are PER-MAP and collide while
             // both map scenes coexist during the additive transition; the
@@ -146,6 +152,16 @@ namespace SFClientRecon
             // the reconciler matches snapshot ids against LAST round's
             // objects (~40u away) and teleports them (observed live:
             // crates=162 on a 90-crate map, meanErr=37, thousands of snaps).
+            // Steam launches are the normal game: only a launch for the server
+            // (-address, from the "Stick Fight Online" shortcut, bots, test
+            // clients) runs this plugin. The preloader keeps the stock
+            // Assembly-CSharp for normal launches too.
+            if (!StartedForServer())
+            {
+                Log.LogInfo($"{PluginName}: normal launch (no -address): idle.");
+                enabled = false;
+                return;
+            }
             SceneManager.sceneLoaded += OnSceneLoadedTrackMapScene;
             // Headless test clients (bots, no rendering) opt in explicitly;
             // otherwise batchmode means we're inside the server.
