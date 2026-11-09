@@ -1,0 +1,1 @@
+https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/manifest.json

@@ -1,34 +1,31 @@
 ===================================================================
-  sf-multiplayer  -  Stick Fight Oracle  -  1-Click Install
+  Stick Fight Online (sf-multiplayer) - install
 ===================================================================
 
-HOW TO INSTALL (1 click):
-  1) Double-click:  INSTALL-sf-multiplayer.bat
-  2) Accept the administrator prompt (needed to write into Steam).
-  3) Wait until it says "INSTALL COMPLETE".
+INSTALL (once):
+  1) Extract this zip anywhere.
+  2) Double-click  INSTALL-sf-multiplayer.bat  and accept the admin prompt.
+  3) When it says INSTALL COMPLETE you're done.
 
-DONE. To play:
-  - Double-click on the desktop: "Play-StickFight.bat"
-  - Or open Stick Fight from Steam (launch options are already set).
-  - In game: PLAY ONLINE -> QUICK MATCH, or press F2 for the in-game lobby.
+PLAY:
+  Use the "Stick Fight Online" shortcut (desktop or Start menu).
+  Each start it checks for a mod update (a few KB), installs it if there is
+  one, then starts the game on the server. Nothing else to do: updates are
+  automatic. In game: PLAY ONLINE, or F2 for the lobby list.
 
-WHAT THE INSTALLER DOES:
-  - Finds Stick Fight automatically (any Steam library).
-  - BACKS UP your files before touching anything (won't break your folder).
-  - Detects whether you have BepInEx and/or MelonLoader and adapts.
-  - If BepInEx is missing, downloads and installs it.
-  - Installs the oracle client (SFClientRecon + SFServerBrowser).
+  (Starting Stick Fight from Steam still runs the mod, but skips the update
+  check and needs the launch options "-address <server> -port <port>".)
 
-TO ROLL BACK EVERYTHING:
-  - Double-click:  DESINSTALL-sf-multiplayer.bat
-    It restores your original Assembly-CSharp.dll and removes ONLY the mod
-    plugins -- any other mods you had are left untouched.
+WHAT IT CHANGES:
+  - Backs up your Assembly-CSharp.dll (once) and installs the patched one.
+  - Installs BepInEx 5.4.23.5 if you don't have it (other mods are kept).
+  - Adds the SFClientRecon and SFServerBrowser plugins.
+  - Adds <game>\sf-online\ (the launcher) and the two shortcuts.
 
-LANGUAGE:
-  - The UI is in English by default. Open the lobby (F2) -> SETTINGS to switch
-    to Spanish.
+UNDO:
+  Double-click  UNINSTALL-sf-multiplayer.bat : restores your original game
+  file, removes only this mod (and BepInEx, if this installer added it and no
+  other mods use it), the launcher and the shortcuts.
 
--------------------------------------------------------------------
-  kitslayer
-  GitHub: kitslayer
--------------------------------------------------------------------
+Problems: <game>\sf-online\launch.log says what the launcher did.
+BepInEx: https://github.com/BepInEx/BepInEx (LGPL-2.1), bundled unmodified.

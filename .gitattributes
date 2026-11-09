@@ -1,0 +1,4 @@
+# Update payload: served byte-for-byte to players and checked by SHA-256.
+1-click-install/files/** -text
+1-click-install/bepinex/** -text
+*.dll binary

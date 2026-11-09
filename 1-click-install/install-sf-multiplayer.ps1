@@ -1,196 +1,166 @@
 # ===================================================================
-#  sf-multiplayer  -  Stick Fight: The Game  -  Oracle 1-Click Installer
-#  kitslayer  |  GitHub: kitslayer
+#  Stick Fight Online - installer (sf-multiplayer)
 #
-#  What it does (without breaking your folder):
-#   1. Finds Stick Fight in any Steam library.
-#   2. BACKS UP your Assembly-CSharp.dll and doorstop_config.ini.
-#   3. Detects your loader: BepInEx and/or MelonLoader, and adapts.
-#   4. Installs BepInEx (if missing), the patched Assembly-CSharp and the
-#      SFClientRecon (+ SFServerBrowser) plugins.
-#   5. Sets the launch options (-address of the oracle).
-#   6. Creates "Play-StickFight.bat" on the desktop.
+#  1. Finds Stick Fight (any Steam library).
+#  2. Backs up your original Assembly-CSharp.dll (once, never overwritten).
+#  3. Installs BepInEx 5.4.23.5 if you don't have it (bundled, official zip).
+#  4. Installs the patched Assembly-CSharp + the SFClientRecon and
+#     SFServerBrowser plugins.
+#  5. Installs the launcher (<game>\sf-online\) and lets normal users update
+#     the mod's files, so updates never need admin again.
+#  6. Adds "Stick Fight Online" to the desktop and the Start menu. That
+#     shortcut checks for updates (a few KB), installs any, then starts the
+#     game on the server.
 #
-#  To revert: run UNINSTALL-sf-multiplayer.bat (restores the backup).
+#  Run it again any time: it repairs or updates. To undo everything run
+#  UNINSTALL-sf-multiplayer.bat.
 # ===================================================================
-
 param(
-    [string]$ServerIp   = '69.53.117.43',
-    [string]$ServerPort = '1337'
+    [string]$GamePath = '',
+    [string]$Server   = '',      # host:port; default from server.txt
+    [switch]$NoLaunch
 )
 
 $ErrorActionPreference = 'Stop'
 $Here = Split-Path -Parent $MyInvocation.MyCommand.Path
-# El repo: assets prebuildeados en ..\dist y ..\client-mod\dll
-$RepoRoot = Split-Path $Here -Parent
+. (Join-Path $Here 'common.ps1')
+$Files = Join-Path $Here 'files'
 
-# ---------------------------------------------------------------- banner
-function Show-Banner {
-    Clear-Host
-    $c = 'Cyan'; $y = 'Yellow'
-    Write-Host ''
-    Write-Host '   ===============================================' -ForegroundColor $c
-    Write-Host '     sf-multiplayer   x   Stick Fight Oracle' -ForegroundColor $y
-    Write-Host '     1-Click Installer   |   kitslayer' -ForegroundColor DarkGray
-    Write-Host '   ===============================================' -ForegroundColor $c
-    Write-Host ''
-    Start-Sleep -Milliseconds 600
-}
+Write-Host ''
+Write-Host '   ===============================================' -ForegroundColor Cyan
+Write-Host '     Stick Fight Online  -  installer' -ForegroundColor Yellow
+Write-Host '   ===============================================' -ForegroundColor Cyan
+Write-Host ''
 
-function Step($n, $txt) { Write-Host ("[{0}] {1}" -f $n, $txt) -ForegroundColor Cyan }
-function Ok($txt)       { Write-Host ("    OK  {0}" -f $txt) -ForegroundColor Green }
-function Warn($txt)     { Write-Host ("    !!  {0}" -f $txt) -ForegroundColor Yellow }
-
-# ----------------------------------------------------- detectar Stick Fight
-function Find-StickFight {
-    $candidates = @()
-    # 1) Ruta default
-    $candidates += (Join-Path ${env:ProgramFiles(x86)} 'Steam\steamapps\common\StickFightTheGame')
-    # 2) Steam install desde el registro -> libraryfolders.vdf
-    try {
-        $steam = (Get-ItemProperty 'HKCU:\Software\Valve\Steam' -ErrorAction Stop).SteamPath
-        if ($steam) {
-            $steam = $steam -replace '/', '\'
-            $vdf = Join-Path $steam 'steamapps\libraryfolders.vdf'
-            if (Test-Path $vdf) {
-                foreach ($line in Get-Content $vdf) {
-                    if ($line -match '"path"\s+"([^"]+)"') {
-                        $lib = $matches[1] -replace '\\\\', '\'
-                        $candidates += (Join-Path $lib 'steamapps\common\StickFightTheGame')
-                    }
-                }
-            }
-            $candidates += (Join-Path $steam 'steamapps\common\StickFightTheGame')
-        }
-    } catch { }
-    foreach ($c in $candidates) {
-        if ($c -and (Test-Path (Join-Path $c 'StickFight.exe'))) { return $c }
-    }
-    return $null
-}
-
-# ============================================================ MAIN
-Show-Banner
-
-Step 1 'Searching for Stick Fight: The Game...'
-$Sf = Find-StickFight
-if (-not $Sf) {
-    Write-Host ''
+# ------------------------------------------------------------ find the game
+Step 1 'Finding Stick Fight: The Game...'
+$Sf = $GamePath
+if (-not $Sf) { $Sf = Find-StickFight }
+if (-not $Sf -or -not (Test-Path (Join-Path $Sf 'StickFight.exe'))) {
     Warn 'Could not find Stick Fight automatically.'
     $Sf = Read-Host '    Paste the path to your StickFightTheGame folder'
-    if (-not (Test-Path (Join-Path $Sf 'StickFight.exe'))) { throw 'Ruta invalida: no hay StickFight.exe ahi.' }
+    $Sf = $Sf.Trim('"', ' ')
+    if (-not (Test-Path (Join-Path $Sf 'StickFight.exe'))) { throw "No StickFight.exe in $Sf" }
 }
+$Sf = (Resolve-Path $Sf).Path
 Ok $Sf
+Wait-GameClosed $Sf
 
 $Managed   = Join-Path $Sf 'StickFight_Data\Managed'
 $TargetAsm = Join-Path $Managed 'Assembly-CSharp.dll'
-$VanillaBak= Join-Path $Managed 'Assembly-CSharp.dll.vanilla.bak'
+$Backup    = Join-Path $Managed 'Assembly-CSharp.dll.vanilla.bak'
 $Plug      = Join-Path $Sf 'BepInEx\plugins'
-
-# Prebuilt assets. Look in the local 'files\' folder first
-# (paquete autocontenido); si no, caemos al repo (dist\ / client-mod\).
-$FilesDir = Join-Path $Here 'files'
-function Resolve-Asset($name, $repoRel) {
-    $local = Join-Path $FilesDir $name
-    if (Test-Path $local) { return $local }
-    return (Join-Path $RepoRoot $repoRel)
+$Online    = Join-Path $Sf 'sf-online'
+$Patched   = Join-Path $Files 'Assembly-CSharp.srv.v25.dll'
+foreach ($f in @($Patched, (Join-Path $Files 'SFClientRecon.dll'), (Join-Path $Files 'SFServerBrowser.dll'), (Join-Path $Files 'launch.ps1'), (Join-Path $Files 'launch.vbs'))) {
+    if (-not (Test-Path $f)) { throw "Missing installer file: $f (extract the whole zip first)" }
 }
-$SrvDll   = Resolve-Asset 'Assembly-CSharp.srv.v25.dll' 'client-mod\dll\Assembly-CSharp.srv.v25.dll'
-$ReconDll = Resolve-Asset 'SFClientRecon.dll'           'dist\SFClientRecon.dll'
-$BrowDll  = Resolve-Asset 'SFServerBrowser.dll'         'dist\SFServerBrowser.dll'
-foreach ($f in @($SrvDll, $ReconDll)) {
-    if (-not (Test-Path $f)) { throw ("Falta un archivo de la descarga: {0}" -f $f) }
-}
+New-Item -ItemType Directory -Force -Path $Online | Out-Null
 
-# ----------------------------------------------------- detectar loaders
-Step 2 'Detecting loader (BepInEx / MelonLoader)...'
-$hasBepInEx = (Test-Path (Join-Path $Sf 'BepInEx')) -or (Test-Path (Join-Path $Sf 'winhttp.dll'))
-$hasMelon   = (Test-Path (Join-Path $Sf 'MelonLoader')) -or (Test-Path (Join-Path $Sf 'version.dll'))
-if ($hasMelon) { Warn 'MelonLoader detected.' } else { Ok 'No MelonLoader.' }
-if ($hasBepInEx) { Ok 'BepInEx already present.' } else { Warn 'BepInEx missing: installing it.' }
-
-# ----------------------------------------------------- instalar BepInEx si falta
-if (-not $hasBepInEx) {
-    Step '2b' 'Descargando BepInEx 5.4.23.2 (x86)...'
-    $bepUrl = 'https://github.com/BepInEx/BepInEx/releases/download/v5.4.23.2/BepInEx_win_x86_5.4.23.2.zip'
-    $tmpZip = Join-Path $env:TEMP 'BepInEx_alka.zip'
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-        Invoke-WebRequest -Uri $bepUrl -OutFile $tmpZip -UseBasicParsing
-        Expand-Archive -Path $tmpZip -DestinationPath $Sf -Force
-        Remove-Item $tmpZip -Force
-        Ok 'BepInEx installed.'
-    } catch {
-        throw ("No pude descargar BepInEx automaticamente: {0}. Instalalo manual y reintenta." -f $_.Exception.Message)
-    }
+# ------------------------------------------------------------ backup
+Step 2 'Backing up your original game file...'
+$patchedHash = (Get-FileHash $Patched -Algorithm SHA256).Hash
+if (Test-Path $Backup) {
+    Ok 'Backup already exists (kept as is).'
+} elseif ((Test-Path $TargetAsm) -and ((Get-FileHash $TargetAsm -Algorithm SHA256).Hash -ne $patchedHash)) {
+    Copy-Item $TargetAsm $Backup -Force
+    Ok 'Saved Assembly-CSharp.dll.vanilla.bak'
+} else {
+    Warn 'No original to back up (already patched). Steam > Verify integrity restores it if needed.'
 }
 
-# ----------------------------------------------------- backup (no romper nada)
-Step 3 'Backing up your original files...'
-if (-not (Test-Path $VanillaBak)) {
-    if (Test-Path $TargetAsm) { Copy-Item $TargetAsm $VanillaBak -Force; Ok 'Backed up your Assembly-CSharp.dll (.vanilla.bak).' }
-} else { Ok 'Backup already exists (not overwriting).' }
+# ------------------------------------------------------------ BepInEx
+Step 3 'BepInEx (mod loader)...'
+$hasBep = (Test-Path (Join-Path $Sf 'BepInEx\core\BepInEx.dll')) -and (Test-Path (Join-Path $Sf 'winhttp.dll'))
+if ($hasBep) {
+    Ok 'Already installed.'
+} else {
+    $bepZip = Get-ChildItem (Join-Path $Here 'bepinex') -Filter 'BepInEx_win_x86_*.zip' -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $bepZip) { throw 'Missing bepinex\BepInEx_win_x86_*.zip in the installer folder.' }
+    Expand-Archive -Path $bepZip.FullName -DestinationPath $Sf -Force
+    Set-Content -Path (Join-Path $Online 'installed-bepinex.txt') -Value $bepZip.Name
+    Ok ("Installed {0}" -f $bepZip.Name)
+}
 $doorstop = Join-Path $Sf 'doorstop_config.ini'
-if ((Test-Path $doorstop) -and -not (Test-Path "$doorstop.alka.bak")) {
-    Copy-Item $doorstop "$doorstop.alka.bak" -Force
-}
-
-# ----------------------------------------------------- instalar parche + plugins
-Step 4 'Installing patched Assembly-CSharp (lobby -> oracle)...'
-Copy-Item $SrvDll $TargetAsm -Force
-Ok 'Assembly-CSharp.srv.v25 active.'
-
-Step 5 'Installing plugins into BepInEx...'
-if (-not (Test-Path $Plug)) { New-Item -ItemType Directory -Path $Plug -Force | Out-Null }
-Copy-Item $ReconDll (Join-Path $Plug 'SFClientRecon.dll') -Force
-Ok 'SFClientRecon.dll'
-if (Test-Path $BrowDll) { Copy-Item $BrowDll (Join-Path $Plug 'SFServerBrowser.dll') -Force; Ok 'SFServerBrowser.dll' }
-# El host NUNCA va en la PC del jugador
-$hostDll = Join-Path $Plug 'SFHeadlessHost.dll'
-if (Test-Path $hostDll) { Move-Item $hostDll "$hostDll.server-only" -Force; Warn 'SFHeadlessHost.dll moved (server-only).' }
-
-# ----------------------------------------------------- activar BepInEx doorstop
-Step 6 'Enabling BepInEx (doorstop)...'
 if (Test-Path $doorstop) {
     $ini = Get-Content $doorstop -Raw
-    $ini = $ini -replace 'enabled\s*=\s*false', 'enabled = true'
-    Set-Content $doorstop $ini -NoNewline
-    Ok 'doorstop enabled = true.'
+    # Only the [General] "enabled" key (not debug_enabled & co).
+    if ($ini -match '(?m)^\s*enabled\s*=\s*false') {
+        Copy-Item $doorstop "$doorstop.sf-online.bak" -Force
+        Set-Content $doorstop ($ini -replace '(?m)^(\s*)enabled\s*=\s*false', '${1}enabled = true') -NoNewline
+        Ok 'BepInEx enabled (it was switched off).'
+    }
 }
-# Si hay MelonLoader, BepInEx (winhttp) y Melon (version) pueden convivir; avisamos
-if ($hasMelon) {
-    Warn 'You have MelonLoader + BepInEx. If the online menu fails, temporarily rename version.dll.'
+if ((Test-Path (Join-Path $Sf 'MelonLoader')) -or (Test-Path (Join-Path $Sf 'version.dll'))) {
+    Warn 'MelonLoader found too. If the online menu fails, rename version.dll for a test.'
 }
 
-# ----------------------------------------------------- launch options + acceso directo
-Step 7 'Setting launch options and desktop shortcut...'
-$launchArgs = ("-address {0} -port {1}" -f $ServerIp, $ServerPort)
-$desktop = [Environment]::GetFolderPath('Desktop')
-$batPath = Join-Path $desktop 'Play-StickFight.bat'
-@"
-@echo off
-title sf-multiplayer  Stick Fight Oracle
-rem Menu SERVERS en el juego (listar + unirse a lobbies de este servidor):
-set "SF_LOBBY_ENDPOINT=http://${ServerIp}:8080/lobbies"
-rem Para CREAR lobbies desde el juego necesitas el token del servidor:
-rem   set "SF_CONTROL_TOKEN=pide-el-token-al-operador"
-start "" "$Sf\StickFight.exe" $launchArgs
-"@ | Set-Content -Path $batPath -Encoding ASCII
-Ok ("Shortcut: {0}" -f $batPath)
+# ------------------------------------------------------------ mod files
+Step 4 'Installing the mod...'
+New-Item -ItemType Directory -Force -Path $Plug | Out-Null
+Copy-Item $Patched $TargetAsm -Force;                                          Ok 'Patched Assembly-CSharp.dll'
+Copy-Item (Join-Path $Files 'SFClientRecon.dll')   (Join-Path $Plug 'SFClientRecon.dll') -Force;   Ok 'SFClientRecon.dll'
+Copy-Item (Join-Path $Files 'SFServerBrowser.dll') (Join-Path $Plug 'SFServerBrowser.dll') -Force; Ok 'SFServerBrowser.dll'
+foreach ($srv in @('SFHeadlessHost.dll', 'SFBoxFix.dll')) {     # server-only: never on a player's PC
+    $p = Join-Path $Plug $srv
+    if (Test-Path $p) { Move-Item $p "$p.server-only" -Force; Warn "$srv moved aside (server-only)." }
+}
+
+# ------------------------------------------------------------ launcher
+Step 5 'Installing the launcher (auto-update)...'
+Copy-Item (Join-Path $Files 'launch.ps1') (Join-Path $Online 'launch.ps1') -Force
+Copy-Item (Join-Path $Files 'launch.vbs') (Join-Path $Online 'launch.vbs') -Force
+$cfgPath = Join-Path $Online 'config.json'
+$cfg = $null
+if (Test-Path $cfgPath) { try { $cfg = Get-Content $cfgPath -Raw | ConvertFrom-Json } catch { $cfg = $null } }
+if (-not $Server) {
+    $st = Join-Path $Here 'server.txt'
+    if (Test-Path $st) { $Server = (Get-Content $st -TotalCount 1).Trim() }
+}
+if (-not $Server -and $cfg) { $Server = "{0}:{1}" -f $cfg.server, $cfg.port }
+if (-not $Server) { $Server = Read-Host '    Server address (host:port)' }
+$hostPart, $portPart = $Server.Split(':')
+if (-not $portPart) { $portPart = '1338' }
+$manifestUrl = ''
+$mu = Join-Path $Here 'manifest-url.txt'
+if (Test-Path $mu) { $manifestUrl = (Get-Content $mu -TotalCount 1).Trim() }
+if (-not $manifestUrl -and $cfg) { $manifestUrl = $cfg.manifestUrl }
+$newCfg = [ordered]@{ server = $hostPart; port = [int]$portPart; manifestUrl = $manifestUrl }
+($newCfg | ConvertTo-Json) | Set-Content $cfgPath -Encoding UTF8
+Ok ("Server {0}:{1}" -f $hostPart, $portPart)
+
+# Updates run as the normal user: let Users modify the mod's own files.
+$users = '*S-1-5-32-545:(OI)(CI)M'          # BUILTIN\Users, any Windows language
+foreach ($d in @($Plug, $Online)) { & icacls $d /grant $users /T /C /Q | Out-Null }
+& icacls $TargetAsm /grant '*S-1-5-32-545:M' /C /Q | Out-Null
+Ok 'Updates will not need admin.'
+
+# ------------------------------------------------------------ shortcuts
+Step 6 'Shortcuts...'
+$shell = New-Object -ComObject WScript.Shell
+foreach ($lnkPath in (Get-ShortcutPaths)) {
+    $lnk = $shell.CreateShortcut($lnkPath)
+    $lnk.TargetPath = Join-Path $env:WINDIR 'System32\wscript.exe'
+    $lnk.Arguments = '"' + (Join-Path $Online 'launch.vbs') + '"'
+    $lnk.WorkingDirectory = $Sf
+    $lnk.IconLocation = (Join-Path $Sf 'StickFight.exe') + ',0'
+    $lnk.Description = 'Stick Fight on the sf-multiplayer server (checks for updates first)'
+    $lnk.Save()
+    Ok $lnkPath
+}
+$old = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Play-StickFight.bat'   # older installer's shortcut
+if (Test-Path $old) { Remove-Item $old -Force; Ok 'Removed the old Play-StickFight.bat' }
 
 Write-Host ''
 Write-Host '===================================================================' -ForegroundColor Green
-Write-Host '   INSTALL COMPLETE  -  sf-multiplayer' -ForegroundColor Yellow
+Write-Host '   INSTALL COMPLETE' -ForegroundColor Yellow
 Write-Host '===================================================================' -ForegroundColor Green
+Write-Host '  Play with the "Stick Fight Online" shortcut (desktop / Start menu).' -ForegroundColor White
+Write-Host '  It updates the mod by itself before each start.' -ForegroundColor Gray
+Write-Host '  In game: PLAY ONLINE, or F2 for the lobby list.' -ForegroundColor Gray
+Write-Host '  Undo everything: UNINSTALL-sf-multiplayer.bat' -ForegroundColor DarkGray
 Write-Host ''
-Write-Host '  To play (either way):' -ForegroundColor White
-Write-Host ('   A) Double-click on the desktop: Play-StickFight.bat') -ForegroundColor Gray
-Write-Host  '   B) Steam -> Stick Fight -> Properties -> Launch options:' -ForegroundColor Gray
-Write-Host ('        {0}' -f $launchArgs) -ForegroundColor Cyan
-Write-Host ''
-Write-Host '  In game: PLAY ONLINE -> QUICK MATCH. In the lobby type /start' -ForegroundColor White
-Write-Host ''
-Write-Host '  Roll back everything: UNINSTALL-sf-multiplayer.bat' -ForegroundColor DarkGray
-Write-Host ''
-Write-Host '  Thanks for playing sf-multiplayer!' -ForegroundColor Magenta
-Write-Host ''
+if (-not $NoLaunch) {
+    $go = Read-Host 'Start Stick Fight now? [Y/n]'
+    if ($go -eq '' -or $go -match '^[Yy]') { Start-Process (Join-Path $env:WINDIR 'System32\wscript.exe') -ArgumentList ('"' + (Join-Path $Online 'launch.vbs') + '"') }
+}

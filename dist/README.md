@@ -1,7 +1,6 @@
 # sf-multiplayer client bundle
 
-> ⚠️ **Players: use the [root 1-click installer zip](../sf-multiplayer-StickFight-Installer.zip) instead of this folder.**
-> The `SFLauncher.exe` / `sflauncher.sh` flow in here is an **older generation** that installs the server-side `SFHeadlessHost.dll` and does **not** install the patched `Assembly-CSharp` the client needs to connect — so it produces installs that won't reach the server. It's kept for reference until rebuilt. The zip (`INSTALL-sf-multiplayer.bat`, or `1-click-install/` for the online installer) ships the correct payload: patched assembly + `SFClientRecon` + `SFServerBrowser`, with a backup + uninstaller.
+> **Players: download [`sf-multiplayer-StickFight-Installer.zip`](../sf-multiplayer-StickFight-Installer.zip), extract it, double-click `INSTALL-sf-multiplayer.bat`, then play with the "Stick Fight Online" shortcut. It updates itself before every start.** Everything below in this folder is an older generation kept for reference (the `SFLauncher.exe` flow here does not install the patched game file and won't connect). Maintainers: `1-click-install/build.sh` builds the installer and the update manifest; commit + push publishes an update to every player.
 
 **For comp players: one click, you're in a lobby.**
 
