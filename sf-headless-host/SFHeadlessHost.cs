@@ -269,6 +269,8 @@ namespace SFHeadlessHost
                         (object)musicType != null ? AccessTools.Method(musicType, m) : null,
                         prefix: nameof(SkipOnServerPrefix));
 
+                InstallGhostPlatformFixes(harmony);
+
                 var wsType = CachedType("WeaponSelectionHandler");
                 TryPatch(harmony, "WeaponSelectionHandler.GetRandomWeaponIndex (prefix → valid index)",
                     (object)wsType != null ? AccessTools.Method(wsType, "GetRandomWeaponIndex") : null,

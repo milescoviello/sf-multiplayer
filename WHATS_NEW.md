@@ -1,3 +1,49 @@
+# What's new — 2026-11-09 (later): crates, players leaving, snakes
+
+**Crates no longer collapse as soon as players fight on them.** The server's copy
+of each player was a rigid, immovable statue (kinematic bodies), spawned at a
+fixed point that sits inside Desert5's centre crate stack and placed with its body
+1.2u above the real player. Anything it touched was shoved at full speed: on
+Desert5 33 of 37 crates moved (up to 19u) within 8 s of round start. It now
+behaves exactly like a stock host's copy of a remote player: out of the world
+until that player's first update, then a ragdoll with the player's real mass,
+replaying their movement, eased toward where they are. With two bots fighting on
+Desert5: 4 of 37 crates moved, by at most 0.7u. (`SF_LEGACY_RIGS=1` restores the
+old ghost.) The same change stops the server's copies from picking up weapons the
+real player never touched.
+
+**Bullets and explosions move crates like stock.** The shooter's game reports
+the push (as stock does) and the server now applies it, instead of a flat
+2.5 m/s server-side shove that skipped plain crates entirely. The server also
+replays everyone's shots like a stock host, so grenade blasts move its crates.
+
+**Snake guns.** The snake from a snake gun only existed on the shooter's and the
+other players' screens, never on the server, so the server never aimed it at
+anyone and it never chased or bit. The server's shot replay now spawns it, aims
+it, and it bites.
+
+**Players leaving and rejoining.** A player who left stayed on everyone else's
+screen as a frozen body until the next map, and a quick rejoin added a second
+body. The server now tells the others (and drops a player who quits at once
+instead of after 30 s); the client removes the body, and never keeps two for one
+player.
+
+**A packet race in the patched game client.** Its receive loop re-armed into the
+same buffer before copying a packet out, so two packets arriving back to back could
+overwrite each other (seen as a player's join turning into a broken spawn, leaving
+that player invisible to the other). The client plugin now receives with one
+thread per socket, copies first and queues under a lock.
+
+**Rounds and joins.** Someone joining a round in progress with 2+ others spawns
+dead until the next round (stock). A round that started with one player no longer
+waits for everyone to die once a second player joins. COMP: a player who wasn't
+there when a round started (back from a disconnect during the load) restarts it
+on the same map; it doesn't count. Lobby clients no longer re-select their lobby
+5 times a second.
+
+**Also:** moving platforms on the first map after a lobby restart threw thousands
+of errors and shared one sync key (stock set-up skipped outside a network match).
+
 # What's new — 2026-11-08/09: comp readiness pass (new host, replays)
 
 New host (a LAN VM; not public yet). Goal: a fair, vanilla-feeling 1v1 comp lobby

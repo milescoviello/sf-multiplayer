@@ -6,7 +6,9 @@ Where the project is and what's coming next. Refreshed continuously — see [`WH
 >
 > What changed in this pass (details in [`WHATS_NEW.md`](WHATS_NEW.md)): stock round flow and lobby rules end to end; stock weapon bag, drop timers and map list; server-validated pickups/throws; snakes target players again; no client FPS/physics overrides; crate stacks no longer collapse from server-side culling; match replays; stock win counter and ping display in every lobby; spectators/viewers get banners and their snapshots; the game socket binds itself at the router (players behind one IP in different lobbies no longer cross); server music disabled (a native audio crash under Wine); the watchdog restarts any hung lobby; server chat commands work with QOL Mod installed.
 >
-> **Still to check on a real player's client (not provable with bots):** crate feel on heavy-crate maps under real play (e.g. Desert5's pile collapses once players fight on it; with no players it stays put), hit feel at real pings, and that snakes bite on a real client.
+> **Later on 11-09:** crate stacks no longer collapse when players fight on them (the server's copy of each player is now a stock remote-player ragdoll instead of an immovable statue spawned inside Desert5's stack); bullets/explosions push crates the stock way; the server replays shots (grenade blasts, snake-gun snakes now chase and bite); players who leave are removed from everyone's screen and a rejoin no longer duplicates them; a packet race in the patched client's receive loop is fixed in the client plugin; mid-round joins follow stock; COMP restarts a round a returning player wasn't there for. Players need the refreshed client for the client-side parts.
+>
+> **Still to check on a real player's client (not provable with bots):** crate feel under real play (pushing, standing on, shooting crates), hit feel at real pings, and a snake-gun bite on a real client.
 >
 > *Everything below this line is the July 2026 history.*
 >
