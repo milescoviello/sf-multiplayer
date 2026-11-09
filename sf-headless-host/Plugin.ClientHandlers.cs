@@ -284,9 +284,11 @@ namespace SFHeadlessHost
             // and the user gets stuck at a black/lobby screen.
             // WorkshopMapsLoaded: u16 count + count×u64 workshopIDs. We send 0 maps.
             SendSfPacket(cli.Addr, PktWorkshopMapsLoaded, new byte[] { 0, 0 }, cli.SteamID, 1);
-            // OptionsChanged: 4 bytes [maps, health, regen, weaponSpawnRate].
-            // weaponSpawnRate=2 stops the client from requesting weapon spawns.
-            SendSfPacket(cli.Addr, PktOptionsChanged, new byte[] { 0, 100, 1, 2 }, cli.SteamID, 0);
+            // OptionsChanged: [maps][HP index][regen][weapon spawn rate] — the
+            // lobby's rules, as the stock host sends them. (This used to send
+            // regen=1, i.e. health regeneration ON for everyone; stock and comp
+            // play with it off.)
+            SendSfPacket(cli.Addr, PktOptionsChanged, LobbyOptionsBody(), cli.SteamID, 0);
             Log.LogInfo($"[SF] Post-init bundle sent (WorkshopMapsLoaded + OptionsChanged).");
         }
 

@@ -151,72 +151,64 @@ namespace SFHeadlessHost
             v = true;
             return true; // run original with forced arg
         }
+        // Prefix on GameManager.SpawnRandomWeapon: the stock timer is disabled on
+        // the server (TickOracleCombatTimers is the one spawner), so this only
+        // parks the stock counter. Two spawners used to run at once.
         internal static bool SpawnRandomWeaponPrefix(object __instance)
         {
             try
             {
+                var rwcField = AccessTools.Field(__instance.GetType(), "randomWeaponCounter");
+                if ((object)rwcField != null) rwcField.SetValue(__instance, 1000f);
+            }
+            catch { }
+            return false;
+        }
+
+        // One stock weapon drop (GameManager.SpawnRandomWeapon): height 11 x map
+        // scale, Z = +/-Random(0,8) alternating sides every drop (carried across
+        // rounds; the lobby's first drop goes to the positive side), presents on
+        // Xmas maps (Landfall scenes 104-124).
+        private static bool _spawnedLastWeaponOnLeftSide;
+        internal static void ServerSpawnWeapon(object gmInst)
+        {
+            try
+            {
                 _srwCallCount++;
-                // Reset randomWeaponCounter to a new value (mirrors original lines 252-264).
-                var gmType = __instance.GetType();
-                var rwcField = AccessTools.Field(gmType, "randomWeaponCounter");
-                var extraField = AccessTools.Field(gmType, "extraSpawnWeaponTime");
-                float extra = (object)extraField != null ? (float)extraField.GetValue(__instance) : 0f;
-                if ((object)rwcField != null)
-                {
-                    float newWait = UnityEngine.Random.Range(5f, 8f) + extra;
-                    rwcField.SetValue(__instance, newWait);
-                }
-
-                // Pick a weapon index. Honors the /weapons chat allow-list
-                // if set, otherwise round-robin 0..7.
                 int weaponIdx = PickWeaponId(_srwCallCount);
-
-                // Spawn position mirroring original: Y=11*scale, Z=Random(-8,8).
+                if (weaponIdx < 0) return;
+                var gmType = gmInst.GetType();
                 float zOff = UnityEngine.Random.Range(0f, 8f);
-                if (_srwCallCount % 2 == 0) zOff *= -1f;
+                if (_spawnedLastWeaponOnLeftSide) zOff *= -1f;
+                _spawnedLastWeaponOnLeftSide = !_spawnedLastWeaponOnLeftSide;
                 float scale = 1f;
                 var lastAppliedScaleF = AccessTools.Field(gmType, "LastAppliedScale");
-                if ((object)lastAppliedScaleF != null)
-                {
-                    var v = lastAppliedScaleF.GetValue(__instance);
-                    if (v is float f) scale = f;
-                }
+                if ((object)lastAppliedScaleF != null && lastAppliedScaleF.GetValue(gmInst) is float f) scale = f;
                 Vector3 spawnPos = Vector3.up * (11f * scale) + Vector3.forward * zOff;
+                int scene = (object)Instance != null ? Instance._currentSceneIndex : 0;
+                bool present = scene >= 104 && scene <= 124;
 
-                // Find MultiplayerManager.SpawnWeapon and invoke directly. SF
-                // host code's `mNetworkManager` field is private; we go via
-                // FindObjectOfType.
                 var mmType = AccessTools.TypeByName("MultiplayerManager");
-                if ((object)mmType == null) return false;
+                if ((object)mmType == null) return;
                 var mmInst = UnityEngine.Object.FindObjectOfType(mmType);
                 if ((object)mmInst == null)
                 {
                     var all = Resources.FindObjectsOfTypeAll(mmType);
                     if (all != null && all.Length > 0) mmInst = all[0];
                 }
-                if ((object)mmInst == null)
-                {
-                    if (_srwCallCount <= 3)
-                        Log.LogWarning("[P6.5 SRW] MultiplayerManager instance is null; skipping.");
-                    return false;
-                }
-                var spawnWeapon = AccessTools.Method(mmType, "SpawnWeapon", new[] { typeof(int), typeof(Vector3), typeof(bool) });
+                var spawnWeapon = (object)mmInst != null ? AccessTools.Method(mmType, "SpawnWeapon", new[] { typeof(int), typeof(Vector3), typeof(bool) }) : null;
                 if ((object)spawnWeapon == null)
                 {
-                    if (_srwCallCount <= 3)
-                        Log.LogWarning("[P6.5 SRW] SpawnWeapon method not found.");
-                    return false;
+                    if (_srwCallCount <= 3) Log.LogWarning("[weapons] MultiplayerManager.SpawnWeapon unavailable; skipping drop.");
+                    return;
                 }
                 if (_srwCallCount <= 5 || _srwCallCount % 10 == 0)
-                    Log.LogInfo($"[P6.5 SRW] call#{_srwCallCount} → SpawnWeapon(id={weaponIdx}, pos={spawnPos}, present=false)");
-                spawnWeapon.Invoke(mmInst, new object[] { weaponIdx, spawnPos, false });
+                    Log.LogInfo($"[weapons] drop #{_srwCallCount}: id={weaponIdx} pos={spawnPos} present={present}");
+                spawnWeapon.Invoke(mmInst, new object[] { weaponIdx, spawnPos, present });
             }
-            catch (Exception e)
-            {
-                Log.LogWarning($"[P6.5 SRW] threw: {e.Message}");
-            }
-            return false; // skip original SpawnRandomWeapon
+            catch (Exception e) { Log.LogWarning($"[weapons] drop threw: {e.Message}"); }
         }
+
         // Snakes (snake gun + snake maps). Stock SnakeAI picks a target only on
         // the host, from ControllerHandler.players, and broadcasts it with
         // NetworkSyncableObject.NewSnakeTarget; every client then chases with its
@@ -349,16 +341,26 @@ namespace SFHeadlessHost
                 var isActive = AccessTools.Method(wshType, "GetActiveStateForWeapon");
                 var idxF = AccessTools.Field(swType, "WeaponIndex");
                 var rarF = AccessTools.Field(swType, "Rarity");
+                var nameF = AccessTools.Field(swType, "WeaponName");
+                var catF = AccessTools.Field(swType, "Category");
                 if (list == null || (object)idxF == null || (object)rarF == null) return table;
+                var wanted = ParseNameList("SF_WEAPONS");   // comp pool; unset = stock active set
+                var log = new System.Text.StringBuilder();
                 foreach (var w in list)
                 {
                     if (w == null) continue;
                     bool active = true;
                     try { if ((object)isActive != null) active = (bool)isActive.Invoke(handler, new[] { w }); } catch { }
-                    if (!active) continue;
+                    string name = (object)nameF != null ? nameF.GetValue(w) as string : null;
+                    string cat = (object)catF != null ? catF.GetValue(w) as string : null;
+                    int idx = Convert.ToInt32(idxF.GetValue(w));
                     int rarity = Convert.ToInt32(rarF.GetValue(w));
-                    if (rarity > 0) table.Add(new KeyValuePair<int, int>(Convert.ToInt32(idxF.GetValue(w)), rarity));
+                    log.Append($" {cat}:{name}={idx}/r{rarity}{(active ? "" : "(off)")}");
+                    bool use = wanted != null ? NameListContains(wanted, cat, name) : active;
+                    if (use && rarity > 0) table.Add(new KeyValuePair<int, int>(idx, rarity));
                 }
+                Log.LogInfo($"[weapons] stock weapon list:{log}");
+                if (wanted != null) Log.LogInfo($"[weapons] SF_WEAPONS filter: {table.Count} of {list.Count} weapons allowed.");
             }
             catch (Exception e) { Log.LogWarning($"[weapons] weapon-select list read failed: {e.Message}"); }
             return table;

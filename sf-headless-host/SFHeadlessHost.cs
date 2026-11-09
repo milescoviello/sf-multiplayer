@@ -805,7 +805,7 @@ namespace SFHeadlessHost
         // (1-5) may be menu / lobby — they're left in; user can re-die if one
         // doesn't load. SF's stock GetNextLevel uses MapSelectionHandler UI
         // which isn't initialized on the oracle, so we can't call it directly.
-        private static readonly int[] _allLandfallMaps;
+        private static int[] _allLandfallMaps;   // replaced at boot by the stock map-select list (BuildMapRotationFromGame)
         private static readonly System.Random _mapRng = new System.Random();
         static Plugin()
         {

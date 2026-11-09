@@ -37,7 +37,6 @@ namespace SFHeadlessHost
         // second simulation that can diverge, so they never end a round.
         // ================================================================
         private readonly HashSet<int> _deadThisRound = new HashSet<int>();
-        private byte _pendingRoundWinner = 255;
         // StartMatch went out for the current map → the round is live. Death
         // reports before that are late packets from the previous round (sent
         // just before the client processed MapChange) and must not count.
@@ -80,6 +79,8 @@ namespace SFHeadlessHost
             if (_startMatchEarliestAt < 0f) return;
             float now = Time.realtimeSinceStartup;
             if (now < _startMatchEarliestAt) return;
+            // COMP: a round only starts with the full lobby (both duelists).
+            if (CompMode && CountInitializedSfClients() < MaxPlayers) return;
             bool allReady = AllParticipantsReady();
             if (!allReady && now < _startMatchDeadline) return;
             _startMatchEarliestAt = -1f;
@@ -112,7 +113,8 @@ namespace SFHeadlessHost
             }
             if (_matchStarted && !_startMatchSentThisRound) return;   // previous round's late packet
             if (!_deadThisRound.Add(victim)) return;                   // dead-heartbeat repeat
-            Log.LogInfo($"[DEATH] slot {victim} died ({reason}).");
+            RecordDeathTime(cli);
+            Log.LogInfo($"[DEATH] slot {victim} died ({reason}, rtt {cli.RttMs:0}ms).");
             if (_matchStarted) CheckRoundEnd(reason);
             else CheckLobbyStart(reason);
         }
@@ -139,8 +141,9 @@ namespace SFHeadlessHost
             // moves to the next map.
             bool over = _roundParticipantsAtStart >= 2 ? alive <= 1 : alive == 0;
             if (!over) return;
-            _pendingRoundWinner = (_roundParticipantsAtStart >= 2 && alive == 1) ? (byte)lastAlive : (byte)255;
-            Log.LogInfo($"[SF] Round over ({reason}): alive={alive}/{participants} winner={(_pendingRoundWinner == 255 ? "none" : "slot " + _pendingRoundWinner)}.");
+            // The winner is decided when the round advances (DecideRoundWinner),
+            // so near-simultaneous deaths are ordered by ping-corrected time.
+            Log.LogInfo($"[SF] Round over ({reason}): alive={alive}/{participants}; winner decided in {RoundEndDelaySec:0.0}s.");
             TryScheduleRoundAdvance(reason);
         }
 
@@ -269,7 +272,7 @@ namespace SFHeadlessHost
         {
             _deathSlotsHandled.Clear();
             _deadThisRound.Clear();
-            _pendingRoundWinner = 255;
+            _deathTimeComp.Clear();
             _roundAdvanceQueuedAfterMapLoad = false;
         }
         // Exposed so a chat command / log can show what's excluded.
@@ -289,16 +292,24 @@ namespace SFHeadlessHost
                 Log.LogError("[SF] AdvanceRound: no playable Landfall maps (SF_EXCLUDE_MAPS too broad) — staying on the current scene.");
                 return;
             }
-            byte winner = _pendingRoundWinner;
+            byte winner = DecideRoundWinner();
+            RecordRoundPoint(winner);
+            bool replay = _replaySameMap;
+            _roundVoid = false;
+            _replaySameMap = false;
             ResetDeathTrackingForNewRound();
             AcResetRound();   // (B2) reset behavioral-AC accumulators at the real round boundary
             _roundCounter++;
             // Pick a random scene we haven't visited in the last few rounds.
-            int nextScene = _allLandfallMaps[_mapRng.Next(_allLandfallMaps.Length)];
-            for (int attempt = 0; attempt < 8 && _recentMaps.Contains(nextScene); attempt++)
+            int nextScene = _currentSceneIndex;
+            if (!replay)
+            {
                 nextScene = _allLandfallMaps[_mapRng.Next(_allLandfallMaps.Length)];
-            _recentMaps.Enqueue(nextScene);
-            while (_recentMaps.Count > _recentMapsAvoidWindow) _recentMaps.Dequeue();
+                for (int attempt = 0; attempt < 8 && _recentMaps.Contains(nextScene); attempt++)
+                    nextScene = _allLandfallMaps[_mapRng.Next(_allLandfallMaps.Length)];
+                _recentMaps.Enqueue(nextScene);
+                while (_recentMaps.Count > _recentMapsAvoidWindow) _recentMaps.Dequeue();
+            }
             _currentSceneIndex = nextScene;
             _roundAdvanceBlockedUntil = Time.realtimeSinceStartup + RoundMinPlaySec;
             bool solo = IsSoloTestLobby();

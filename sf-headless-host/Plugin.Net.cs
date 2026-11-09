@@ -34,6 +34,8 @@ namespace SFHeadlessHost
             public bool SentWelcome;
             // H-P0-3 — granted via /admin <pass> (or SF_ADMIN_STEAMIDS match).
             public bool IsAdmin;
+            // Smoothed round-trip time to the server (server-measured), ms.
+            public float RttMs;
         }
 
         // Per-slot input frame the bridge has most recently received. Drained by
@@ -132,8 +134,13 @@ namespace SFHeadlessHost
                     }
                     _rateGuards.Remove(k);
                 }
-                // A player leaving can end the round (last one standing wins).
-                if (_matchStarted) CheckRoundEnd("player left");
+                // A player leaving can end the round (last one standing wins);
+                // in COMP it voids the round instead (replayed on the same map).
+                if (_matchStarted)
+                {
+                    if (CompMode) OnCompPlayerLeftMidRound();
+                    else CheckRoundEnd("player left");
+                }
                 // Lobby emptied out: clear the match flag so the next player's
                 // /start fires a fresh MapChange. _matchStarted was a one-way
                 // latch — once a match started it never reset, so any later
@@ -171,6 +178,7 @@ namespace SFHeadlessHost
             _startMatchDeadline = -1f;
             _startMatchSentThisRound = false;
             ResetDeathTrackingForNewRound();
+            ResetCompMatch();
             _pendingRoundAdvanceAt = -1f;
             // B1 (code-review): also reset the oracle's per-match latches + clear
             // stale authoritative rigs. _authSpawnDone is otherwise reset ONLY on
@@ -252,6 +260,9 @@ namespace SFHeadlessHost
             {
             switch (msgType)
             {
+                case PktPingResponse:
+                    HandleServerPingResponse(cli, data, bodyOffset, bodyLen);
+                    break;
                 case PktPing:
                     HandlePing(cli, data, bodyOffset, bodyLen);
                     break;
@@ -309,12 +320,18 @@ namespace SFHeadlessHost
 
                 // "Relay to all OTHER clients" — SF's host passes ignoreUserID =
                 // sender so they don't get duplicate force events / fall-outs.
+                // Lobby options (HP, regen, weapon rate) are the host's to set; a
+                // client-sent OptionsChanged used to be relayed, so any player
+                // could change everyone else's HP/regen. Drop it.
+                case PktOptionsChanged:
+                    if (_optionsRejected++ < 3) Log.LogWarning($"[SF] dropped client OptionsChanged from slot {cli.Slot} (options are server-set).");
+                    break;
+
                 case PktPlayerForceAdded:
                 case PktPlayerForceAddedAndBlock:
                 case PktPlayerLavaForceAdded:
                 case PktPlayerFallOut:
                 case PktPlayerTalked:        // chat / voice / commands (see PlayerTalked hex log below)
-                case PktOptionsChanged:      // lobby option toggles (ALKA BUGS_BACKLOG P0-4)
                 case PktLerpPlayer:          // patched-DLL ext, remote-lerp trigger (ALKA P1-4)
                 case PktColorChanged:        // patched-DLL ext, player color (ALKA P1-4)
                     if (msgType == PktPlayerTalked)
@@ -510,6 +527,8 @@ namespace SFHeadlessHost
                 return _maxPlayers;
             }
         }
+
+        private int _optionsRejected;
 
         private int AllocSlot(SfClient cli)
         {

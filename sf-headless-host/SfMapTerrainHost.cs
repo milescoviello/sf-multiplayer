@@ -43,9 +43,7 @@ namespace SFHeadlessHost
         private int _skyWeaponSpawnCount;
         /// <summary>Realtime sky-weapon schedule — do not use randomWeaponCounter (stock GM.Update resets it).</summary>
         private float _oracleNextSkyWeaponAt = -1f;
-        private const float OracleFirstSkyWeaponDelay = 2f;
-        private const float OracleSkyWeaponIntervalMin = 5f;
-        private const float OracleSkyWeaponIntervalMax = 8f;
+
         private static int _mapAwakeRegisterCount;
         private bool _oracleMapLoadInProgress;
         private float _oracleMapLoadStartedAt = -1f;
@@ -307,9 +305,10 @@ namespace SFHeadlessHost
                 var matchTimeF = AccessTools.Field(gmType, "matchTime");
                 if ((object)matchTimeF != null) matchTimeF.SetValue(gmInst, 0f);
                 var rwcField = AccessTools.Field(gmType, "randomWeaponCounter");
-                if ((object)rwcField != null) rwcField.SetValue(gmInst, 2.0f);
-                ScheduleNextSkyWeapon(OracleFirstSkyWeaponDelay);
-                Log.LogInfo($"[P6.5] RearmOracleCombatLoop({reason}): inFight=true nextSkyWeapon in {OracleFirstSkyWeaponDelay:0.0}s");
+                if ((object)rwcField != null) rwcField.SetValue(gmInst, 1000f);   // stock timer off; ours below
+                float first = FirstWeaponDelay();
+                ScheduleNextSkyWeapon(first);
+                Log.LogInfo($"[P6.5] RearmOracleCombatLoop({reason}): inFight=true first weapon in {first:0.0}s (spawn option {WeaponSpawnOption}).");
                 _skyWeaponTickAt = Time.realtimeSinceStartup + 1.5f;
             }
             catch (Exception e) { Log.LogWarning($"[P6.5] RearmOracleCombatLoop({reason}): {e.Message}"); }
@@ -317,7 +316,7 @@ namespace SFHeadlessHost
 
         internal void ScheduleNextSkyWeapon(float delaySec)
         {
-            _oracleNextSkyWeaponAt = Time.realtimeSinceStartup + Mathf.Max(0.5f, delaySec);
+            _oracleNextSkyWeaponAt = Time.realtimeSinceStartup + Mathf.Max(0.1f, delaySec);
         }
 
         /// <summary>
@@ -355,16 +354,20 @@ namespace SFHeadlessHost
                     matchTimeF.SetValue(gmInst, mt + Time.deltaTime);
                 }
 
+                if (WeaponSpawnOption == 2) return;              // "none": map weapons only
                 if (_oracleNextSkyWeaponAt < 0f)
-                    ScheduleNextSkyWeapon(OracleFirstSkyWeaponDelay);
+                    ScheduleNextSkyWeapon(FirstWeaponDelay());
                 float now = Time.realtimeSinceStartup;
                 if (now < _oracleNextSkyWeaponAt) return;
 
-                SpawnRandomWeaponPrefix(gmInst);
-                _skyWeaponSpawnCount++;
+                // Stock: one drop, then a 10% chance of another at once (chainable).
+                int n = 0;
+                do { ServerSpawnWeapon(gmInst); n++; } while (UnityEngine.Random.value > 0.9f && n < 8);
+                _skyWeaponSpawnCount += n;
+                float next = NextWeaponDelay();
                 if (_skyWeaponSpawnCount <= 8 || _skyWeaponSpawnCount % 10 == 0)
-                    Log.LogInfo($"[P6.5] CombatTimer: sky spawn #{_skyWeaponSpawnCount} (next in {OracleSkyWeaponIntervalMin:0}-{OracleSkyWeaponIntervalMax:0}s)");
-                ScheduleNextSkyWeapon(UnityEngine.Random.Range(OracleSkyWeaponIntervalMin, OracleSkyWeaponIntervalMax));
+                    Log.LogInfo($"[P6.5] weapon drop #{_skyWeaponSpawnCount} (x{n}), next in {next:0.0}s");
+                ScheduleNextSkyWeapon(next);
             }
             catch (Exception e) { Log.LogWarning($"[P6.5] TickOracleCombatTimers: {e.Message}"); }
         }

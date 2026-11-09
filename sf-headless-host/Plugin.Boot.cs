@@ -61,7 +61,7 @@ namespace SFHeadlessHost
                 if ((object)rwcField != null)
                     rwcField.SetValue(gmInst, 2.0f);
                 if ((object)Instance != null)
-                    Instance.ScheduleNextSkyWeapon(OracleFirstSkyWeaponDelay);
+                    Instance.ScheduleNextSkyWeapon(FirstWeaponDelay());
 
                 // Phase 6.9: manually invoke the network branch of
                 // PrepareMapForTravel that SF's host normally runs (and which
@@ -596,6 +596,7 @@ namespace SFHeadlessHost
                     // After a MapChange: StartMatch once every player has loaded
                     // (ClientReadyUp), bounded by an earliest time and a deadline.
                     TickStartMatchGate();
+                    TickServerPings();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;
@@ -688,6 +689,8 @@ namespace SFHeadlessHost
                 Application.targetFrameRate = fpsCap;
                 Log.LogInfo($"Server frame cap: {fpsCap} fps.");
             }
+            BuildMapRotationFromGame();
+            Log.LogInfo($"Lobby rules: HP={HpByIndex[HpOptionIndex]} regen={(RegenOption == 1 ? "on" : "off")} weaponSpawn={WeaponSpawnOption} (0 normal,1 high,2 none,3 low) maxPlayers={MaxPlayers}.");
             {
                 float fd = Time.fixedDeltaTime;
                 int hz = (fd > 0f) ? (int)System.Math.Round(1.0 / fd) : 0;

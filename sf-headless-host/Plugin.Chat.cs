@@ -114,8 +114,15 @@ namespace SFHeadlessHost
                         SendChatToPlayer(sender, "Lobby code: " + (string.IsNullOrEmpty(code) ? "<unknown>" : code));
                         break;
                     case "/ping":
-                        SendChatToPlayer(sender, "pong");
+                    case "/score":
+                        SendChatToPlayer(sender, ScoreAndPings());
                         break;
+                    case "/discount":
+                    {
+                        string err = DiscountLastPoint(sender);
+                        if (err != null) SendChatToPlayer(sender, err);
+                        break;
+                    }
                     case "/start":
                         if (_matchStarted)
                         {
@@ -323,7 +330,7 @@ namespace SFHeadlessHost
                         break;
                     }
                     case "/help":
-                        SendChatToPlayer(sender, "Commands: /code /ping /start /restart /next /map /listmaps /players /lobbies /weapons /tickrate /version /help — admin (/admin <pass>): /kick /anticheat /tickrate <hz>");
+                        SendChatToPlayer(sender, "Commands: /score /ping /discount /code /start /restart /next /map /listmaps /players /lobbies /weapons /tickrate /version /help — admin (/admin <pass>): /kick /anticheat");
                         break;
                     default:
                         SendChatToPlayer(sender, "Unknown command. Type /help");
