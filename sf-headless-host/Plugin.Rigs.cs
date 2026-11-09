@@ -179,11 +179,39 @@ namespace SFHeadlessHost
             catch (Exception e) { Log.LogWarning($"[P6.9 ConfigureAuthoritativeRig] {e.Message}"); }
         }
 
+        // Stock host model for other players (NetworkPlayer.LerpLocalDummy): the
+        // dummy is a physical ragdoll whose root is eased toward the reported
+        // position every physics step, transform.position = Lerp(pos, target,
+        // dt * 10). This used to teleport every body of the rig by the full delta
+        // on each PlayerUpdate (~50 Hz), which shoved crates violently (depenetration
+        // impulses) and then woke/unfroze them. SF_LEGACY_RIGS=1 restores that.
+        private static readonly bool LegacyRigs = Environment.GetEnvironmentVariable("SF_LEGACY_RIGS") == "1";
+        private readonly Dictionary<int, Vector3> _rigTarget = new Dictionary<int, Vector3>();
+
+        // FixedUpdate: ease each rig root toward its player's reported position.
+        private void TickRigLerp()
+        {
+            if (LegacyRigs || _rigTarget.Count == 0) return;
+            float k = Mathf.Clamp01(Time.deltaTime * 10f);
+            foreach (var kv in _rigTarget)
+            {
+                GameObject rig;
+                if (!SlotToRig.TryGetValue(kv.Key, out rig) || (object)rig == null) continue;
+                rig.transform.position = Vector3.Lerp(rig.transform.position, kv.Value, k);
+            }
+        }
+
         private void UpdateGhostRigPosition(int slot, Vector3 target)
         {
             if (!SlotToRig.TryGetValue(slot, out var rig) || (object)rig == null) return;
             var rootPos = rig.transform.position;
             var delta = target - rootPos;
+            if (!LegacyRigs && delta.magnitude <= 5f)
+            {
+                _rigTarget[slot] = target;   // eased in FixedUpdate (TickRigLerp)
+                return;
+            }
+            _rigTarget.Remove(slot);          // big jump (spawn / map change): snap as before
             if (delta.sqrMagnitude < 0.0001f) return;
             // BOXES FIX v3: large jumps (first update from spawn-point to client's
             // real position, or scene transition) use direct rb.position writes

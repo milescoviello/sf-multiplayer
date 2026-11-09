@@ -91,6 +91,7 @@ namespace SFHeadlessHost
             _sceneLoadRealtime = Time.realtimeSinceStartup;
             InvalidateMapSyncComponentCache();
             EnableWestern4BarrelSync(scene);
+            StartBoxProbe(scene.buildIndex);
             _nsoSpawnPos.Clear();
             _nsoVoidResetCount.Clear();   // per-NSO-index void-rescue budget — reset with the map (ids get reassigned)
             _nsoPeriodicKeyframeNextAt = Time.realtimeSinceStartup + 1f;
@@ -598,6 +599,8 @@ namespace SFHeadlessHost
                     // (ClientReadyUp), bounded by an earliest time and a deadline.
                     ProfBegin(); TickStartMatchGate(); ProfEnd("TickStartMatchGate");
                     ProfBegin(); TickServerPings(); ProfEnd("TickServerPings");
+                    TickBoxProbe();
+                    TickTestAutostart();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;

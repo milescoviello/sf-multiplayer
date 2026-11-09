@@ -171,5 +171,109 @@ namespace SFHeadlessHost
             _profMs.Clear();
             return sb.ToString();
         }
+
+        // Box probe: how well shared objects (crates, cubes) come to rest after
+        // a map loads. Records every NSO's local pose at scene load, then logs at
+        // +4/+8/+12 s how many are still awake and how far they moved/tilted.
+        // Boxes that "sit right" should be asleep with ~0 movement before anyone
+        // touches them. Once per map; cheap.
+        private readonly Dictionary<int, Vector3> _probePos = new Dictionary<int, Vector3>();
+        private readonly Dictionary<int, Quaternion> _probeRot = new Dictionary<int, Quaternion>();
+        private float _probeStartAt = -1f; private int _probeStage; private int _probeScene;
+        private readonly HashSet<int> _probeWasKinematic = new HashSet<int>();
+        private readonly HashSet<int> _probeFallLogged = new HashSet<int>();
+        private readonly Dictionary<int, Vector3> _probeWorld0 = new Dictionary<int, Vector3>();
+
+        internal void StartBoxProbe(int sceneIndex)
+        {
+            _probePos.Clear(); _probeRot.Clear(); _probeWasKinematic.Clear(); _probeFallLogged.Clear(); _probeWorld0.Clear();
+            _probeStartAt = Time.realtimeSinceStartup; _probeStage = 0; _probeScene = sceneIndex;
+            try
+            {
+                var nsoType = CachedType("NetworkSyncableObject");
+                if ((object)nsoType == null) return;
+                foreach (var o in UnityEngine.Object.FindObjectsOfType(nsoType))
+                {
+                    var c = o as Component; if (c == null) continue;
+                    _probePos[c.GetInstanceID()] = c.transform.localPosition;
+                    _probeRot[c.GetInstanceID()] = c.transform.localRotation;
+                    _probeWorld0[c.GetInstanceID()] = c.transform.position;
+                    var rbk = c.GetComponent<Rigidbody>();
+                    if (rbk != null && rbk.isKinematic) _probeWasKinematic.Add(c.GetInstanceID());
+                }
+            }
+            catch { }
+        }
+
+        private void TickBoxProbe()
+        {
+            if (_probeStartAt < 0f || _probeStage >= 10) return;
+            float due = _probeStartAt + 4f * (_probeStage + 1);
+            if (Time.realtimeSinceStartup < due) return;
+            _probeStage++;
+            try
+            {
+                var nsoType = CachedType("NetworkSyncableObject");
+                int n = 0, awake = 0, moved = 0, released = 0, fallen = 0, layer24 = 0; float sumD = 0f, maxD = 0f, maxA = 0f;
+                foreach (var o in UnityEngine.Object.FindObjectsOfType(nsoType))
+                {
+                    var c = o as Component; if (c == null) continue;
+                    Vector3 p0; Quaternion r0; int id = c.GetInstanceID();
+                    if (!_probePos.TryGetValue(id, out p0) || !_probeRot.TryGetValue(id, out r0)) continue;
+                    n++;
+                    var rb = c.GetComponent<Rigidbody>();
+                    if (rb != null && !rb.isKinematic && !rb.IsSleeping()) awake++;
+                    if (rb != null && !rb.isKinematic && _probeWasKinematic.Contains(id)) released++;
+                    if (c.gameObject.layer == 24) layer24++;
+                    if (c.transform.position.y < -25f)
+                    {
+                        fallen++;
+                        Vector3 w0;
+                        if (_probeFallLogged.Count < 6 && _probeFallLogged.Add(id) && _probeWorld0.TryGetValue(id, out w0))
+                            Log.LogInfo($"[box-probe] faller '{c.name}' started at {w0} (layer now {c.gameObject.layer}, rb {(rb == null ? "none" : (rb.isKinematic ? "kinematic" : "dynamic"))}, cd={(rb != null ? rb.collisionDetectionMode.ToString() : "-")})");
+                    }
+                    float d = Vector3.Distance(c.transform.localPosition, p0);
+                    float a = Quaternion.Angle(c.transform.localRotation, r0);
+                    sumD += d; if (d > maxD) maxD = d; if (a > maxA) maxA = a;
+                    if (d > 0.1f || a > 5f) moved++;
+                }
+                // One sample crate's body settings + the global physics config.
+                if (_probeStage == 1)
+                {
+                    foreach (var o in UnityEngine.Object.FindObjectsOfType(nsoType))
+                    {
+                        var c = o as Component; if (c == null) continue;
+                        var rb = c.GetComponent<Rigidbody>(); if (rb == null || rb.isKinematic) continue;
+                        Log.LogInfo($"[box-probe] sample '{c.name}': v={rb.velocity.magnitude:0.000} w={rb.angularVelocity.magnitude:0.000} sleepThr={rb.sleepThreshold:0.000} mass={rb.mass:0.00} drag={rb.drag:0.00}/{rb.angularDrag:0.00} cd={rb.collisionDetectionMode} interp={rb.interpolation} constraints={rb.constraints} solverIt={rb.solverIterations} parent={(c.transform.parent != null ? c.transform.parent.name : "-")} | Physics: sleepThr={Physics.sleepThreshold:0.000} solverIt={Physics.defaultSolverIterations} contactOff={Physics.defaultContactOffset:0.000} gravity={Physics.gravity}");
+                        break;
+                    }
+                }
+                int ctrls = 0, ai = 0;
+                try
+                {
+                    var ctrlType = CachedType("Controller");
+                    var isAiF = (object)ctrlType != null ? HarmonyLib.AccessTools.Field(ctrlType, "isAI") : null;
+                    foreach (var co in UnityEngine.Object.FindObjectsOfType(ctrlType))
+                    {
+                        ctrls++;
+                        if ((object)isAiF != null && isAiF.GetValue(co) is bool isAi && isAi) ai++;
+                    }
+                }
+                catch { }
+                string mapInfo = $" controllers={ctrls} ai={ai} destructionsApplied={_destructApplied}";
+                try
+                {
+                    var gmType = CachedType("GameManager");
+                    var gm = HarmonyLib.AccessTools.Property(gmType, "Instance")?.GetValue(null, null);
+                    var cmi = gm != null ? HarmonyLib.AccessTools.Field(gmType, "currentMapInfo")?.GetValue(gm) as Component : null;
+                    var anim = gm != null ? HarmonyLib.AccessTools.Field(gmType, "mapAnimation")?.GetValue(gm) : null;
+                    bool animating = anim != null && (HarmonyLib.AccessTools.Field(anim.GetType(), "isAnimating")?.GetValue(anim) is bool ba && ba);
+                    if (cmi != null) mapInfo += $" mapRoot={cmi.transform.position} scale={cmi.transform.lossyScale.x:0.00} animating={animating}";
+                }
+                catch { }
+                Log.LogInfo($"[box-probe] scene {_probeScene} +{4 * _probeStage}s: objects={n} awake={awake} moved(>0.1u|>5deg)={moved} frozenAtLoad->released={released} fellIntoVoid={fallen} onLayer24={layer24} meanMove={(n > 0 ? sumD / n : 0):0.000}u maxMove={maxD:0.00}u maxTilt={maxA:0}deg{mapInfo}");
+            }
+            catch (Exception e) { Log.LogWarning($"[box-probe] {e.Message}"); }
+        }
 }
 }

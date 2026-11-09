@@ -314,22 +314,22 @@ namespace SFHeadlessHost
                 if (_batchModeHost)
                     TryPatchHealthHandlerDieForRoundAdvance(harmony);
 
-                // v0.4.0 — stock IgnorePlayerWhenOffScreen.Update moves any
-                // object below y=-11 to layer 24 (no collision). It's a RENDER
-                // cull, hardcoded for small maps — on big maps (e.g. Desert9,
-                // crates at y=-14) the oracle's crates silently lost collision
-                // and fell through the world. Clients patch this with a
-                // map-size-aware transpiler (SFClientRecon "crate-cull"); the
-                // headless oracle renders nothing, so kill the cull outright.
-                // Before server-auth this was masked: client relays kept
-                // teleporting the fallen server crates back up.
+                // Stock IgnorePlayerWhenOffScreen moves objects below y = -11 to
+                // layer 24. It is NOT just a render cull: on crate maps whose
+                // bottom row sits below -11 (Desert 8 / Desert 3: crates on narrow
+                // supports at y = -15.5) the stock layer switch is what keeps the
+                // stack standing. This server used to disable it, and those stacks
+                // crept off their supports and collapsed into the void ~20 s into
+                // every round, for every player (measured with idle bots: 149/163
+                // crates gone; with the stock cull: 0). Stock behaviour is the
+                // default now; SF_SERVER_CULL_KILL=1 restores the old patch.
                 if (_batchModeHost)
                 {
                     SceneManager.sceneLoaded += OnOracleSceneLoadedTrackMap;
                     Log.LogInfo("[v26.7] Oracle map-scene tracker registered (sceneLoaded hook).");
                 }
 
-                if (_batchModeHost)
+                if (_batchModeHost && Environment.GetEnvironmentVariable("SF_SERVER_CULL_KILL") == "1")
                 {
                     var cullType = CachedType("IgnorePlayerWhenOffScreen");
                     var cullUpd = (object)cullType != null ? AccessTools.Method(cullType, "Update") : null;
@@ -546,6 +546,7 @@ namespace SFHeadlessHost
         // Physics.Linecast/OverlapSphere queries run in sync with Unity physics.
         private void FixedUpdate()
         {
+            try { TickRigLerp(); } catch { }
             try { TickProjectiles(); }
             catch (Exception e)
             {

@@ -73,6 +73,19 @@ namespace SFHeadlessHost
             return n > 0;
         }
 
+        // TEST ONLY (SF_TEST_AUTOSTART=1): start the match once 2+ players have
+        // been in the lobby for 8 s, so idle/docile test clients can reach a map.
+        private float _testAutostartSince = -1f;
+        private void TickTestAutostart()
+        {
+            if (_matchStarted || Environment.GetEnvironmentVariable("SF_TEST_AUTOSTART") != "1") { _testAutostartSince = -1f; return; }
+            if (CountInitializedSfClients() < 2) { _testAutostartSince = -1f; return; }
+            if (_testAutostartSince < 0f) _testAutostartSince = Time.realtimeSinceStartup;
+            if (Time.realtimeSinceStartup - _testAutostartSince < 8f) return;
+            _testAutostartSince = -1f;
+            FireMatchStart("test autostart");
+        }
+
         // Called every frame from the Running loop.
         private void TickStartMatchGate()
         {
@@ -388,6 +401,7 @@ namespace SFHeadlessHost
                 }
             }
             SlotToRig.Clear();
+            _rigTarget.Clear();
             Log.LogInfo($"[SF] Round advance: cleared {destroyed} authoritative rig(s) for next map.");
         }
 
@@ -402,7 +416,14 @@ namespace SFHeadlessHost
                 return;
             }
             ResetDeathTrackingForNewRound();
-            Log.LogInfo($"[SF] FireMatchStart({source}) — MapChange now; StartMatch to clients after load window.");
+            // The first map comes from the lobby's rotation too (it used the fixed
+            // default scene, so e.g. COMP's first map ignored the comp map pool).
+            if (_allLandfallMaps.Length > 0)
+            {
+                _currentSceneIndex = _allLandfallMaps[_mapRng.Next(_allLandfallMaps.Length)];
+                _recentMaps.Enqueue(_currentSceneIndex);
+            }
+            Log.LogInfo($"[SF] FireMatchStart({source}) — MapChange now (scene {_currentSceneIndex}); StartMatch to clients after load window.");
             SendRoundSpawns();
             BroadcastMapChange(_currentSceneIndex);
             ArmStartMatchAfterLoad(Mathf.Max(5f, NextMatchDelaySec + 2f));

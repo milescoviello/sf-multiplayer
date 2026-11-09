@@ -274,15 +274,19 @@ namespace SFHeadlessHost
 
                     ushort id = GetNsoIndex(nsoComp);
                     var nsoRbs = nsoComp.GetComponentsInChildren<Rigidbody>();
+                    // Only wake bodies that are already physical. A FROZEN (kinematic)
+                    // crate stays frozen until the game itself activates it (hit /
+                    // event), as in stock; this used to unfreeze any crate a player
+                    // merely walked past, so floating/parked crates dropped.
                     foreach (var rb in nsoRbs)
                     {
                         if ((object)rb == null) continue;
                         if (rb.isKinematic)
                         {
-                            rb.isKinematic = false;
-                            rb.WakeUp();
-                            woken++;
+                            if (!LegacyRigs) continue;
+                            rb.isKinematic = false; rb.WakeUp(); woken++;   // legacy behaviour
                         }
+                        else if (rb.IsSleeping()) { rb.WakeUp(); woken++; }
                     }
                     var p = nsoComp.transform.position;
                     _nsoLastBroadcastPos[id] = p;
@@ -516,6 +520,7 @@ namespace SFHeadlessHost
             root = comp.gameObject;
             return true;
         }
+        internal static int _destructApplied;
         private void ApplyDestructionLocally(byte msgType, byte[] data, int off, int len)
         {
             try
@@ -553,6 +558,7 @@ namespace SFHeadlessHost
                 var dp = comp.GetComponent(_dpDestType) ?? comp.GetComponentInChildren(_dpDestType);
                 if ((object)dp == null) { _destructMissCount++; return; }
 
+                _destructApplied++;
                 if (msgType == PktObjectSimpleDestruction && (object)_dpSimpleDestM != null)
                     _dpSimpleDestM.Invoke(dp, null);
                 else if (msgType == PktObjectInvokeDestructionEvent && (object)_dpEventDestM != null)
