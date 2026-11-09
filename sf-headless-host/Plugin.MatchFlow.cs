@@ -49,7 +49,13 @@ namespace SFHeadlessHost
         private readonly HashSet<int> _readySlots = new HashSet<int>();
         private float _startMatchEarliestAt = -1f;
         private float _startMatchDeadline = -1f;
-        private const float StartMatchMaxWaitSec = 5f;   // past the earliest time
+        // Past the earliest time. Stock: the host starts when everyone is ready,
+        // and each client also starts on its own 3 s after IT is ready, so a slow
+        // loader gives the others a head start. COMP waits longer for both
+        // duelists (fairness); other lobbies keep about stock's limit.
+        private const float StartMatchMaxWaitSec = 5f;
+        private const float CompStartMatchMaxWaitSec = 12f;
+        private float _mapChangeAt = -1f;
         private int _deathReportsRejected;
 
         private void ArmStartMatchAfterLoad(float earliestDelaySec)
@@ -57,8 +63,9 @@ namespace SFHeadlessHost
             float now = Time.realtimeSinceStartup;
             _readySlots.Clear();
             _startMatchSentThisRound = false;
+            _mapChangeAt = now;
             _startMatchEarliestAt = now + earliestDelaySec;
-            _startMatchDeadline = _startMatchEarliestAt + StartMatchMaxWaitSec;
+            _startMatchDeadline = _startMatchEarliestAt + (CompMode ? CompStartMatchMaxWaitSec : StartMatchMaxWaitSec);
         }
 
         private bool AllParticipantsReady()
@@ -99,7 +106,7 @@ namespace SFHeadlessHost
             if (!allReady && now < _startMatchDeadline) return;
             _startMatchEarliestAt = -1f;
             _startMatchDeadline = -1f;
-            Log.LogInfo($"[SF] StartMatch gate open ({(allReady ? "all players loaded" : "ready-up deadline")}; ready={_readySlots.Count}/{CountInitializedSfClients()}).");
+            Log.LogInfo($"[SF] StartMatch gate open ({(allReady ? "all players loaded" : "ready-up deadline")}; ready={_readySlots.Count}/{CountInitializedSfClients()}) {now - _mapChangeAt:0.0}s after the map change.");
             BroadcastStartMatch();
         }
 

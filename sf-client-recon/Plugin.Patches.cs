@@ -150,55 +150,6 @@ namespace SFClientRecon
         // Returns false → original method body is skipped entirely.
         internal static bool MusicHandler_Skip_Prefix() { return false; }
 
-        // Returns the y-threshold below which IgnorePlayerWhenOffScreen flips a
-        // crate to the no-collision layer. Stock value is -11f for a 10-unit
-        // map; scale it so larger maps don't cull in-bounds crates.
-        public static float GetCrateCullThreshold()
-        {
-            try
-            {
-                if ((object)_mapSizeHandlerType == null)
-                {
-                    _mapSizeHandlerType = CachedType("MapSizeHandler");
-                    if ((object)_mapSizeHandlerType != null)
-                    {
-                        _mapSizeInstanceField = AccessTools.Field(_mapSizeHandlerType, "Instance");
-                        _mapSizeField = AccessTools.Field(_mapSizeHandlerType, "mapSize");
-                    }
-                }
-                if ((object)_mapSizeInstanceField != null && (object)_mapSizeField != null)
-                {
-                    var inst = _mapSizeInstanceField.GetValue(null);
-                    if (inst != null)
-                    {
-                        float size = (float)_mapSizeField.GetValue(inst);
-                        if (size > 0.01f) return -11f * (size / 10f);
-                    }
-                }
-            }
-            catch { /* fall through to stock value */ }
-            return -11f;
-        }
-
-        private static IEnumerable<CodeInstruction> IgnoreOffScreenCullTranspiler(
-            IEnumerable<CodeInstruction> instructions)
-        {
-            // NOTE: do NOT use `yield return` here. The C# compiler turns iterator
-            // methods into a state machine decorated with IteratorStateMachineAttribute,
-            // which Mono 2.0 (this SF build) cannot load → TypeLoadException at plugin
-            // load. Build a concrete List and return it instead.
-            var call = AccessTools.Method(typeof(Plugin), nameof(GetCrateCullThreshold));
-            var codes = new List<CodeInstruction>(instructions);
-            for (int i = 0; i < codes.Count; i++)
-            {
-                if (codes[i].opcode == System.Reflection.Emit.OpCodes.Ldc_R4 && (float)codes[i].operand == -11f)
-                {
-                    codes[i].opcode = System.Reflection.Emit.OpCodes.Call;
-                    codes[i].operand = call;
-                }
-            }
-            return codes;
-        }
 
         // Phase 6.17 v0.1 — Harmony postfix on Weapon.ActuallyShoot.
         // Fires after the local Shoot ran. We capture the muzzle position +

@@ -63,7 +63,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.0";
+        public const string PluginVersion = "0.7.1";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -242,30 +242,10 @@ namespace SFClientRecon
             }
             catch (Exception e) { Log.LogWarning($"[P0-15] DestructiblePiece patch failed: {e.Message}"); }
 
-            // Crate-cull fix — stock IgnorePlayerWhenOffScreen.Update sets the
-            // object's layer to 24 (no-collision) whenever y < -11f. That -11f
-            // is hardcoded for the default 10-unit map; on larger maps a crate
-            // that is still in-bounds sits below -11 and loses collision, so it
-            // "ghosts"/vanishes client-side independent of the server killbox.
-            // Transpile the constant to scale with MapSizeHandler.mapSize.
-            try
-            {
-                var ipType = CachedType("IgnorePlayerWhenOffScreen");
-                if ((object)ipType != null)
-                {
-                    var upd = AccessTools.Method(ipType, "Update");
-                    if ((object)upd != null)
-                    {
-                        var harmony = new Harmony(PluginGuid + ".crate-cull-fix");
-                        var transpiler = AccessTools.Method(typeof(Plugin), nameof(IgnoreOffScreenCullTranspiler));
-                        harmony.Patch(upd, transpiler: new HarmonyMethod(transpiler));
-                        Log.LogInfo("Patched IgnorePlayerWhenOffScreen.Update → cull threshold scales with map size.");
-                    }
-                    else Log.LogWarning("[crate-cull] IgnorePlayerWhenOffScreen.Update not found.");
-                }
-                else Log.LogWarning("[crate-cull] IgnorePlayerWhenOffScreen type not found.");
-            }
-            catch (Exception e) { Log.LogWarning($"[crate-cull] patch failed: {e.Message}"); }
+            // (IgnorePlayerWhenOffScreen is left stock, -11, like the server: the
+            // old map-size-scaled threshold made crates between -11 and it ignore
+            // players on the server but not on this client.)
+            InstallStockPatchedDllFixes();
 
             // v0.6.0 — null-channels guard on P2PPackageHandler.IsPacketAvailable.
             // In oracle-connect mode the Steam P2P channel array never
@@ -756,10 +736,6 @@ namespace SFClientRecon
         private static bool _nsoTypeForCollisionTried;
         private static int _destructibleGuardCallCount;
 
-        // Crate-cull fix — cached MapSizeHandler reflection.
-        private static System.Type _mapSizeHandlerType;
-        private static FieldInfo _mapSizeInstanceField;
-        private static FieldInfo _mapSizeField;
 
         // Plugin instance accessor for static Harmony postfixes.
         internal static Plugin Instance { get; private set; }

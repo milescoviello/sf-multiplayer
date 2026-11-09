@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>SFProbe</AssemblyName>
+    <RootNamespace>SFProbe</RootNamespace>
+    <LangVersion>9.0</LangVersion>
+    <NoWarn>CS0436;CS1591;CS0649</NoWarn>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\shared\Mono2Polyfills.cs" Link="Mono2Polyfills.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>..\sf-client-recon\refs\BepInEx.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>..\sf-client-recon\refs\0Harmony.dll</HintPath><Private>False</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>..\sf-client-recon\refs\UnityEngine.dll</HintPath><Private>False</Private></Reference>
+  </ItemGroup>
+</Project>
