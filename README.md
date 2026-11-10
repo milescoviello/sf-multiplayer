@@ -5,7 +5,7 @@
 **Stick Fight: The Game on a dedicated server.**
 No player hosts the match, so one player's bad connection or rage-quit can't wreck it for everyone.
 
-### [⬇ Download the installer (.zip)](https://github.com/milescoviello/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
+### [Download the installer (.zip)](https://github.com/milescoviello/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
 
 Windows · Linux / Steam Deck (beta) · needs Stick Fight: The Game on Steam
 
