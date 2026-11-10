@@ -51,10 +51,14 @@ namespace SFClientRecon
                 var comp = __instance as Component;
                 if ((object)comp == null || comp.GetComponent(_snakeAiType) == null) return true;
                 // A snake's only message is its target ([u16 object][u8 slot]).
-                // Anything longer is a position update the server shouldn't send
-                // for a snake; the game would read a position byte as the target
-                // (often 255 = nobody), so ignore it.
-                if (data.Length != 3) return false;
+                // This build hands objects the body plus the packet's 9-byte
+                // trailer ([u64 sender][u8 channel]), so a target arrives as 12
+                // bytes (3 without it). Anything else is a position update the
+                // server shouldn't send for a snake; the game would read a
+                // position byte as the target (often 255 = nobody), so ignore it.
+                // (This check once required exactly 3 bytes and so dropped every
+                // real target: snakes never chased anyone on clients.)
+                if (data.Length != 3 && data.Length != 3 + 9) return false;
                 var snake = _nsoSnakeCompF.GetValue(__instance);
                 var mm = _nsoNetMgrF.GetValue(__instance);
                 if (snake == null || mm == null) return true;

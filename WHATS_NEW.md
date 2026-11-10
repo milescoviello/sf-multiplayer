@@ -20,6 +20,18 @@ the per-step movement, relative to the original's):
 On a real Windows client watching the bot: 1.4-1.7x, error 0.15-0.33 u. Lag
 also dropped (40 ± 10 ms: 140-210 ms -> 110-125 ms). SF_REMOTE_INTERP=0 = stock.
 
+**Snakes bite again (checked: a bot's snake-gun snakes took another bot 100 -> 95 -> 90,
+stock's 5 per bite).** Two faults stopped every bite. (1) The client's snake-target
+fix accepted only 3-byte messages, but this build hands objects the body plus the
+packet's 9-byte trailer, so every real target (12 bytes) was thrown away. (2) Stock
+sends a snake's target at most every 0.5 s and clears it every second; the server
+picked the new target inside that window, so the send was skipped while its own
+snake chased on: after the first second clients only ever heard "no target". The
+server now waits for the window like stock. Stock also never routes a host's
+targets to the shooter's own copy of the snake (the shooter reserves the index with
+a placeholder), so on the shooter's screen their snakes wander, as in vanilla for
+a non-host shooter. "[snake-diag]" in the client log counts arriving targets.
+
 **Empty lobbies idle.** Each lobby's game loop ran at the 100 fps cap with
 nobody in it, about 0.7 of a core each: four idle lobbies took half the server.
 With nobody connected a lobby now runs at 15 fps; the first packet from anyone

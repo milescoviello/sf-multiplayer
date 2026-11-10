@@ -238,6 +238,7 @@ namespace SFHeadlessHost
         private static System.Reflection.FieldInfo _nsoIsSnakeF;
         private static Type _hipType, _charInfoType;
         private static bool _snakeReflectOk, _snakeReflectTried;
+        private static System.Reflection.FieldInfo _nsoLastSnakeSendF;
         private static int _snakeTargetsSent;
         internal static bool SkipOnServerPrefix() => false;
 
@@ -297,6 +298,17 @@ namespace SFHeadlessHost
                 }
                 if (best < 0) return;
                 var nso = (object)_snNso != null ? _snNso.GetValue(__instance) : null;
+                // Stock sends a snake's target at most every 0.5 s and clears it
+                // every second (sending 255); the re-pick goes out when the 0.5 s
+                // window reopens, and the snake waits target-less until then. We
+                // used to pick inside the window: the send was skipped but the
+                // server's snake chased anyway, so every client only ever heard
+                // "no target" after the first second and its snake stopped.
+                if (nso != null)
+                {
+                    if ((object)_nsoLastSnakeSendF == null) _nsoLastSnakeSendF = AccessTools.Field(nso.GetType(), "mLastSnakeSendTime");
+                    if ((object)_nsoLastSnakeSendF != null && Time.time - (float)_nsoLastSnakeSendF.GetValue(nso) < 0.5f) return;
+                }
                 if (nso != null && (object)_nsoNewSnakeTarget != null)
                 {
                     _nsoNewSnakeTarget.Invoke(nso, new object[] { (byte)best });   // broadcasts to clients (rate-limited 0.5s by stock)

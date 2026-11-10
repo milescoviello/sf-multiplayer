@@ -63,7 +63,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.3";
+        public const string PluginVersion = "0.7.4";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -272,6 +272,7 @@ namespace SFClientRecon
             InstallGameSocketFixes();
             InstallColorFix();
             InstallSnakeTargetFix();
+            InstallSnakeDiag();
             InstallPlayerOrderFix();
             InstallRemoteSmoothing();
             InstallNsoClientPushPatches();
@@ -419,6 +420,7 @@ namespace SFClientRecon
             try { TickSendRate(); } catch { }
             PerfMark(6);
             try { TickSmoothLog(); } catch { }
+            try { TickSnakeDiag(); } catch { }
             PerfMark(7);
             try { TickDebugConsole(); } catch { }
             PerfMark(8);
