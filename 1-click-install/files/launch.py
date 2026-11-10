@@ -54,6 +54,26 @@ def resolve(name):
         return None
 
 
+def answers(ip, port):
+    # Does a Stick Fight Online router answer there? (Its lobby-list request,
+    # what the in-game list sends.) A name can resolve and still not be the
+    # game server, e.g. a DNS record behind a web proxy that drops UDP.
+    pkt = b'SFRTR\x00\x00\x01\x03\x00\x2a\x00\x00\x00'
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(1.2)
+    try:
+        for _ in range(3):
+            try:
+                s.sendto(pkt, (ip, port))
+                if s.recvfrom(2048)[0]:
+                    return True
+            except OSError:
+                pass
+    finally:
+        s.close()
+    return False
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, 'rb') as f:
@@ -86,13 +106,14 @@ def update(cfg):
     # install with the next start (saved for offline starts too).
     ms, mp = m.get('server'), int(m.get('port') or cfg['port'])
     if ms and (ms != cfg['server'] or mp != cfg['port']):
-        if resolve(ms):
+        mip = resolve(ms)
+        if mip and answers(mip, mp):
             cfg['server'], cfg['port'] = ms, mp
             with open(CFG, 'w') as f:
                 json.dump(cfg, f, indent=2)
             log('server address from manifest: %s:%d' % (ms, mp))
         else:
-            log("manifest server %s doesn't resolve yet: keeping %s:%d" % (ms, cfg['server'], cfg['port']))
+            log("manifest server %s:%d doesn't answer yet: keeping %s:%d" % (ms, mp, cfg['server'], cfg['port']))
     changed = 0
     for f in m.get('files', []):
         if f.get('os') == 'windows':
@@ -157,6 +178,9 @@ def main():
         log("can't resolve " + cfg['server'])
         tell("Can't find the server (%s). Check your internet connection and try again." % cfg['server'])
         return 1
+    if not answers(ip, cfg['port']):
+        log("the server %s (%s:%d) isn't answering" % (cfg['server'], ip, cfg['port']))
+        tell("The server (%s) isn't answering right now. Stick Fight will start and keep trying to connect." % cfg['server'])
     with open(FLAG, 'w') as f:
         f.write('%s %d\n' % (ip, cfg['port']))
     log('starting Stick Fight through Steam for %s:%d' % (ip, cfg['port']))

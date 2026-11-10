@@ -19,6 +19,23 @@ function Resolve-ServerIp($name) {
     try { return ([Net.Dns]::GetHostAddresses($name) | Where-Object { $_.AddressFamily -eq 'InterNetwork' } | Select-Object -First 1).IPAddressToString } catch { return $null }
 }
 
+# Does a Stick Fight Online router answer there? (Its lobby-list request,
+# what the in-game list sends.) A name can resolve and still not be the game
+# server, e.g. a DNS record behind a web proxy that drops UDP.
+function Test-SfServer($ip, $port) {
+    $u = $null
+    try {
+        $u = New-Object Net.Sockets.UdpClient
+        $u.Client.ReceiveTimeout = 1200
+        $pkt = [byte[]](0x53,0x46,0x52,0x54,0x52,0,0,1, 3,0, 0x2A,0,0,0)
+        for ($i = 0; $i -lt 3; $i++) {
+            [void]$u.Send($pkt, $pkt.Length, $ip, [int]$port)
+            try { $ep = New-Object Net.IPEndPoint([Net.IPAddress]::Any, 0); if ($u.Receive([ref]$ep).Length -gt 0) { return $true } } catch { }
+        }
+    } catch { } finally { if ($u) { $u.Close() } }
+    return $false
+}
+
 $cfg = $null
 try { $cfg = Get-Content (Join-Path $Dir 'config.json') -Raw | ConvertFrom-Json } catch { Log "config.json unreadable: $($_.Exception.Message)" }
 $server = '127.0.0.1'; $port = 1338
@@ -37,11 +54,12 @@ if ($cfg -and $cfg.manifestUrl) {
         # every install with the next start (saved for offline starts too).
         if ($m.server -and (($m.server -ne $server) -or ([int]$m.port -ne $port))) {
             $mServer = $m.server; $mPort = $port; if ($m.port) { $mPort = [int]$m.port }
-            if (Resolve-ServerIp $mServer) {
+            $mIp = Resolve-ServerIp $mServer
+            if ($mIp -and (Test-SfServer $mIp $mPort)) {
                 $server = $mServer; $port = $mPort
                 try { $cfg.server = $server; $cfg.port = $port; ($cfg | ConvertTo-Json) | Set-Content (Join-Path $Dir 'config.json') -Encoding UTF8 } catch { }
                 Log "server address from manifest: ${server}:${port}"
-            } else { Log "manifest server $mServer doesn't resolve yet: keeping ${server}:${port}" }
+            } else { Log "manifest server ${mServer}:${mPort} doesn't answer yet: keeping ${server}:${port}" }
         }
         $changed = 0
         foreach ($f in $m.files) {
@@ -76,6 +94,10 @@ if (-not $ip) {
     Log "can't resolve $server"
     try { [void](New-Object -ComObject WScript.Shell).Popup("Can't find the server ($server). Check your internet connection and try again.", 0, 'Stick Fight Online', 48) } catch { }
     exit 1
+}
+if (-not (Test-SfServer $ip $port)) {
+    Log "the server ${server} (${ip}:${port}) isn't answering"
+    try { [void](New-Object -ComObject WScript.Shell).Popup("The server ($server) isn't answering right now. Stick Fight will start and keep trying to connect.", 8, 'Stick Fight Online', 48) } catch { }
 }
 $server = $ip
 $override = Join-Path $Game 'sf-online'
