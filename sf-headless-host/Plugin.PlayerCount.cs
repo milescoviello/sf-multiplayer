@@ -47,5 +47,23 @@ namespace SFHeadlessHost
                 _playerCountWritten = -2;
             }
         }
+
+        // An empty lobby shows nothing to anyone, but its game loop at the full
+        // cap still cost about 0.7 of a core: four idle lobbies took half the
+        // server. With nobody connected it runs at IdleFps; the first packet from
+        // anyone is handled within 1/IdleFps s and brings the full cap back
+        // before the join goes any further. Player updates never wait on frames
+        // (the receive thread relays them), so this changes nothing in a match.
+        private const int IdleFps = 15;
+        private int _activeFpsCap = 100;
+        private bool _idleCapped;
+        private void TickIdleFrameCap()
+        {
+            bool idle = _sfClients.Count == 0;
+            if (idle == _idleCapped) return;
+            _idleCapped = idle;
+            Application.targetFrameRate = idle ? IdleFps : _activeFpsCap;
+            Log.LogInfo(idle ? $"Nobody connected: frame cap {IdleFps} fps until someone is." : $"A player connected: frame cap back to {_activeFpsCap} fps.");
+        }
     }
 }

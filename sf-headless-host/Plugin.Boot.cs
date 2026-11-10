@@ -600,6 +600,7 @@ namespace SFHeadlessHost
                     TickClientVersions();
                     TickSessionTokens();
                     TickPlayerCountFile();
+                    TickIdleFrameCap();
                     TickRxTiming();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
@@ -699,8 +700,9 @@ namespace SFHeadlessHost
                 int fpsCap = 100;
                 int v;
                 if (int.TryParse(Environment.GetEnvironmentVariable("SF_SERVER_FPS"), out v) && v >= 30 && v <= 1000) fpsCap = v;
+                _activeFpsCap = fpsCap;
                 Application.targetFrameRate = fpsCap;
-                Log.LogInfo($"Server frame cap: {fpsCap} fps.");
+                Log.LogInfo($"Server frame cap: {fpsCap} fps ({IdleFps} fps while nobody is connected).");
             }
             BuildMapRotationFromGame();
             Log.LogInfo($"Lobby rules: HP={HpByIndex[HpOptionIndex]} regen={(RegenOption == 1 ? "on" : "off")} weaponSpawn={WeaponSpawnOption} (0 normal,1 high,2 none,3 low) maxPlayers={MaxPlayers}.");

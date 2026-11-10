@@ -1,3 +1,44 @@
+# What's new — 2026-11-10 (later): smooth remote players, idle lobbies
+
+**Remote players move smoothly.** Stock nudges another player's copy 1/6 of
+the way to its reported position once per update that lands, and does nothing
+in between. Over the internet updates land unevenly (two in one frame, then
+none for three), so the nudges were uneven: stutter. The client now applies the
+same stock-strength correction every physics step, toward the newest reported
+position carried forward by the sender's velocity (measured over the last few
+updates, at most 50 ms ahead); after 150 ms without an update it stops, as
+stock does. Measured with a bot driven in a fixed pattern, comparing physics-step
+traces of the original with another client's copy ("jitter" = mean change of
+the per-step movement, relative to the original's):
+
+| path (each leg) | stock jitter | now | stock error | now |
+|---|---|---|---|---|
+| LAN | 1.8x | 1.2x | 0.73 u | 0.33 u |
+| 40 ± 10 ms | 3.2-6.6x | 1.3x | 0.38-0.95 u | 0.24-0.60 u |
+| 60 ± 25 ms | 9.4x | 2.0x | 0.66 u | 0.32 u |
+
+On a real Windows client watching the bot: 1.4-1.7x, error 0.15-0.33 u. Lag
+also dropped (40 ± 10 ms: 140-210 ms -> 110-125 ms). SF_REMOTE_INTERP=0 = stock.
+
+**Empty lobbies idle.** Each lobby's game loop ran at the 100 fps cap with
+nobody in it, about 0.7 of a core each: four idle lobbies took half the server.
+With nobody connected a lobby now runs at 15 fps; the first packet from anyone
+brings back 100 fps before the join goes further (player updates are relayed
+on the receive thread, never waiting on frames). Four idle lobbies went from
+~2.8 cores to under 1.
+
+**"[perf]" in the client log** every 10 s: frame rate, slowest frame, and this
+mod's own cost per frame (about 1 ms on the test client, broken down by section
+when it is over 1.5 ms). A "laggy" report from a player's log now shows whether
+it was their frame rate or the network.
+
+**Test bench.** The bots that showed "jerky" players were partly jerky
+themselves: the gym's scripted AI and observation stream cost ~0.5 s per frame on
+the test VM, so bots ran at 1-8 fps and sent that many updates. Smoothness runs
+now drive bots over the gym's control port with the AI and observation frames
+off (new SFGYM_NO_FRAMES=1), at a steady 59-60 fps. SF_SMOOTH_TRACE=1 (or a file
+BepInEx/smooth-trace.on) writes per-step positions for offline comparison.
+
 # What's new — 2026-11-10: fixes from watching real games
 
 **Weapon drops.** Sky drops started 2 s after a map loaded, before players had

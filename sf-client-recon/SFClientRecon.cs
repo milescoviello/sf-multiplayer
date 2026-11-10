@@ -63,7 +63,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.2";
+        public const string PluginVersion = "0.7.3";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -273,6 +273,7 @@ namespace SFClientRecon
             InstallColorFix();
             InstallSnakeTargetFix();
             InstallPlayerOrderFix();
+            InstallRemoteSmoothing();
             InstallNsoClientPushPatches();
             // Defensive NetworkSyncableObject burst/NaN guard (credit: z7572/NaNFixer).
             // Runs regardless of connect mode; SF_NANGUARD=0 disables it.
@@ -391,18 +392,38 @@ namespace SFClientRecon
 
         private void Update()
         {
+            _perfSw.Reset(); _perfSw.Start();
+            try { UpdateBody(); }
+            finally { _perfSw.Stop(); _perfUpdateMs += _perfSw.Elapsed.TotalMilliseconds; }
+            TickPerfLog();
+        }
+
+        private void UpdateBody()
+        {
             if (!_running) return;
+            PerfMarkStart();
             // No FPS / vSync overrides: the player's own Game Settings decide, as in
             // stock (FPS changes how the game plays, so forcing it is not fair play).
             try { ApplyServerPings(); } catch { }
+            PerfMark(0);
             try { ApplyPlayersLeft(); } catch { }
+            PerfMark(1);
             try { TickViewerLink(); } catch { }
+            PerfMark(2);
             try { TickOracleAutoConnect(); } catch { }
+            PerfMark(3);
             try { TickRejoin(); } catch { }
+            PerfMark(4);
             try { RxTiming.Tick(); } catch { }
+            PerfMark(5);
             try { TickSendRate(); } catch { }
+            PerfMark(6);
+            try { TickSmoothLog(); } catch { }
+            PerfMark(7);
             try { TickDebugConsole(); } catch { }
+            PerfMark(8);
             try { TickChannelNullFill(); } catch { }
+            PerfMark(9);
             List<SnapshotEntry> snap;
             List<NsoSnapEntry>  nsoSnap;
             List<MapSyncSnapEntry> mapSyncSnap;
@@ -426,6 +447,7 @@ namespace SFClientRecon
             if (nsoSnap != null) ApplyNsoSnapshot(nsoSnap, tick);
             if (mapSyncSnap != null) ApplyMapSyncSnapshot(mapSyncSnap, tick);
             if (mapStateSnap != null) ApplyMapStateSnapshot(mapStateSnap);
+            PerfMark(10);
 
             // Joiner path (OnSocketServerJoined) never sets
             // mHasBeenInitializedFromServer, so MapChange(18) is dropped and the
@@ -438,13 +460,17 @@ namespace SFClientRecon
                 _lastInitForceAt = Time.realtimeSinceStartup;
                 ForceInitializedFromServer(null);
             }
+            PerfMark(11);
 
             // Phase 6.11.2 — between snapshots, exponentially lerp current
             // positions toward latest targets so the visual feel is smooth
             // instead of teleporting every 33ms (30Hz snapshot rate).
             SmoothTowardTargets();
+            PerfMark(12);
             TickNsoClientPushRelay();
+            PerfMark(13);
             TickFastCombatInput();
+            PerfMark(14);
 
             // Lobby SELECT: keep the router pinned to our chosen lobby until
             // snapshots are flowing. Snapshot-flow is the "connected" signal;
@@ -643,6 +669,13 @@ namespace SFClientRecon
         // benefit. Only the velocity clamp remains (kills bullet fling) which is
         // both safe and necessary. Stack/player damping kept but minimal.
         private void FixedUpdate()
+        {
+            _perfSw.Reset(); _perfSw.Start();
+            try { FixedUpdateBody(); }
+            finally { _perfSw.Stop(); _perfFixedMs += _perfSw.Elapsed.TotalMilliseconds; }
+        }
+
+        private void FixedUpdateBody()
         {
             if (!_running) return;
             if (!IsMatchActive()) return;
