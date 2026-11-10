@@ -131,7 +131,7 @@ These let you snapshot the global match state in one go.
 
 - **`ChatManager.Awake` disables itself if `!MatchmakingHandler.IsNetworkMatch`.** Solo vanilla = no chat UI. /start, /next, /map and other commands can't be typed in solo. Use UE's C# Console REPL to call game methods directly.
 - **Many fields are private.** `NetworkSyncableObject.mIsListening`, `mHasControl`, `m_Index` are all private. UE shows them by default; AccessTools/reflection-based plugin code must use `BindingFlags.NonPublic | BindingFlags.Instance` (or `Static`).
-- **The patched and stock Assembly-CSharp.dll differ in `-address`/`-port` CLI parsing only** (per [`reference_patched_dll`](../../.claude/projects/-home-miles-sf-multiplayer/memory/reference_patched_dll.md)). The patched DLL falls through to vanilla behavior when no `-address` is passed. Either is valid for vanilla testing as long as no `-address` flag is set.
+- **The patched Assembly-CSharp.dll adds the `-address`/`-port` options and sends the game's messages over plain UDP to that address instead of Steam P2P.** The patched DLL falls through to vanilla behavior when no `-address` is passed. Either is valid for vanilla testing as long as no `-address` flag is set.
 
 ## What this setup is for
 

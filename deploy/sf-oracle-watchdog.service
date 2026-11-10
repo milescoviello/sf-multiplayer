@@ -3,7 +3,7 @@
 # Install at: /etc/systemd/system/sf-oracle-watchdog.service
 [Unit]
 Description=sf-oracle liveness watchdog (UDP probe → restart on deaf port)
-Documentation=https://github.com/kitslayer/sf-multiplayer
+Documentation=https://github.com/milescoviello/sf-multiplayer
 After=sf-oracle.service
 
 [Service]

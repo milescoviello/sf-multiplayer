@@ -1,5 +1,7 @@
 # Bug backlog — incident log
 
+> **Historical (May 2026).** The incident log from the first months. Later fixes are in [`../WHATS_NEW.md`](../WHATS_NEW.md); open work is in [`../NEXT_STEPS.md`](../NEXT_STEPS.md).
+
 Every non-trivial bug we've hit, ordered by impact, with the root cause and the commit that fixed it. Format mirrors ALKA's `BUGS_BACKLOG.md` (P0/P1/P2 priority bands).
 
 > See [`OBJECT_SYNC.md`](OBJECT_SYNC.md) for the architectural reference on how SF's three world-state sync mechanisms (NSO, MapInfoSyncableBase, DestructiblePiece events) interact — most P0 bugs in this file are at the boundaries between those systems. The [`AUDIT_2026-05-23.md`](AUDIT_2026-05-23.md) doc has the full evidence trail for the currently-open bugs (P0-11 through P0-15).

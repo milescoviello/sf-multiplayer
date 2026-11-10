@@ -1,8 +1,10 @@
 # Crash investigation — oracle native access violation
 
+> **Written May to July 2026.** The native crash under Wine can still happen; today it's contained (systemd restarts, MAIN's daily restart, the watchdog), not fixed. See [`DEPLOY.md`](DEPLOY.md#where-to-look-when-things-break).
+
 Started 2026-05-23 night. Hard fault inside `StickFight.exe` while running under Proton/Wine. **7 distinct crash dumps in `/home/miles/sf-mirror-local/2026-05-23_*/` from this single day's testing.**
 
-## ⚠️ Update 2026-06-11 — it's PERIODIC, and there's a new clue + a mitigation
+## Update 2026-06-11 — it's PERIODIC, and there's a new clue + a mitigation
 
 Two findings from the 2026-06-10 review change the picture:
 

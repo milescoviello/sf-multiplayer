@@ -1,5 +1,7 @@
 # VPS deployment guide
 
+> **Historical (June 2026).** Written for the old host: Goldberg, public port 1337, a lobby browser on TCP 8080. For setting up a server today, use [`DEPLOY.md`](DEPLOY.md).
+
 How to host an sf-multiplayer Path A server on a Linux VPS — the single-Unity-process headless-host model. (See also [`DEPLOY.md`](DEPLOY.md) for the systemd-unit + rsync update runbook.)
 
 > The live player-facing server is `69.53.117.43` (game UDP 1337, lobby browser TCP 8080). Substitute that, or your own VPS's public IP, wherever a placeholder like `<vps-public-ip>` / `SERVER` appears below.
@@ -47,7 +49,7 @@ This repo's plugins (`SFHeadlessHost.dll`, optional `SFClientRecon.dll`) get bui
 
 4. **Clone this repo and build.**
    ```bash
-   git clone https://github.com/kitslayer/sf-multiplayer.git
+   git clone https://github.com/milescoviello/sf-multiplayer.git
    cd sf-multiplayer
    # Copy reference DLLs into sf-headless-host/refs/ from your SF install:
    #   Assembly-CSharp.dll, UnityEngine.dll, BepInEx.dll, 0Harmony.dll

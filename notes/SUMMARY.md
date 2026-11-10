@@ -1,6 +1,6 @@
 # SUMMARY — 3-Second-Match-Cycle Bug Root Cause
 
-> ⚠️ **Deprecated (2026-06-06).** Diagnoses a bug in the abandoned Go `sfdsrv` server (`StickFightDedicatedSrv/lobbies.go`, now in [`legacy/`](../legacy)); not applicable to the current headless host. Kept for historical reference.
+> **Deprecated (2026-06-06).** Diagnoses a bug in the abandoned Go `sfdsrv` server (`StickFightDedicatedSrv/lobbies.go`, now in [`legacy/`](../legacy)); not applicable to the current headless host. Kept for historical reference.
 
 **One clear top recommendation for the operator:**
 

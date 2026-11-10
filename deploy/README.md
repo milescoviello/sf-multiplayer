@@ -1,45 +1,48 @@
-# `deploy/` — Windows one-click scripts
+# `deploy/`: what the live server runs
 
-**Maintainer:** kit ([@kitslayer](https://github.com/kitslayer)) — solo  
-**GitHub:** https://github.com/kitslayer/sf-multiplayer
+The systemd units and helper scripts on the server. They expect the repo copied to `~/sf-multiplayer/` and the game install under `~/sf-oracle/` (see [`notes/DEPLOY.md`](../notes/DEPLOY.md) for setting up a server from scratch).
 
-Windows wrappers for the lobby management scripts. The Linux equivalents at the repo root (`launch-lobby.sh`, `stop-all-lobbies.sh`, `list-lobbies.sh`) are the source of truth; these `.bat` files mirror their behavior so Windows users can double-click instead of installing WSL.
+Players don't need anything here: they use the [1-click installer](../README.md).
 
-| Script | What it does |
+| File | What it does |
 |---|---|
-| `jugar-oracle.ps1` | Install oracle client + launch Stick Fight against the VPS (team banner on start). |
-| `instalar-oracle-desde-cero.ps1` | BepInEx + srv.v25 + SFClientRecon on a clean install. |
-| `instalar-cliente-oracle.ps1` | Persistent client install without launching the game. |
-| `instalar-solo-oracle.ps1` | Oracle client without MelonLoader. |
-| `instalar-oracle-con-melon.ps1` | Oracle + MelonLoader (skins) via BepInEx bridge. |
-| `team-sf-multiplayer.ps1` | Team contact banner (dot-sourced by the scripts above). |
-| `launch-lobby.bat [CODE] [PORT]` | Spawns one headless `StickFight.exe -batchmode -nographics` on the next free UDP port. Auto-generates a 4-char code if omitted. |
-| `stop-all-lobbies.bat` | `taskkill /F /IM StickFight.exe` + wipes the lobby registry. |
-| `list-lobbies.bat` | Lists `%TEMP%\sf-lobbies\*.conf`. |
+| [`sf-router.service`](sf-router.service) | The router on public UDP **1338**: one port in front of every lobby, plus the in-game lobby list. Stats on `127.0.0.1:8081`. |
+| [`sf-oracle.service`](sf-oracle.service) | The **MAIN** lobby (game port 1337, bridge 11337). Drop-ins in [`sf-oracle.service.d/`](sf-oracle.service.d): register MAIN with the router, restart daily. |
+| [`sf-lobby@.service`](sf-lobby@.service) | The other always-on lobbies: `sf-lobby@COMP`, `@CASUAL`, `@REPLAY`. Each reads its settings from `~/sf-oracle/lobbies/<CODE>.env`. |
+| [`start-oracle-server.sh`](start-oracle-server.sh) | Starts one headless Stick Fight under Proton (used by both unit types and by `launch-lobby.sh`). |
+| [`register-main-lobby.sh`](register-main-lobby.sh) | Adds / removes a lobby in the router's registry (`/tmp/sf-lobbies`) when its unit starts / stops. |
+| [`sf-lobbies.service`](sf-lobbies.service) | The control plane (`serve-lobbies.py`): lobby create, restart and stop, plus a reaper for idle created lobbies. Needs `~/sf-oracle/sf-control.env` (`SF_CONTROL_TOKEN`, kept out of git). |
+| [`sudoers-sf-lobby-restart`](sudoers-sf-lobby-restart) | Lets the control plane restart the lobby units (the in-game RST button) without a password. |
+| [`sf-oracle-watchdog.service`](sf-oracle-watchdog.service) + [`.timer`](sf-oracle-watchdog.timer) + [`sf-oracle-watchdog.sh`](sf-oracle-watchdog.sh) | Every 2 minutes, pings each lobby with a real game packet and restarts any that stopped answering. |
+| [`sf-monitor.service`](sf-monitor.service) | Read-only telemetry dashboard on `127.0.0.1:8090` (see [`monitoring/MONITOR_ACCESS.md`](../monitoring/MONITOR_ACCESS.md)). |
 
-## Env vars
+## Lobby settings
 
-| Var | Default | Notes |
-|---|---|---|
-| `SF_ORACLE_INSTALL` | `C:\Program Files (x86)\Steam\steamapps\common\StickFightTheGame` | Your Stick Fight install (must have `BepInEx/` + `SFHeadlessHost.dll` in plugins) |
-| `SF_BASE_PORT` | `1337` | First UDP port to try |
-| `SF_LOBBIES_DIR` | `%TEMP%\sf-lobbies` | Registry directory |
-| `SF_ANTICHEAT_ENFORCE` | `0` | `1` = drop rate-limit-violating packets (observe-only by default) |
-| `SF_ADMIN_PASS` | _(unset)_ | Password for in-game `/admin <pass>`; unlocks `/kick`, `/anticheat`, `/tickrate <hz>`. Unset = those commands are unavailable to everyone (fail closed). |
-| `SF_ADMIN_STEAMIDS` | _(unset)_ | Comma-separated SteamID64s auto-granted admin. SteamIDs are client-asserted in this protocol, so prefer `SF_ADMIN_PASS` for real trust. |
+COMP's `~/sf-oracle/lobbies/COMP.env`, as an example:
 
-## Quickstart on Windows
+```
+SFHEADLESS_PORT=1341
+SFHEADLESS_BRIDGEPORT=11341
+SF_MAX_PLAYERS=2
+SF_SPECTATORS=2
+SF_HP=100
+SF_REGEN=0
+SF_WEAPON_SPAWN=high
+SF_WEAPONS="PISTOL,REVOLVER,..."
+SF_MAPS="Woods1,Woods2,..."
+SF_COMP=1
+SF_ANTICHEAT_ENFORCE=1
+```
 
-1. Drop `SFHeadlessHost.dll` into `<SF install>\BepInEx\plugins\`
-2. Drop `SFClientRecon.dll` into the SAME plugins dir (it skips on batchmode, so it's a no-op in the oracle instance)
-3. Double-click `launch-lobby.bat` — a headless SF spawns, port 1337 binds
-4. From a player machine (or a second `StickFight.exe` on this box with different Goldberg config), connect via Steam launch options:
-   ```
-   WINEDLLOVERRIDES="winhttp=n,b" %command% -address 127.0.0.1 -port 1337
-   ```
+REPLAY uses `SF_REPLAY_MODE=1` and `SF_REPLAY_SOURCE=/home/miles/sf-replays/COMP`. CASUAL only sets its ports.
 
-## Why these differ from the early hybrid-Go deploy scripts
+## Common commands
 
-An earlier parallel effort (ALKA's, since departed) used a hybrid Go server + Unity headless model and shipped its own `deploy/*.bat`. These scripts skip the Go server entirely (Path A — headless SF *is* the server) and only manage the SF instance per lobby. Same one-click experience; simpler stack.
+```bash
+sudo systemctl restart sf-oracle sf-lobby@COMP sf-lobby@CASUAL sf-lobby@REPLAY   # after a server plugin update
+systemctl list-units 'sf-*'                                                    # what's running
+journalctl -u sf-lobby@COMP -n 100                                             # one lobby's boot / crash output
+tail -f /tmp/sf-oracle-plugin-11341.log                                        # COMP's plugin log (bridge port in the name)
+```
 
-If you need lobby browser / matchmaking on top, run `serve-lobbies.py` (works on Windows via Python) — it exposes `GET /lobbies` from the registry as JSON.
+The Windows scripts that used to live here (the Spanish `instalar-*` / `jugar-*` installers, `SFLauncher`) were replaced by the 1-click installer and moved to [`legacy/old-windows-scripts/`](../legacy/old-windows-scripts).

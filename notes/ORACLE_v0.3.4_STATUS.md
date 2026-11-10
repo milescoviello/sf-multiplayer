@@ -1,6 +1,6 @@
 # Oracle v0.3.4 — estado realista (May 2026)
 
-> ⚠️ **Superseded (2026-06-06).** Historical snapshot — current state: [`NEXT_STEPS.md`](../NEXT_STEPS.md).
+> **Superseded (2026-06-06).** Historical snapshot — current state: [`NEXT_STEPS.md`](../NEXT_STEPS.md).
 
 ## Qué está funcionando en VPS (69.53.117.43:1337)
 

@@ -1,6 +1,6 @@
 [Unit]
 Description=Stick Fight host + lobby telemetry (read-only monitor + dashboard)
-Documentation=https://github.com/kitslayer/sf-multiplayer
+Documentation=https://github.com/milescoviello/sf-multiplayer
 After=network-online.target
 Wants=network-online.target
 

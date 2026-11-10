@@ -22,7 +22,7 @@
 # (Start-limit keys belong in [Unit]; in [Service] systemd ignores them.)
 StartLimitIntervalSec=0
 Description=Stick Fight always-on lobby %i (headless oracle behind the router)
-Documentation=https://github.com/kitslayer/sf-multiplayer
+Documentation=https://github.com/milescoviello/sf-multiplayer
 After=network-online.target sf-router.service
 Wants=network-online.target
 

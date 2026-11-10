@@ -4,7 +4,7 @@
 # (Start-limit keys belong in [Unit]; in [Service] systemd ignores them.)
 StartLimitIntervalSec=0
 Description=Stick Fight single-port UDP router (multi-lobby front door)
-Documentation=https://github.com/kitslayer/sf-multiplayer
+Documentation=https://github.com/milescoviello/sf-multiplayer
 After=network-online.target
 Wants=network-online.target
 

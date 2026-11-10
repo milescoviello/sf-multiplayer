@@ -1,6 +1,6 @@
 # Phase 6.14.5 — Server-side rewind buffer (lag-comp hit registration)
 
-> ⚠️ **Historical (2026-05).** Phase design doc. Current state: [NEXT_STEPS.md](../../NEXT_STEPS.md).
+> **Historical (2026-05).** Phase design doc. Current state: [NEXT_STEPS.md](../../NEXT_STEPS.md).
 
 **Status:** design only. Research note based on ALKA's `damage_authority.go` rewind pattern.
 

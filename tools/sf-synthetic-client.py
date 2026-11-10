@@ -64,7 +64,7 @@ def main() -> int:
         data, _ = s.recvfrom(64)
         if len(data) >= 14 and data[:8] == MAGIC and data[8] == OP_ACK:
             st, ack_nonce = data[9], struct.unpack("<I", data[10:14])[0]
-            ok = "✓" if (st == ACK_OK and ack_nonce == nonce) else "✗"
+            ok = "ok" if (st == ACK_OK and ack_nonce == nonce) else "FAIL"
             print(f"[recon] ACK status={ACK_NAMES.get(st, st)} nonce={ack_nonce} {ok}")
             if st != ACK_OK:
                 print("  -> router rejected the code (lobby not in registry?)")

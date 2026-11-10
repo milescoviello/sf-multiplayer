@@ -26,11 +26,11 @@ import (
 	"syscall"
 	"time"
 
-	router "github.com/kitslayer/sf-multiplayer/sf-router"
+	router "github.com/milescoviello/sf-multiplayer/sf-router"
 )
 
 func main() {
-	listen := flag.String("listen", "0.0.0.0:1337", "public UDP address clients connect to")
+	listen := flag.String("listen", "0.0.0.0:1338", "public UDP address clients connect to")
 	registry := flag.String("registry", "", "lobby registry dir (e.g. /tmp/sf-lobbies); enables routing mode")
 	backend := flag.String("backend", "", "stage-0 fixed backend (e.g. 127.0.0.1:1338); used only when -registry is empty")
 	stats := flag.String("stats", "", "optional HTTP addr for GET /router/stats (e.g. 127.0.0.1:8081)")

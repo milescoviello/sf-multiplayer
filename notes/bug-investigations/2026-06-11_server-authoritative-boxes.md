@@ -75,7 +75,7 @@ Four live rounds with kit (laptop oracle + 2 Goldberg mirrors). Each round expos
 
 | Round | Telemetry | Defect found |
 |---|---|---|
-| 1 | idle: meanErr 0.06u / 0 snaps ✅; pushing: maxErr 1.6u, 5 hard snaps | ghost-rig kinematic sweep = infinite-mass push → `GhostPushCrateCap` |
+| 1 | idle: meanErr 0.06u / 0 snaps (good); pushing: maxErr 1.6u, 5 hard snaps | ghost-rig kinematic sweep = infinite-mass push → `GhostPushCrateCap` |
 | 2 | meanErr ~0.4 flat across the field, never recovering | friction eats velocity corrections on resting crates → settled-divergence position resolution |
 | 3 | crates=162 on a 90-crate map; meanErr=40.0; hardSnaps +hundreds/5s | NSO id collisions across coexisting map scenes → scene filters + transition suppression + identity gate |
 | 4 | oracle `[BOX-DIAG] void=107/163, y=[-278.9,…]`, cycling every round | stock off-screen cull de-colliders the ORACLE's crates below y=-11 → headless cull kill |

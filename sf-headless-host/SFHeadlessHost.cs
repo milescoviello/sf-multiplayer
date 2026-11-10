@@ -13,53 +13,43 @@ using UnityEngine.SceneManagement;
 namespace SFHeadlessHost
 {
     // SFHeadlessHost — turns a headless Stick Fight instance into a UDP
-    // dedicated server. Loaded by BepInEx on the oracle (`-batchmode`) and
-    // also on each player's SF install (interactive mode, where only the
-    // CLIENT-MODE SHIM runs).
+    // dedicated server. Loaded by BepInEx on the server (`-batchmode`).
+    // Players don't install it (the installer moves it aside if it finds it);
+    // the CLIENT-MODE SHIM code is from an older design where they did.
     //
     // ============================================================
-    //                    TABLE OF CONTENTS
+    //                    WHERE THINGS ARE
     // ============================================================
-    //  Anchor (search this line)                          ~Line
-    //  ─────────────────────────────────────────────────  ─────
-    //  private void Awake()                               ~  56   bootstrap, mode detect
-    //  Phase 6.5 Step 1 — IsServer=true                   ~ 397   Harmony postfixes to fake host mode
-    //  SendBroadcastPrefix                                ~ 524   intercepts host-side broadcasts → forwards
-    //                                                              over our v25 UDP socket (P0-11 lives here)
-    //  Phase 6.5 Step 2 — invoke GameManager.StartMatch   ~ 724
-    //  InvokeMultiplayerManagerInitChain                  ~ 776   manual init chain after scene load
-    //  NSO inventory + diagnostics                        ~ 815
-    //  === CLIENT-MODE SHIM ===                           ~1137   patches applied on player-side SF
-    //  P0-12 — MapInfoSync Vector2 quantize               ~1149   prefix patches (server + client)
-    //  InstallClientModePatches                           ~1247   dynamic NSO patch (skip DisableAllRigidBodies)
-    //  Bridge: UDP socket                                 ~1674   the v25 raw socket
-    //  v26 extension constants (msgTypes 39/40/41)        ~1735
-    //  Patched-DLL extensions (msgTypes 56/57)            ~1743
-    //  SfDispatch                                         ~1917   inbound packet router
-    //  ValidateDamagePacket (P1-8 lives here)             ~2140   anticheat damage validation
-    //  Chat / admin                                       ~2224   /code /ping /start /tickrate /help…
-    //  RateGuard / AnticheatObserve                       ~2356
-    //  Pickup / Drop / Throw handlers                     ~2558
-    //  Handshake handlers                                 ~2626   ClientRequestingAccepting → Spawned
-    //  HandlePlayerInput (v26)                            ~2933   inbound PktPlayerInput; P0-13 keyframe send here
-    //  HandlePlayerUpdate                                 ~3022   v25 client position relay
-    //  Phase 6.9 — auth rig spawn + ghost rig update      ~3046
-    //  Phase 6.10 — server-authoritative snapshots        ~3214   v26 WorldStateSnapshot broadcast
-    //  Phase 6.17 v0.1+v0.2 — projectile sim + hit reg    ~3240
-    //  EmitServerDamage                                   ~3369
-    //  Tick-history ring buffer (lag-comp)                ~3388
-    //  BroadcastWorldStateSnapshot                        ~3443   v26.5 (players + NSOs + projs + mapSync)
-    //  CollectAllNsoSnapshot + SendKeyframeSnapshot       ~3556   P0-13 first-snap-on-late-join
-    //  P0-14 MapInfoSyncableBase position broadcast       ~3553+  CollectMapSyncSnapshot, etc.
-    //  CollectActiveNsoSnapshot                           ~3690+
-    //  ApplyClientObjectUpdate (legacy)                   ~3850
-    //  ReadEnv                                            ~4530
+    //  SFHeadlessHost.cs         bootstrap (Awake), mode detection, shared state, env config
+    //  Plugin.Boot.cs            startup and per-map setup (countdown, weapon timers)
+    //  Plugin.Net.cs             client table, the UDP socket, packet dispatch
+    //  Plugin.RxThread.cs        game-socket receive thread
+    //  Plugin.Session.cs         session tokens (msgTypes 50 / 51 / 52)
+    //  Plugin.ClientHandlers.cs  handshake, spawn, ready-up, pickups / throws
+    //  Plugin.ClientVersion.cs   client version check (msgType 48)
+    //  Plugin.Rigs.cs            the server's copy of each player
+    //  Plugin.Nso.cs             synced objects (crates, chains, ice)
+    //  Plugin.ObjectForce.cs     bullet / explosion pushes on crates, the stock way
+    //  Plugin.GhostPlatform.cs   ghost platforms
+    //  Plugin.Projectiles.cs     server-side shots (grenades, snake gun)
+    //  Plugin.MatchFlow.cs       lobby start, rounds and map changes (mirrors the stock host)
+    //  Plugin.LobbyRules.cs      per-lobby rules: HP, regen, weapon spawn rate, maps, weapons
+    //  Plugin.CompMatch.cs       COMP: pings, scoring, sets, spawns, /discount
+    //  Plugin.Replay.cs          match recording and the REPLAY lobby
+    //  Plugin.Snapshot.cs        the v26 world snapshot (msgType 39)
+    //  Plugin.Chat.cs            chat commands and banners
+    //  Plugin.Anticheat.cs       damage checks and the packet rate guard
+    //  Plugin.PlayerCount.cs     live player count for the lobby list, idle frame cap
+    //  Plugin.HarmonyPatches.cs  patches into the game's own code
+    //  Plugin.Rpc.cs             loopback-only bridge / test control port
+    //  Plugin.Diagnostics.cs, Plugin.CrateDiag.cs   diagnostics logging
+    //  SfMapTerrainHost.cs       map terrain helper
     // ============================================================
     //
     // Architecture: see ../notes/ARCHITECTURE.md
     // Wire protocol: see ../notes/PROTOCOL.md
     // Object sync model: see ../notes/OBJECT_SYNC.md
-    // Open bugs: see ../notes/BUGS_BACKLOG.md (P0-11..P0-15, P1-8)
+    // Current state and open work: see ../NEXT_STEPS.md
     //
     // Configuration via env vars (read once at Awake):
     //   SFHEADLESS_PORT       — v25 UDP bind port (default 1337).
@@ -686,7 +676,7 @@ namespace SFHeadlessHost
         // types for the prediction+reconciliation architecture. Stock clients
         // (no v26 plugin loaded) receive these and ignore via default case
         // in P2PPackageHandler.CheckMessageType.
-        private const byte PktWorldStateSnapshot            = 39;  // server → all clients, 30Hz
+        private const byte PktWorldStateSnapshot            = 39;  // server → all clients, 60 Hz (SFHEADLESS_SNAPSHOT_HZ)
         private const byte PktClientLeft                    = 39;  // client → server on the game socket (stock MsgType.ClientLeft)
         private const byte PktPlayerLeft                    = 47;  // server → clients (v26): a player left, remove their body
         private const byte PktPlayerInput                   = 40;  // client → server, 60Hz (Phase 6.12)

@@ -1,26 +1,26 @@
-# sf-monitor — access (team)
+# sf-monitor: access
 
-Read-only host + lobby telemetry on the server (`.115`). The dashboard is
-**loopback-only** (`127.0.0.1:8090`) — reached over SSH, so there's no LAN/public
-exposure. Everything here is read-only; it never touches the running game.
+Read-only host and lobby telemetry on the game server (`sf-monitor.service`). It
+never touches the running game. The dashboard listens on **loopback only**
+(`127.0.0.1:8090`), so you reach it through SSH; nothing is exposed on the LAN or
+the internet.
 
-## 1. Live dashboard (graphical, real-time)
-From your own machine, SSH to the server **adding a local port-forward**, then
-open the URL in a browser (keep the SSH session open while viewing):
+## 1. Live dashboard
+SSH to the server with a local port forward, then open the URL (keep the SSH
+session open while you look):
 
 ```
-ssh -L 8090:127.0.0.1:8090 sfdev@<server>      # your usual SSH connection + this -L flag
-                                               # (add -p PORT if you use a non-22 port)
+ssh -L 8090:127.0.0.1:8090 <user>@<server>
 #   then browse to:   http://localhost:8090
 ```
 
-## 2. Text reports (SSH in, then run on the server)
+## 2. Text reports (on the server)
 ```
-/home/miles/sf-monitor/report.sh               # avg/peak summary + time buckets
-/home/miles/sf-monitor/report.sh --tail 30     # last 30 samples as a table
-/home/miles/sf-monitor/report.sh --lobby MAIN  # one lobby's cpu/rss/clients over time
-/home/miles/sf-monitor/report.sh --bucket 60   # hourly buckets
-/home/miles/sf-monitor/report.sh /home/miles/sf-monitor/data/metrics-2026-06-02.jsonl   # a specific day
+~/sf-multiplayer/monitoring/sfmon-report                 # summary + time buckets for today
+~/sf-multiplayer/monitoring/sfmon-report --tail 30       # last 30 samples as a table
+~/sf-multiplayer/monitoring/sfmon-report --lobby COMP    # one lobby's cpu / memory / clients over time
+~/sf-multiplayer/monitoring/sfmon-report --bucket 60     # hourly buckets
+~/sf-multiplayer/monitoring/sfmon-report ~/sf-monitor/data/metrics-2026-11-10.jsonl   # one day
 ```
 
 ## 3. Current snapshot / health
@@ -30,8 +30,7 @@ systemctl status sf-monitor                                # is the monitor up?
 ```
 
 Notes:
-- CPU for lobbies/server is shown in **cores** (e.g. `0.51 cores` = half of one
-  core); host CPU is `%` of all cores.
-- Data: `/home/miles/sf-monitor/data/metrics-YYYY-MM-DD.jsonl` (daily, 14-day retention, ~11 MB/day).
-- The monitor runs lowest-priority (~25 MB RAM) and only reads `/proc` + the
-  existing router/control-plane endpoints + tails log files.
+- Lobby CPU is in **cores** (`0.31 cores` = a third of one core); host CPU is % of all cores.
+- Data: `~/sf-monitor/data/metrics-YYYY-MM-DD.jsonl` (one file a day, 14 days kept).
+- The monitor runs at the lowest priority and only reads `/proc`, the router and
+  control-plane stats endpoints, and the lobby log files.

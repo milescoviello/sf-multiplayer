@@ -1,3 +1,15 @@
+# What's new — 2026-11-10: repo cleanup
+
+A pass over the whole repo for stale and broken things. Nothing players run changed.
+
+- **Docs brought up to date:** the README (a start-here guide for players), `NEXT_STEPS.md` (current state, what needs real players, open work), `notes/DEPLOY.md` (setting up a server today), `notes/PROTOCOL.md` (message types 44-52 and the router's LIST / CREATE / RESTART / BIND operations), `notes/ROUTER.md` (port 1338), `notes/ARCHITECTURE.md` (a current section on top), `deploy/README.md`, `dist/README.md`, `monitoring/MONITOR_ACCESS.md`, the contributing guide and the bug report template. The older docs in `notes/` say at the top that they're history, and `notes/README.md` says which is which.
+- **Old files moved to `legacy/`:** the June launcher (`dist/SFLauncher.exe` and friends, which couldn't connect), the early Windows / Spanish install scripts from `deploy/`, and old local-test scripts (`setup-all.sh`, `launch-sf-player.sh`, the ALKA-era `oracle-watchdog.sh`). The June bug-hunt loop (`BUGS_LOOP.md`, `loop-evidence/`) moved to `notes/archive/`. `stress-test-anticheat.py` moved to `tools/`.
+- **`dist/`** now holds only the server files, matching what the server runs; the player plugins live in `1-click-install/files/`.
+- **Links:** the old `kitslayer` GitHub links (including the router's Go module path and `CODEOWNERS`, which named a user that no longer exists) now point to `milescoviello`. No broken relative links are left in the docs.
+- **Router defaults:** `sf-router` and `launch-router.sh` default to port 1338, as the server runs them.
+- **No emoji** anywhere in the repo.
+- **Code comments:** both plugins' header comments map the current files instead of line numbers from before the July split.
+
 # What's new — 2026-11-10 (later): smooth remote players, idle lobbies
 
 **Remote players move smoothly.** Stock nudges another player's copy 1/6 of
@@ -612,7 +624,7 @@ A skeptical bug-hunt across the live components (host, client, server-browser, b
 
 # What's new — 2026-06-22→23 autonomous polish loop (21 iters, consolidated to `main` + pushed to `origin`; not yet deployed)
 
-A 21-iteration autonomous "polish loop" against three areas flagged as broken — lobby browser/switching, server-authoritative boxes, anti-cheat — under a hunt-and-be-skeptical protocol (full log + evidence in [`BUGS_LOOP.md`](BUGS_LOOP.md), captures in `loop-evidence/`). Most of the seeded backlog turned out **code-correct or by-design**; the loop shipped a series of small, low-risk fixes (below) and stood up the project's first Python test harness. All compile-verified (host + client `dotnet build` clean, `go build`/`go test` + `unittest` green); the box/anti-cheat/death verdicts were checked at the highest feasible *autonomous* level (synthetic packets against a local headless oracle), so the 2-player confirmations remain on kit's punch list. **The 30-min driver cron is now stopped and the work is consolidated onto `main` + pushed to `origin`; a `.115` deploy + version bump still await kit's 2-player punch-list.**
+A 21-iteration autonomous "polish loop" against three areas flagged as broken — lobby browser/switching, server-authoritative boxes, anti-cheat — under a hunt-and-be-skeptical protocol (full log + evidence in [`BUGS_LOOP.md`](notes/archive/bugs-loop-2026-06/BUGS_LOOP.md), captures in `loop-evidence/`). Most of the seeded backlog turned out **code-correct or by-design**; the loop shipped a series of small, low-risk fixes (below) and stood up the project's first Python test harness. All compile-verified (host + client `dotnet build` clean, `go build`/`go test` + `unittest` green); the box/anti-cheat/death verdicts were checked at the highest feasible *autonomous* level (synthetic packets against a local headless oracle), so the 2-player confirmations remain on kit's punch list. **The 30-min driver cron is now stopped and the work is consolidated onto `main` + pushed to `origin`; a `.115` deploy + version bump still await kit's 2-player punch-list.**
 
 **Shipped fixes**
 - **Lobby browser `/favicon.ico` → 204 (`serve-lobbies.py`).** Killed the lone console 404 on the web lobby-browser page (Playwright-verified, console errors 1→0).
@@ -634,7 +646,7 @@ A 21-iteration autonomous "polish loop" against three areas flagged as broken �
 - **Anti-cheat (AC-1):** rate-guard fires at the documented thresholds and is **observe-only** unless `SF_ANTICHEAT_ENFORCE=1` — exactly as designed.
 - **Void/lava death (OPEN-1/2)** and **random chain/ice/box breaks (OPEN-4/5/6):** damage/destruction paths are code-correct; no server-side spurious destruction observed in oracle probes — but these need a real 2-player session to close.
 
-> Verification ceiling: autonomous (compile + local-oracle/web checks). **Not deployed to `.115` and component versions are unchanged** — a deploy + version bump + the 2-player punch-list (see [`BUGS_LOOP.md`](BUGS_LOOP.md) → "Punch list for kit") are kit's call.
+> Verification ceiling: autonomous (compile + local-oracle/web checks). **Not deployed to `.115` and component versions are unchanged** — a deploy + version bump + the 2-player punch-list (see [`BUGS_LOOP.md`](notes/archive/bugs-loop-2026-06/BUGS_LOOP.md) → "Punch list for kit") are kit's call.
 
 ---
 
@@ -898,7 +910,7 @@ Server's physics rate is now configurable live via `/tickrate N` chat command (r
 
 ## Deploy & docs
 
-- [`setup-all.sh`](setup-all.sh) — one-command build + drop into both plugins dirs.
+- [`setup-all.sh`](legacy/old-dev-scripts/setup-all.sh) — one-command build + drop into both plugins dirs.
 - [`notes/VPS.md`](notes/VPS.md) — Path A VPS deployment guide (Proton, BepInEx, Goldberg, systemd template, firewall, monitoring, troubleshooting).
 - [`notes/phase6/12-PHASE6.13-sharding.md`](notes/phase6/12-PHASE6.13-sharding.md) — in-process sharding design (v2, design-only; v1 multi-process is shipped).
 - [`notes/phase6/13-rewind-buffer.md`](notes/phase6/13-rewind-buffer.md) — CSGO-style lag-comp design (future Phase 6.14.5).

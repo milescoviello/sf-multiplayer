@@ -1,8 +1,24 @@
-# Architecture — sf-multiplayer (Path A, server-authoritative)
+# Architecture: sf-multiplayer
 
-The whole system in one place. This is a living reference doc — kept current; for the latest shipped/in-flight status see [`../NEXT_STEPS.md`](../NEXT_STEPS.md).
+The whole system in one place. The first section is current (November 2026). Everything after it is the July 2026 write-up: parts of it (the authority model, prediction and reconciliation, line numbers) no longer match the code. Current status and open work: [`../NEXT_STEPS.md`](../NEXT_STEPS.md).
 
-## One-paragraph summary
+## How it works now (November 2026)
+
+- **One server process per lobby.** Each lobby is a headless copy of Stick Fight (Unity 5.6, under Proton) with the `SFHeadlessHost` and `SFBoxFix` plugins. The plugin makes the game act as the stock multiplayer host, so the game's own host code runs the lobby, the rounds, weapon spawns, map scripts and the synced objects (crates, chains, platforms).
+- **Players run the stock non-host client.** The patched game file (`Assembly-CSharp.srv.v25.dll`) sends the game's own messages over UDP to the server, instead of over Steam P2P to a player host. Each player's game simulates their own character, as in stock, and sends position updates. The server keeps a stock remote-player copy of each player (so crates and explosions react to them) and passes the updates on to everyone else.
+- **Damage works as in stock:** the victim's game applies it and reports it. The server checks the reports, and COMP drops impossible ones.
+- **The player plugins.** `SFClientRecon` does the rest:
+  - connects through the router and uses session tokens to rejoin;
+  - smooths other players' movement (`SfRemoteSmoothing.cs`) and follows the server's crates;
+  - applies COMP spawns, shows server pings in the stock ping display, and writes the `[perf]` log line.
+
+  `SFServerBrowser` is the lobby list (F2), the scoreboard and the English / Spanish UI.
+- **Extra messages** (msgType 39 and up, see [`PROTOCOL.md`](PROTOCOL.md)): a 60 Hz world snapshot from the server, input and fire events from clients, and the session, version, ping and spectator messages.
+- **Router** (`sf-router`, see [`ROUTER.md`](ROUTER.md)): one public UDP port (1338). A client picks its lobby with a SELECT control datagram. The router also answers the lobby list and passes create / restart requests to the control plane (`serve-lobbies.py`).
+- **Replays:** every lobby records its matches (`Plugin.Replay.cs`). The REPLAY lobby plays recorded COMP matches back to viewers.
+- **Running it:** systemd units in [`../deploy/`](../deploy), set-up guide in [`DEPLOY.md`](DEPLOY.md).
+
+## One-paragraph summary (July 2026)
 
 A real Stick Fight Unity binary runs headlessly on the server, with a BepInEx plugin (`SFHeadlessHost.dll`) that turns it into a v25 UDP dedicated server. Real Stick Fight clients (Windows native or Linux/Proton) speak SF's stock v25 protocol to the oracle directly. A companion plugin (`SFClientRecon.dll`) on each player's machine handles v26 extensions (snapshots, prediction inputs, divergence detection); the in-game lobby browser is a separate plugin (`SFServerBrowser.dll`). The oracle is the sole authority for player positions, NSO physics (boxes/chains/ice), and weapon spawning — clients render what the oracle tells them. The legacy Go dedicated server (`sfdsrv` / `StickFightDedicatedSrv`) is abandoned and parked in `../legacy/`; this headless-host design replaced it.
 
@@ -149,7 +165,7 @@ Every packet:
 | 41 | client → server, event | `u8 slot, u8 wType, f32 oX, f32 oY, f32 oZ, f32 dX, f32 dY, f32 dZ, f32 speed` | `PktClientFireWeapon` — local Weapon.ActuallyShoot; server registers projectile |
 | 42 | server → all clients, event | UTF-8 banner text | `PktV26Announce` — recon plugin draws it for ~3s |
 
-## Authority model (current)
+## Authority model (July 2026)
 
 ```
 PLAYER POSITIONS
@@ -322,7 +338,7 @@ Each lobby is a separate `StickFight.exe -batchmode -nographics` process spawned
 
 In-process sharding (one SF.exe, multiple match scenes) is designed in [`phase6/12-PHASE6.13-sharding.md`](phase6/12-PHASE6.13-sharding.md) but not implemented — the singleton problem (`MultiplayerManager.Instance` etc.) makes it a much bigger lift than spinning up another process.
 
-## Known tradeoffs (current)
+## Known tradeoffs (July 2026)
 
 - **Box-push has instant local feedback** (commit `6875908`) thanks to the hybrid NSO patch: clients have dynamic NSOs (local push works immediately) but `mHasControl=false` so they don't broadcast — oracle stays sole authority for canonical position. Trade-off: introduces P0-11 (destruction race) which is open.
 - **Map-preset weapons spawn but per-map weapon allow-lists don't** — every map uses the global random weapon set. Phase 6.8 partial; full per-map allow-list awaits more research into SF's per-map config.

@@ -1,57 +1,13 @@
-# sf-multiplayer client bundle
+# `dist/`: prebuilt server files
 
-> **Players: download [`sf-multiplayer-StickFight-Installer.zip`](../sf-multiplayer-StickFight-Installer.zip), extract it, double-click `INSTALL-sf-multiplayer.bat`, then play with the "Stick Fight Online" shortcut. It updates itself before every start.** Everything below in this folder is an older generation kept for reference (the `SFLauncher.exe` flow here does not install the patched game file and won't connect). Maintainers: `1-click-install/build.sh` builds the installer and the update manifest; commit + push publishes an update to every player.
+**Players:** you don't need anything here. Download the [installer zip](../sf-multiplayer-StickFight-Installer.zip) and follow the [README](../README.md). The player plugins live in [`1-click-install/files/`](../1-click-install/files) and update themselves.
 
-**For comp players: one click, you're in a lobby.**
-
-## Windows
-
-1. Download **`SFLauncher.exe`** from this folder.
-2. Double-click it. First run: it auto-installs BepInEx + plugins into your Steam Stick Fight install. Then the lobby browser window opens.
-3. Pick a lobby, click **Connect**. Launch options get copied to your clipboard. Steam opens.
-4. Right-click Stick Fight in Steam → Properties → Launch Options → paste → close.
-5. Click **Play**. You're in.
-
-Subsequent launches just open the lobby browser directly (install step is skipped if up to date).
-
-## Linux / macOS
-
-1. Download **`sflauncher.sh`** from this folder.
-2. Make it executable: `chmod +x sflauncher.sh`
-3. Run it: `./sflauncher.sh`
-4. It downloads BepInEx + plugins, sets up your Steam Stick Fight install, opens a lobby-browser page in your default browser.
-5. Set Steam launch options (printed at end of script) and click Play.
-
-(No native GUI on Linux yet — the browser page is the GUI. Functionally identical, just opens in Firefox/Chrome instead of a window.)
-
-## What's in this folder
-
-| File | Purpose |
+| File | What it is |
 |---|---|
-| `SFLauncher.exe` | Windows one-click app. Auto-installs + lobby browser. |
-| `sflauncher.sh` | Linux/macOS one-click installer + browser launcher. |
-| `install-sf-client.bat` | (Optional Windows) install-only batch. SFLauncher.exe already does this; provided for users who want to install without the GUI. |
-| `install-sf-client.sh` | (Optional Linux) install-only script. Same as above. |
-| `SFClientRecon.dll` | Client-side plugin: snapshot reconciliation + input + lobby SELECT. |
-| `SFServerBrowser.dll` | Client-side plugin: in-game SERVERS menu (F3) + uGUI lobby (F2). |
-| `SFBoxFix.dll` | **Server-side** plugin — runs on the oracle alongside `SFHeadlessHost` (crate/box physics: CAJAS-1/2/3, snake damage, round-advance gate). NOT a client plugin. |
-| `Assembly-CSharp.srv.v25.dll` | Patched game assembly (CLI `-address`/`-port` connect target). The piece the `dist/` scripts wrongly omit. |
-| `SFHeadlessHost.dll` | **Server-side** plugin — runs on the oracle, NOT a player's machine. Present here only for operators. |
+| `Assembly-CSharp.srv.v25.dll` | The patched game file: adds `-address` / `-port` and sends the game's messages over plain UDP instead of Steam P2P. The server runs it, and `1-click-install/build.sh` copies it into the player installer (players get it in `<game>/sf-online/`, never over the game's own file). |
+| `SFHeadlessHost.dll` | Server plugin: makes a headless Stick Fight host the match. |
+| `SFBoxFix.dll` | Server plugin: crate / physics fixes, loaded next to SFHeadlessHost. |
 
-## Troubleshooting
+These are the builds the live server runs; whoever deploys a new server build copies it here too. To set up a server, see [`notes/DEPLOY.md`](../notes/DEPLOY.md).
 
-**Windows: SmartScreen blocks SFLauncher.exe** — the .exe isn't code-signed. Click "More info" → "Run anyway". One-time; it remembers.
-
-**"Couldn't auto-find Stick Fight"** — point the launcher at your install via folder picker (Windows) or paste the path (Linux).
-
-**Lobby browser says "Couldn't reach server"** — type the right `http://<server-ip>:8080/lobbies` URL into the address bar at the top. It saves to LocalAppData so it persists.
-
-**Game launches but doesn't connect** — Steam launch options are missing. They should look exactly like `-address 69.53.117.43 -port 1337` (no quotes, no leading spaces). Set them via right-click Stick Fight → Properties → Launch Options.
-
-**No lobbies showing** — ask the host whether their oracle is running. They can verify with `bash list-lobbies.sh` on the server.
-
-## Where this came from
-
-- Source: https://github.com/kitslayer/sf-multiplayer
-- Bug? Open an issue on GitHub.
-- Bundle matches the latest `main` branch as of build time. Re-download to update.
+The old `SFLauncher.exe` / `sflauncher.sh` launchers that used to be here didn't install the patched game file and can't connect. They're in [`legacy/old-launcher/`](../legacy/old-launcher) for reference.

@@ -1,5 +1,7 @@
 # Simplification & breakdown plan
 
+> **Done (July 2026).** The plan below was carried out; kept for the record.
+
 > What can be split up, thinned out, or deduplicated to make this repo easier to
 > work on. Ordered by value (impact ÷ risk). Nothing here changes runtime
 > behavior — every item is a structural / hygiene change. Written 2026-07-01.
@@ -9,19 +11,19 @@
 Landed on this branch (all structural — no runtime behavior change; the C#
 still needs a local build against `refs/` since there's no compiler here):
 
-- ✅ **Item 1** — `SFHeadlessHost.cs` split 7146 → 1174 lines across 13 partial
+- Done: **Item 1** — `SFHeadlessHost.cs` split 7146 → 1174 lines across 13 partial
   files + `PerLobbyLogListener.cs`. Verified: every original line preserved
   exactly once + every file brace-balanced.
-- ✅ **Item 4** — `SFClientRecon.cs` split 2359 → 743 lines across 6 partial
+- Done: **Item 4** — `SFClientRecon.cs` split 2359 → 743 lines across 6 partial
   files. Same verification.
-- ✅ **Item 2** — `PROJECT_STATE.md` + `STATUS.md` moved to `notes/archive/`.
+- Done: **Item 2** — `PROJECT_STATE.md` + `STATUS.md` moved to `notes/archive/`.
   (Left the aggressive `NEXT_STEPS.md` blockquote trim to the maintainer — it's
   editorial and the detail is duplicated in `WHATS_NEW.md`.)
-- ✅ **Item 3** — three identical `Mono2Polyfills.cs` collapsed to `shared/`.
-- ✅ **Item 6** — `.github/workflows/ci.yml` (Go router + Python), verified
+- Done: **Item 3** — three identical `Mono2Polyfills.cs` collapsed to `shared/`.
+- Done: **Item 6** — `.github/workflows/ci.yml` (Go router + Python), verified
   green locally.
-- ✅ **Item 8** — `archive/` + this doc indexed from `notes/README.md`.
-- ⏸️ **Items 5, 7** (committed build artifacts; loose root scripts) — left as-is
+- Done: **Item 8** — `archive/` + this doc indexed from `notes/README.md`.
+- Paused: **Items 5, 7** (committed build artifacts; loose root scripts) — left as-is
   on purpose: both have external blast radius (player-facing download links;
   live-server systemd units referencing absolute script paths) and should be
   confirmed by the maintainer before moving.

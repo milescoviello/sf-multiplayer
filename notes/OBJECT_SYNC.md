@@ -1,5 +1,7 @@
 # Object sync reference
 
+> **Written May to July 2026.** The descriptions of how stock Stick Fight syncs objects are still a good reference; the parts about this project's fixes describe the July code.
+
 How world-state (boxes, ice, chains, moving platforms, pillars, destructibles) is synced in Stick Fight. Written after the 2026-05-23 audit consolidated the scattered findings.
 
 ## TL;DR

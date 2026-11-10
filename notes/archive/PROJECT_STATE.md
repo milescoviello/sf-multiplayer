@@ -1,6 +1,6 @@
 # sf-multiplayer · project state
 
-> ⚠️ **Superseded (2026-06-06).** Point-in-time snapshot — the living current-state doc is [`NEXT_STEPS.md`](NEXT_STEPS.md). Live server: `69.53.117.43`.
+> **Superseded (2026-06-06).** Point-in-time snapshot — the living current-state doc is [`NEXT_STEPS.md`](../../NEXT_STEPS.md). Live server: `69.53.117.43`.
 
 > **As of 2026-05-23 night** — for sharing with ALKA + SF comp Discord. Tone is "what comp players need to know" + "where the project actually is."
 >
@@ -8,28 +8,28 @@
 
 ## TL;DR
 
-A centralized server for Stick Fight that **works end-to-end on a real server** (69.53.117.43 right now), with a **one-click Windows installer/launcher**, and a **one-line Linux installer**. Server has known crash issues (documented, not yet patched). Code is on GitHub: https://github.com/kitslayer/sf-multiplayer
+A centralized server for Stick Fight that **works end-to-end on a real server** (69.53.117.43 right now), with a **one-click Windows installer/launcher**, and a **one-line Linux installer**. Server has known crash issues (documented, not yet patched). Code is on GitHub: https://github.com/milescoviello/sf-multiplayer
 
 ## What works today
 
-- ✅ **Server** runs as a real BepInEx plugin inside a headless StickFight.exe under Proton. Speaks SF's stock v25 UDP protocol + a v26 extension for server-authoritative state.
-- ✅ **End-to-end connect** — patched Steam SF (with our 2 BepInEx plugins) connects directly to the server, no Steam-side networking involved.
-- ✅ **Match flow** — handshake, spawn, weapon pickup/throw/drop, death + kill propagation, round advance, 123-map rotation, in-game chat.
-- ✅ **Server-side NSO physics** — boxes / chains / ice positions broadcast from the oracle at 30Hz; clients smoothly converge.
-- ✅ **Server-side platform sync (v26.5)** — moving platforms (`MoveAlongPathUsingForce`, `PillarHandler`, `GhostPlatform`) at the same position on every client.
-- ✅ **Server-side projectile hit registration** — bullets simulated server-side, hits emit authoritative damage (Phase 6.17 v0.3).
-- ✅ **Shift-correction reconciliation** — canonical CSGO/Valorant netcode model: server corrections applied as offset to current local position, not "snap back to stale server pos."
-- ✅ **Multi-lobby** — one server can host multiple concurrent matches on adjacent UDP ports. Each lobby is fully isolated.
-- ✅ **In-game admin chat** — `/help`, `/start`, `/restart`, `/next`, `/map <N>`, `/listmaps`, `/players`, `/lobbies`, `/tickrate <Hz>`, `/weapons <list>`, `/kick <slot>`, `/anticheat <on|off>`, `/code`, `/ping`, `/version`.
-- ✅ **Lobby browser** — HTTP `/lobbies` JSON endpoint + standalone GUI app + dark-themed web page.
-- ✅ **One-click client install** — Windows `SFLauncher.exe` auto-installs BepInEx + plugins on first run; Linux `sflauncher.sh` does the same in one command.
-- ✅ **Production server (69.53.117.43)** — running 24/7 under systemd auto-restart. Connect with `-address 69.53.117.43 -port 1337` in Steam launch options.
+- Done: **Server** runs as a real BepInEx plugin inside a headless StickFight.exe under Proton. Speaks SF's stock v25 UDP protocol + a v26 extension for server-authoritative state.
+- Done: **End-to-end connect** — patched Steam SF (with our 2 BepInEx plugins) connects directly to the server, no Steam-side networking involved.
+- Done: **Match flow** — handshake, spawn, weapon pickup/throw/drop, death + kill propagation, round advance, 123-map rotation, in-game chat.
+- Done: **Server-side NSO physics** — boxes / chains / ice positions broadcast from the oracle at 30Hz; clients smoothly converge.
+- Done: **Server-side platform sync (v26.5)** — moving platforms (`MoveAlongPathUsingForce`, `PillarHandler`, `GhostPlatform`) at the same position on every client.
+- Done: **Server-side projectile hit registration** — bullets simulated server-side, hits emit authoritative damage (Phase 6.17 v0.3).
+- Done: **Shift-correction reconciliation** — canonical CSGO/Valorant netcode model: server corrections applied as offset to current local position, not "snap back to stale server pos."
+- Done: **Multi-lobby** — one server can host multiple concurrent matches on adjacent UDP ports. Each lobby is fully isolated.
+- Done: **In-game admin chat** — `/help`, `/start`, `/restart`, `/next`, `/map <N>`, `/listmaps`, `/players`, `/lobbies`, `/tickrate <Hz>`, `/weapons <list>`, `/kick <slot>`, `/anticheat <on|off>`, `/code`, `/ping`, `/version`.
+- Done: **Lobby browser** — HTTP `/lobbies` JSON endpoint + standalone GUI app + dark-themed web page.
+- Done: **One-click client install** — Windows `SFLauncher.exe` auto-installs BepInEx + plugins on first run; Linux `sflauncher.sh` does the same in one command.
+- Done: **Production server (69.53.117.43)** — running 24/7 under systemd auto-restart. Connect with `-address 69.53.117.43 -port 1337` in Steam launch options.
 
 ## Known issues being tracked
 
 | ID | Symptom | Status |
 |---|---|---|
-| **CRASH** | Oracle native access violation (`0xc0000005`) at EIP `0x0057ed26`, hits same instruction 5x in a row in `lock xadd dword ptr [eax], ecx`. Deterministic, not a race. Probably an NSO event-channel iteration race or Steam-runtime DLL-loading issue. | **Documented** in [`notes/CRASH_INVESTIGATION.md`](notes/CRASH_INVESTIGATION.md). No patch — needs StickFight.exe symbols to attribute. systemd auto-restarts when it happens (~10s downtime). |
+| **CRASH** | Oracle native access violation (`0xc0000005`) at EIP `0x0057ed26`, hits same instruction 5x in a row in `lock xadd dword ptr [eax], ecx`. Deterministic, not a race. Probably an NSO event-channel iteration race or Steam-runtime DLL-loading issue. | **Documented** in [`notes/CRASH_INVESTIGATION.md`](../CRASH_INVESTIGATION.md). No patch — needs StickFight.exe symbols to attribute. systemd auto-restarts when it happens (~10s downtime). |
 | **OPEN-1..OPEN-6** | User-reported gameplay bugs from earlier testing (void/lava no damage; chains/ice/boxes random break). Most likely fixed by reverts in commit `4affabc`, but **untested on the deployed build**. | Need a real client session to verify. |
 | **Phase 6.17 v0.4** | Server-side projectile hit detection uses a 1.2u sphere; misses some shots if the rig's torso position differs from its root transform. Tracked, not blocking. | Polish. |
 | **Workshop maps** | Only the 123 pre-dumped Landfall scenes are supported. Workshop maps require runtime asset-bundle loading. | Future; comp scene doesn't use these per user. |
@@ -47,14 +47,14 @@ A centralized server for Stick Fight that **works end-to-end on a real server** 
 ## How a comp player joins right now
 
 ### Windows (1 click)
-1. Download [`SFLauncher.exe`](https://github.com/kitslayer/sf-multiplayer/blob/main/dist/SFLauncher.exe) (~71MB, single self-contained file)
+1. Download [`SFLauncher.exe`](https://github.com/milescoviello/sf-multiplayer/blob/main/dist/SFLauncher.exe) (~71MB, single self-contained file)
 2. Double-click. First run: it auto-installs BepInEx + plugins into your Steam Stick Fight. The lobby browser window opens.
 3. Pick a lobby, click Connect. The Steam launch options copy to clipboard. Steam opens.
 4. Right-click Stick Fight → Properties → Launch Options → paste → close → click Play.
 
 ### Linux (1 command)
 ```bash
-curl -O https://github.com/kitslayer/sf-multiplayer/raw/main/dist/sflauncher.sh
+curl -O https://github.com/milescoviello/sf-multiplayer/raw/main/dist/sflauncher.sh
 chmod +x sflauncher.sh
 ./sflauncher.sh
 ```
@@ -62,7 +62,7 @@ It downloads BepInEx + plugins, sets up the Steam SF install, opens a lobby-brow
 
 ## How a server operator hosts
 
-Full guide in [`notes/DEPLOY.md`](notes/DEPLOY.md). Tldr:
+Full guide in [`notes/DEPLOY.md`](../DEPLOY.md). Tldr:
 1. Linux box with 4GB+ RAM, 2+ CPU cores
 2. `sudo apt install -y libc6:i386 libstdc++6:i386 libfreetype6:i386 libgl1:i386 libgl1-mesa-dri:i386 libvulkan1:i386 zlib1g:i386 libx11-6:i386 libxext6:i386 libxcomposite1:i386 libxrandr2:i386 libxxf86vm1:i386 xvfb steam-installer` (the `xvfb` part is non-obvious; Wine needs a virtual X display even in `-batchmode -nographics`)
 3. rsync your local working sf-mirror-local SF install + a Proton install + Steam runtime libs to the server
@@ -122,13 +122,13 @@ sf-multiplayer/
 > - .115 deployment with systemd, xvfb-run wrap, Steam runtime libs
 > - Client installer + GUI lobby browser (Windows native .exe + Linux script)
 
-Full timeline in [`notes/SESSION_2026-05-23.md`](notes/SESSION_2026-05-23.md).
+Full timeline in [`notes/SESSION_2026-05-23.md`](../SESSION_2026-05-23.md).
 
 ## What's safe to share with comp Discord
 
 - The `dist/` folder content (one-click installers + plugins) — totally safe to share
 - The server IP if you want others to test: `-address 69.53.117.43 -port 1337`
-- A pointer to https://github.com/kitslayer/sf-multiplayer for anyone who wants to read code
+- A pointer to https://github.com/milescoviello/sf-multiplayer for anyone who wants to read code
 
 ## What's NOT safe to share yet
 

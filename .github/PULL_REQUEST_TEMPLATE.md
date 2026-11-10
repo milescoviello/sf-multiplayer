@@ -11,7 +11,7 @@
 - [ ] Docs
 
 ## Testing
-- [ ] Built locally (`setup-all.sh` / `go test ./...` as applicable)
+- [ ] Built locally (`dotnet build -c Release` / `go test -race ./...` as applicable)
 - [ ] If the installer or client changed: tested on Windows (install -> play -> uninstall)
 
 ## Checklist

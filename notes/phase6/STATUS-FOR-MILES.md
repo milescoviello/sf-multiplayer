@@ -1,8 +1,8 @@
 # Status for Miles (read first when you're back)
 
-> ⚠️ **Superseded (2026-06-06).** Frozen at the Phase 6.3 era (branch `phase-6-headless` is long gone) — current state: [`NEXT_STEPS.md`](../../NEXT_STEPS.md). Live server: `69.53.117.43`.
+> **Superseded (2026-06-06).** Frozen at the Phase 6.3 era (branch `phase-6-headless` is long gone) — current state: [`NEXT_STEPS.md`](../../NEXT_STEPS.md). Live server: `69.53.117.43`.
 
-**Branch:** `phase-6-headless` on https://github.com/kitslayer/sf-multiplayer  
+**Branch:** `phase-6-headless` on https://github.com/milescoviello/sf-multiplayer  
 **Main is at v0.1-alpha** — last "stable" point before the headless pivot.
 
 ## TL;DR

@@ -12,52 +12,38 @@ using UnityEngine.SceneManagement;
 
 namespace SFClientRecon
 {
-    // Phase 6.11+ — client-side reconciliation companion plugin.
-    //
-    // Deployed to each PLAYER's SF install. Listens on UDP 1339 (default;
-    // env SFCLIENTRECON_PORT) for v26 snapshots from the oracle, applies
-    // them, sends inputs back at 60Hz.
+    // SFClientRecon: the player-side plugin. Does nothing unless the game was
+    // started by the "Stick Fight Online" launcher (-address / -port).
     //
     // ============================================================
-    //                    TABLE OF CONTENTS
+    //                    WHERE THINGS ARE
     // ============================================================
-    //  Anchor (search this line)                          ~Line
-    //  ─────────────────────────────────────────────────  ─────
-    //  Awake — bootstrap, harmony patches, UDP bind       ~ 100
-    //  RxLoop — UDP receive thread                        ~ 240
-    //  HandlePacket — snapshot parser (v26.5)             ~ 250
-    //  Update — apply pending snapshots + send inputs     ~ 350
-    //  SmoothTowardTargets — per-frame exponential lerp   ~ 395
-    //  ApplyNsoSnapshot (P0-15 large-lerp flag here)      ~ 490
-    //  ApplyMapSyncSnapshot (P0-14)                       ~ 560
-    //  SendPlayerInputPacket — 60Hz outbound              ~ 630
-    //  DestructibleCollisionPrefix (P0-15 guard)          ~ 680
-    //  WeaponShootPostfix — emits PktClientFireWeapon     ~ 740
-    //  Input ring buffer + divergence-snap (Phase 6.12.2) ~ 790
+    //  SFClientRecon.cs          bootstrap (Awake), the v26 socket, per-frame ticks
+    //  SfOracleLobbyConnect.cs   connecting through the router, lobby switch, rejoin
+    //  SfGameSocketRx.cs         fixes to how the game tracks other players' packets
+    //  SfRemoteSmoothing.cs      other players' movement on our screen
+    //  SfSendRate.cs             how often our own player state goes out
+    //  SfRxTiming.cs             arrival timing of other players' updates (logging)
+    //  Plugin.Snapshot.cs        reading the v26 world snapshot (msgType 39)
+    //  Plugin.Net.cs             input packets out, packet source checks
+    //  Plugin.Slot.cs            finding our own slot
+    //  SfNsoClientPush.cs, Plugin.CratePhysics.cs   crates
+    //  SfNsoNaNGuard.cs          guard against NaN crate / platform positions
+    //  SfMapTerrainClient.cs, SfMapScriptLocal.cs   map objects and map scripts
+    //  SfSnakeTargetFix.cs       snake targets by slot (SfSnakeDiag.cs logs them)
+    //  SfPlayerOrder.cs, SfColorFix.cs, SfStockFixes.cs   patched-DLL differences put back to stock
+    //  SfRoundSpawns.cs          COMP spawns (msgType 44)
+    //  SfServerPings.cs          server pings in the stock ping display (msgType 45)
+    //  SfViewerLink.cs           spectators / replay viewers, client version (46, 48)
+    //  SfChatCommands.cs         server chat commands with QOL Mod installed
+    //  SfPerfLog.cs              the "[perf]" log line
+    //  SfLobbyHost.cs, SfDebugConsole.cs, Plugin.Console.cs, Plugin.Patches.cs
     // ============================================================
     //
     // Wire protocol: see ../notes/PROTOCOL.md
-    // Foundation for client-prediction + server-reconciliation:
-    //   - Snapshot smoothing (Phase 6.11.2) ✓ shipped
-    //   - Hard-snap on divergence > 2.5u (Phase 6.12.2 v0.2) ✓ shipped
-    //   - Full input-replay rollback (Phase 6.12.2 v1.0) — pending
     //
-    // This is the foundation for client-prediction + server-reconciliation:
-    //   - For now, snap (no smoothing, no replay).
-    //   - Phase 6.11.2 will smooth-interpolate over ~100ms.
-    //   - Phase 6.12 adds the playerInput outbound side + sequence-numbered
-    //     replay rollback (CSGO/Valorant model).
-    //
-    // Wire format consumed (matches sf-headless-host BroadcastWorldStateSnapshot):
-    //   v25 envelope: [u32 ts][u8 msgType][N body][u64 steamID][u8 channel]
-    //   msgType: 39 (PktWorldStateSnapshot)
-    //   body:
-    //     u32 serverTick (LE)
-    //     u8  playerCount
-    //     for each player: u8 slot, f32 posX, f32 posY, f32 posZ  (all LE)
-    //
-    // Skip-on-batchmode: the oracle's headless SF instance also loads this
-    // plugin (it's in the same plugins/ dir) — we no-op there.
+    // Skip-on-batchmode: if a headless server instance ever loads this plugin,
+    // it does nothing there.
     [BepInPlugin(PluginGuid, PluginName, PluginVersion)]
     public partial class Plugin : BaseUnityPlugin
     {

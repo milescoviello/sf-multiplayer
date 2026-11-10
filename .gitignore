@@ -66,13 +66,8 @@ legacy/StickFightDedicatedSrv/smoke-test
 smoke-test
 __pycache__/
 
-# SFLauncher build artifacts (not the dist/ release bundle, just the build tree)
-deploy/SFLauncher/bin/
-deploy/SFLauncher/obj/
-
-# dist/ is the SHIPPED client bundle — track its contents even though
-# they're binaries (overrides the global *.exe / *.dll ignores above).
-!dist/*.exe
+# dist/ holds the prebuilt server files: track them even though they're
+# binaries (overrides the global *.dll ignore above).
 !dist/*.dll
 
 # Third-party reference mod clones (have their own git history; reference only)

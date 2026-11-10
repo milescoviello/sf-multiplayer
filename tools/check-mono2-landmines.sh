@@ -39,9 +39,9 @@ scan() { # usage: scan FAIL|WARN "label" "pcre-after-NC-prefix"
          | grep -vE '^[^:]+:[0-9]+:[[:space:]]*\*' || true)
   [ -z "$hits" ] && return 0
   if [ "$sev" = FAIL ]; then
-    printf '\033[31m✗ MONO2 LANDMINE\033[0m — %s\n' "$label"; fail=1
+    printf '\033[31mFAIL MONO2 LANDMINE\033[0m — %s\n' "$label"; fail=1
   else
-    printf '\033[33m⚠ REVIEW\033[0m — %s\n' "$label"
+    printf '\033[33mREVIEW\033[0m — %s\n' "$label"
   fi
   printf '%s\n\n' "$hits" | sed 's/^/    /'
 }
@@ -61,5 +61,5 @@ if [ "$fail" -ne 0 ]; then
   printf '\033[31mFAIL\033[0m: Mono-2.0 landmine(s) above. Fix before building the oracle.\n'
   exit 1
 fi
-printf '\033[32m✓\033[0m no Mono-2.0 hard-fail landmines in plugin source.\n'
+printf '\033[32mOK\033[0m no Mono-2.0 hard-fail landmines in plugin source.\n'
 exit 0

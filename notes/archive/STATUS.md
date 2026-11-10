@@ -1,24 +1,24 @@
 # Live status — for monitoring while away
 
-> ⚠️ **Superseded (2026-06-06).** Historical phone-monitoring scratchpad — current state lives in [`NEXT_STEPS.md`](NEXT_STEPS.md) + [`README.md`](README.md). Live server: `69.53.117.43`.
+> **Superseded (2026-06-06).** Historical phone-monitoring scratchpad — current state lives in [`NEXT_STEPS.md`](../../NEXT_STEPS.md) + [`README.md`](../../README.md). Live server: `69.53.117.43`.
 
 Updated continuously by Claude as work progresses. Latest commit at top. Check this from phone to see what's happening.
 
 ## Active goal (from /goal)
 
-1. ✅ **Investigate the crash** — don't patch unless 100% certain
-2. ⏳ **Deploy to .115** (Proxmox VM, user `miles`, password fallback)
-3. ⏳ **Build an installer** for end-user client setup
-4. ⏳ **Build a GUI server browser**
-5. ⛔ Don't launch anything on this local laptop — test on .115 only
+1. Done: **Investigate the crash** — don't patch unless 100% certain
+2. Pending: **Deploy to .115** (Proxmox VM, user `miles`, password fallback)
+3. Pending: **Build an installer** for end-user client setup
+4. Pending: **Build a GUI server browser**
+5. Don't launch anything on this local laptop — test on .115 only
 
 ## What's happening right now
 
 **Now (2026-05-23 ~21:25):**
-- ✅ Crash investigation complete; findings in [`notes/CRASH_INVESTIGATION.md`](notes/CRASH_INVESTIGATION.md)
-- ✅ Per-lobby log listener bug fixed
-- ✅ Stopped all local oracles per goal directive
-- ✅ **Phase 6 oracle DEPLOYED + RUNNING on .115** (69.53.117.43)
+- Done: Crash investigation complete; findings in [`notes/CRASH_INVESTIGATION.md`](../CRASH_INVESTIGATION.md)
+- Done: Per-lobby log listener bug fixed
+- Done: Stopped all local oracles per goal directive
+- Done: **Phase 6 oracle DEPLOYED + RUNNING on .115** (69.53.117.43)
   - Port 1337 UDP/TCP bound
   - UDP ping verified from laptop
   - Per-lobby plugin log streaming heartbeats
@@ -26,7 +26,7 @@ Updated continuously by Claude as work progresses. Latest commit at top. Check t
   - Systemd auto-restart on crash
 - Next: lobby browser HTTP on .115, real client testing whenever you're ready
 
-## Key crash findings (full doc: [`CRASH_INVESTIGATION.md`](notes/CRASH_INVESTIGATION.md))
+## Key crash findings (full doc: [`CRASH_INVESTIGATION.md`](../CRASH_INVESTIGATION.md))
 
 - **7 crashes today**, all `Access Violation 0xc0000005` in `StickFight.exe`
 - **5 of 7 at the SAME instruction address `0x0057ed26`** with identical bytes — deterministic, not a race

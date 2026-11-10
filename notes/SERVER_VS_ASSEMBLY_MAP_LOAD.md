@@ -1,5 +1,7 @@
 # Servidor (oracle) vs Assembly del cliente
 
+> **Historical (May 2026), in Spanish.** Who loads the map, the server or the player's game file, as understood then.
+
 ## Tu intuición (correcta a medias)
 
 | Qué | Quién lo maneja | ¿Necesita Assembly v25 en el **cliente**? | ¿Necesita lógica en el **oracle**? |

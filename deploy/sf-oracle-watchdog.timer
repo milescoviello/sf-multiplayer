@@ -3,7 +3,7 @@
 #   systemctl daemon-reload && systemctl enable --now sf-oracle-watchdog.timer
 [Unit]
 Description=Run sf-oracle liveness watchdog every 2 minutes
-Documentation=https://github.com/kitslayer/sf-multiplayer
+Documentation=https://github.com/milescoviello/sf-multiplayer
 
 [Timer]
 OnBootSec=3min

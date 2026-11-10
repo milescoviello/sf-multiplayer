@@ -137,13 +137,13 @@ Here, the match runs on a server instead:
 | [`deploy/`](deploy) | What the live server runs: systemd units (`sf-router`, `sf-oracle` = MAIN, `sf-lobby@` = the other lobbies) and `start-oracle-server.sh`. |
 | [`tools/`](tools) | Test and analysis tools, including [`tools/smoothness/`](tools/smoothness) (remote-player smoothness bench). |
 | [`maps/`](maps) | Map data dumped from the game (spawns, killboxes). |
-| [`notes/`](notes), [`legacy/`](legacy) | Older design notes and earlier architectures. Much of it is out of date. |
+| [`notes/`](notes), [`legacy/`](legacy) | Design notes (the [index](notes/README.md) says which are current) and earlier architectures. |
 
 **Build a plugin:** each plugin folder needs a `refs/` folder with `Assembly-CSharp.dll` and `UnityEngine.dll` (from your own `StickFight_Data/Managed/`) and `BepInEx.dll` + `0Harmony.dll` (from BepInEx 5.4). They aren't in this repo because the game files are Landfall's. Then run `dotnet build -c Release` in the plugin folder. The game is Unity 5.6 on Mono 2.0, so `tools/check-mono2-landmines.sh` flags C# that compiles but breaks at runtime.
 
 **Ship an update to players:** build the plugins, run `1-click-install/build.sh` (it copies the files, writes `manifest.json` with each file's SHA-256 and rebuilds the zip), then commit and push to `main`. Every player gets it the next time they start the shortcut.
 
-**Run your own server:** a Linux machine with Proton, a copy of Stick Fight with BepInEx and the two server plugins, and the units in [`deploy/`](deploy). [`notes/DEPLOY.md`](notes/DEPLOY.md) has the long version but predates the router: players now connect on UDP 1338 (the router), and the per-lobby ports (1337, 1341…) stay on the server.
+**Run your own server:** a Linux machine with Proton, a copy of Stick Fight with BepInEx and the two server plugins, and the units in [`deploy/`](deploy). Step by step: [`notes/DEPLOY.md`](notes/DEPLOY.md). Players only need UDP 1338 (the router) to reach it.
 
 **Wire format:** Stick Fight's own messages, sent as plain UDP instead of Steam P2P: `[u32 timestamp][u8 msgType][body][u64 steamID][u8 channel]`. The last 9 bytes carry what Steam P2P used to supply. The server adds message types 39+ for world snapshots, input and its own control messages. Details: [`notes/PROTOCOL.md`](notes/PROTOCOL.md).
 

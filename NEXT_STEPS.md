@@ -1,28 +1,74 @@
 # Next steps
 
-Where the project is and what's coming next. Refreshed continuously — see [`WHATS_NEW.md`](WHATS_NEW.md) for the running session log, [`notes/PROTOCOL.md`](notes/PROTOCOL.md) for the wire-format spec.
+Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WHATS_NEW.md) (newest first). How to play: [`README.md`](README.md).
 
-> **Current state (2026-11-09).** The July host is gone; the server now runs on a Proxmox VM on the LAN (headless Stick Fight under Proton, systemd lobbies behind `sf-router` on UDP 1338). Lobbies: **COMP** (1v1, DSF rules: HP 100, regen off, weapon spawn high, DSF weapon + map pool, two sets of first-to-25, random spawns, ping-compensated round winner with no draws, a mid-round disconnect replays the round, up to 2 spectators, anti-cheat enforced), **CASUAL** (stock rules, up to 4 FFA), **REPLAY** (watch COMP replays). Not public yet.
->
-> What changed in this pass (details in [`WHATS_NEW.md`](WHATS_NEW.md)): stock round flow and lobby rules end to end; stock weapon bag, drop timers and map list; server-validated pickups/throws; snakes target players again; no client FPS/physics overrides; crate stacks no longer collapse from server-side culling; match replays; stock win counter and ping display in every lobby; spectators/viewers get banners and their snapshots; the game socket binds itself at the router (players behind one IP in different lobbies no longer cross); server music disabled (a native audio crash under Wine); the watchdog restarts any hung lobby; server chat commands work with QOL Mod installed.
->
-> **Later on 11-09:** crate stacks no longer collapse when players fight on them (the server's copy of each player is now a stock remote-player ragdoll instead of an immovable statue spawned inside Desert5's stack); bullets/explosions push crates the stock way; the server replays shots (grenade blasts, snake-gun snakes now chase and bite); players who leave are removed from everyone's screen and a rejoin no longer duplicates them; a packet race in the patched client's receive loop is fixed in the client plugin; mid-round joins follow stock; COMP restarts a round a returning player wasn't there for. Players need the refreshed client for the client-side parts.
->
-> **Release (11-09 evening):** the installer and launcher were rebuilt. Install once; the "Stick Fight Online" shortcut auto-updates from `1-click-install/manifest.json` and starts the game on the server, and Steam launches stay vanilla. Public address: `sf.milescoviello.com:1338` (DNS and UDP 1338 forwarding to the VM still to set up; until it resolves the launcher keeps the last working address). Next: a stock local match with a logging-only plugin, to measure vanilla crate pushes, explosions, round timings, weapon drops and movement, and compare them with the server.
->
-> **11-10:** fixed from watching bots play: early weapon drops, sky drops on boss maps, both players the same color, slot-vs-list mix-ups (winner, fall-out, leaving, snakes), snakes never targeting, jerky remote players (send rate 30/s -> ~60/s). To see with real players: a snake bite, Xmas6's chains after a boss map, how remote players feel at real pings.
->
-> **Later 11-10:** remote players are smooth (stock nudged copies once per update that landed, so uneven arrival over the internet stuttered; now a stock-strength correction every physics step: jitter 1.2-2x the real movement instead of 2-9x, half the position error, less lag), empty lobbies idle at 15 fps (four idle lobbies had taken half the server), and client logs carry "[perf]" (frame rate + mod cost). Still to see with real players: how remote players feel at real pings, a snake bite, the shield position on other screens.
->
-> **Night 11-09:** the box bug is fixed at its source (a server race read every crate id as 0: clients could follow one crate and predicted crates fell out of crate maps; bullet pushes were dropped), clients now follow the server's crates like stock non-host players, bullets push crates on the server, and the public address works (sf.milescoviello.com:1338, checked from off-site). Still to see with real players: Desert8's bridge under a real fight (with two bots brawling on it, the server's copy comes apart in ~10 s; stock reference unknown), how far a pistol hit moves a free-standing crate.
->
-> **Late 11-09:** session tokens (players survive our router restarting or their NAT changing ports; slots can't be taken over), the router no longer goes one-way for every player after a lobby restart, clients rejoin a restarted lobby by themselves (mid-match via a launcher restart), and a Linux / Steam Deck installer. Still open: the Linux installer on a real Deck; the lobby list's player counts lag after people leave; the relaunched game doesn't take focus on Windows.
->
-> **Still to check on a real player's client (not provable with bots):** crate feel under real play (pushing, standing on, shooting crates), hit feel at real pings, and a snake-gun bite on a real client.
->
-> *Everything below this line is the July 2026 history.*
->
-> **Current state — this file + [`README.md`](README.md) are the source of truth; the other status docs are historical snapshots.** Live server: **`69.53.117.43`** (game UDP 1337, router UDP 1338, lobby browser TCP 8080). Maintainer: kit (solo; ALKA departed, access fully revoked). **Server-side deployed on `.115` (2026-07-01):** `SFHeadlessHost 0.4.5` + `SFBoxFix 0.3.3` — verified live (v25 Ping OK on LAN + public `69.53.117.43:1337`; oracle heartbeating; MAIN lobby registered + alive in the browser). The two `NullReferenceException`s in the boot log are pre-existing game-code headless-boot noise (`WeaponPickUp`/`NetworkSyncableObject` `.Awake` under `MultiplayerManager:Awake`), unrelated to our plugins. **Client-side installer refreshed (2026-07-01):** `SFClientRecon 0.6.5` + `SFServerBrowser 0.5.8` shipped in `sf-multiplayer-StickFight-Installer.zip` + `dist/` + `1-click-install/files/`. The in-game **server browser is complete, with no website**: client repointed to the sf-router single port (`1338`, was MAIN-direct `1337`) so BROWSE/JOIN/switch route through it; browser fetches the lobby LIST + does CREATE/RESTART over the router's UDP port (`LIST`/`CREATE`/`RESTART` ops, not HTTP `:8080`); duplicate uGUI overlay disabled (one IMGUI UI, F2). **Always-on lobbies:** MAIN/COMP/CASUAL are systemd-managed (`sf-oracle` + `sf-lobby@COMP`/`@CASUAL`, `static=true` → reaper-exempt, reboot-persistent). Router (`-default MAIN` + LIST + CREATE/RESTART proxy w/ token) + serve-lobbies (`/lobbies/restart` + `SF_MAX_LOBBIES=8`) + sudoers all live on `.115` (verified: RESTART bounced COMP, CREATE spawned a lobby). **Only open item: a visual GUI eyeball on a real client** (functionally verified; automated Xvfb screenshot was too slow — 30 s check for you: install → F2 → BROWSE). **Still owed:** a 2-player live *disconnect* re-verify of the host orphan-rig/`Finite` fixes (the deploy passed boot + Ping but not a full match), and the flagged PowerShell installer-script hardening below (needs a Windows test — deferred, not shipped).
+## Current state (2026-11-10)
+
+**Open beta.** Players install with the [1-click installer](sf-multiplayer-StickFight-Installer.zip) (Windows; Linux / Steam Deck in beta) and connect to `sf.milescoviello.com:1338`. The "Stick Fight Online" shortcut updates the mod from [`1-click-install/manifest.json`](1-click-install/manifest.json) before every start. Starting the game from Steam stays the normal game.
+
+| Part | Version | Where it ships |
+|---|---|---|
+| SFClientRecon (player plugin) | 0.7.4 | `1-click-install/files/`, auto-update |
+| SFServerBrowser (player plugin) | 0.6.1 | `1-click-install/files/`, auto-update |
+| SFHeadlessHost (server plugin) | 0.4.5 (the version string hasn't been bumped since July; the build is current) | `dist/`, live on the server |
+| SFBoxFix (server plugin) | 0.3.3 | `dist/`, live on the server |
+| sf-router | no version | built from `sf-router/` |
+
+**Server:** a Proxmox VM on the LAN (Debian 13, 6 vCPU, 8 GB) running headless Stick Fight under Proton. The systemd units in [`deploy/`](deploy): `sf-router` (the public UDP port, 1338), `sf-oracle` (MAIN), `sf-lobby@COMP`, `sf-lobby@CASUAL`, `sf-lobby@REPLAY`, `sf-lobbies` (lobby list, create and restart), `sf-monitor`, and the `sf-oracle-watchdog` timer. Each lobby takes about 650 MB; an empty one idles at 15 fps (about a third of a core).
+
+**Lobbies:**
+- **MAIN, CASUAL:** stock rules, up to 4 players.
+- **COMP:** 1v1 on DSF rules.
+  - 100 HP, no regen, high weapon spawn rate, the DSF weapon and map pool, random spawns.
+  - Two sets of first to 25.
+  - The round winner is ping-compensated, so there are no draws.
+  - A mid-round disconnect replays the round.
+  - 2 spectator slots.
+  - Impossible damage and packet floods are dropped.
+- **REPLAY:** plays recorded COMP matches. Every lobby records its matches.
+
+## Checked with bots (11-09 and 11-10)
+
+- Stock round flow, weapon bag, drop timers and map list. No weapons drop from the sky on boss maps.
+- Crates: clients follow the server's crates the way stock non-host players do, bullets and explosions push them, and stacks hold.
+- Remote players: corrected every physics step. Jitter is 1.2-2x the real movement under simulated ping, instead of 2-9x.
+- Snakes pick targets and bite for 5 damage, like stock.
+- Session tokens: players survive a router restart or a NAT port change, and clients rejoin a restarted lobby by themselves.
+- Install and auto-update on Windows, end to end, through GitHub and the public address.
+
+## Needs real players
+
+- Blocking: does the shield show where the other player is blocking?
+- Feel at real pings: remote players' movement, and hits.
+- The Linux installer on a real Steam Deck.
+- Snakes pushing crates. Desert8's bridge under a real fight. How far a pistol hit moves a free-standing crate.
+
+## Open
+
+- On a non-host shooter's own screen, their snakes wander. Stock does the same, so it stays.
+- When a lobby restarts mid-match, the relaunched game doesn't take focus on Windows.
+- In one bot test, a remote player fell into the void after a `/map` switch. Not investigated yet.
+- The server plugin still reports version 0.4.5.
+- Much of [`notes/`](notes) predates the current server. [`notes/README.md`](notes/README.md) says which docs are current.
+
+## Working on it
+
+- **Build a plugin:** `dotnet build -c Release` in its folder. It needs a `refs/` folder first; see the [README](README.md#for-developers).
+- **Ship to players:** run `1-click-install/build.sh`, commit, push to `main`.
+- **Server plugins:** copy the new DLL next to the live one in `~/sf-oracle/install/BepInEx/plugins/` on the server and `mv` it into place (never overwrite a loaded DLL in place). Then restart `sf-oracle` and the `sf-lobby@` units. Details: [`notes/DEPLOY.md`](notes/DEPLOY.md).
+- **Smoothness test bench:** [`tools/smoothness/`](tools/smoothness).
+- **Code map:**
+  - Server: [`sf-headless-host/`](sf-headless-host), one `Plugin.<Area>.cs` file per area (Net, Session, Rigs, Nso, MatchFlow, CompMatch, Replay, Chat, Anticheat, ...).
+  - Player: [`sf-client-recon/`](sf-client-recon) (connection in `SfOracleLobbyConnect.cs` and `SfGameSocketRx.cs`, remote players in `SfRemoteSmoothing.cs`, crates in `SfNsoClientPush.cs`).
+  - Lobby list: [`sf-server-browser/`](sf-server-browser).
+
+---
+
+# History: July 2026 and earlier
+
+Kept for reference. Most of this describes the old host (`.115`, public port 1337, a lobby browser on TCP 8080) and an older design, so check anything here against the code before relying on it.
+
+> **State in July 2026.** Live server: **`69.53.117.43`** (game UDP 1337, router UDP 1338, lobby browser TCP 8080). Maintainer: kit (solo; ALKA departed, access fully revoked). **Server-side deployed on `.115` (2026-07-01):** `SFHeadlessHost 0.4.5` + `SFBoxFix 0.3.3` — verified live (v25 Ping OK on LAN + public `69.53.117.43:1337`; oracle heartbeating; MAIN lobby registered + alive in the browser). The two `NullReferenceException`s in the boot log are pre-existing game-code headless-boot noise (`WeaponPickUp`/`NetworkSyncableObject` `.Awake` under `MultiplayerManager:Awake`), unrelated to our plugins. **Client-side installer refreshed (2026-07-01):** `SFClientRecon 0.6.5` + `SFServerBrowser 0.5.8` shipped in `sf-multiplayer-StickFight-Installer.zip` + `dist/` + `1-click-install/files/`. The in-game **server browser is complete, with no website**: client repointed to the sf-router single port (`1338`, was MAIN-direct `1337`) so BROWSE/JOIN/switch route through it; browser fetches the lobby LIST + does CREATE/RESTART over the router's UDP port (`LIST`/`CREATE`/`RESTART` ops, not HTTP `:8080`); duplicate uGUI overlay disabled (one IMGUI UI, F2). **Always-on lobbies:** MAIN/COMP/CASUAL are systemd-managed (`sf-oracle` + `sf-lobby@COMP`/`@CASUAL`, `static=true` → reaper-exempt, reboot-persistent). Router (`-default MAIN` + LIST + CREATE/RESTART proxy w/ token) + serve-lobbies (`/lobbies/restart` + `SF_MAX_LOBBIES=8`) + sudoers all live on `.115` (verified: RESTART bounced COMP, CREATE spawned a lobby). **Only open item: a visual GUI eyeball on a real client** (functionally verified; automated Xvfb screenshot was too slow — 30 s check for you: install → F2 → BROWSE). **Still owed:** a 2-player live *disconnect* re-verify of the host orphan-rig/`Finite` fixes (the deploy passed boot + Ping but not a full match), and the flagged PowerShell installer-script hardening below (needs a Windows test — deferred, not shipped).
 >
 > **Latest (2026-07-02): always-on lobbies + in-game create/restart (no website).** COMP/CASUAL are now systemd-managed (templated `sf-lobby@.service`, reuses `start-oracle-server.sh` + `register-main-lobby.sh` → `static=true` reaper-exempt, reboot-persistent), like MAIN. Added router CREATE (`0x04`) / RESTART (`0x05`) control ops that proxy to the local control plane (token held server-side): `serve-lobbies` gained `POST /lobbies/restart` (bounces the named lobby's systemd unit via a scoped NOPASSWD sudoers rule); `SFServerBrowser` 0.5.8 does CREATE over UDP + a per-row `RST` button. Verified live: RESTART bounced COMP's unit; CREATE spawned a lobby through the router. Bumped `SF_MAX_LOBBIES` 6→8 for free CREATE ports (1343+). Router + serve-lobbies redeployed to `.115`; sudoers installed. **Owed: a visual GUI eyeball on a real Proton client** (the automated Xvfb screenshot was too slow; everything is functionally verified). Full log in [`WHATS_NEW.md`](WHATS_NEW.md).
 >
@@ -42,7 +88,7 @@ Where the project is and what's coming next. Refreshed continuously — see [`WH
 >
 > **Latest (2026-06-25): multi-agent code-review sweep — 9 fixes on `main`, pushed (NOT deployed; versions unchanged).** Four parallel reviewers across host/client/browser/box/router/infra, triaged + fixed by hand. Landed: non-finite snapshot hardening (host+client — the live +Inf-class bug), SFBoxFix instance-id cache correctness, host void-budget/reconnect-input/empty-map-pool guards, sf-monitor `?n=` hardening + tooling. **Flagged for a live session before any code change:** the `Controller.mHasControl` gate — the client fire packet (msgType 41) and local ice/destructible breaks may be inert in oracle mode (confirm `mHasControl` is really always-false live first). Full log in [`WHATS_NEW.md`](WHATS_NEW.md). C# changes need a 2-player live re-verify before deploy.
 >
-> **Latest (2026-06-23): autonomous polish loop wound down — consolidated to `main` + pushed to `origin` (NOT deployed; versions unchanged; driver cron stopped).** A 21-iteration hunt across lobby/boxes/anti-cheat — full log + evidence in [`BUGS_LOOP.md`](BUGS_LOOP.md) + `loop-evidence/`, summary in [`WHATS_NEW.md`](WHATS_NEW.md). Shipped a series of low-risk fixes (web-browser favicon 204; mid-match lobby-switch feedback banner #5; two defense-in-depth bounds in the host damage-handler + snapshot serializer; web lobby-browser live players/capacity; `healthcheck` Ping retry; two input-validator `$`→`\Z` hardenings) + the project's first Python tests and a pinned `Skip`'d router regression test. Most of the seeded backlog verified **code-correct / by-design** (P0-23 boxes-to-void NOT reproducing on a live headless oracle; P0-24 round-advance re-arm intact; AC-1 rate-guard observe-only as designed). **Kit's remaining punch list (needs a real 2-player session — see [`BUGS_LOOP.md`](BUGS_LOOP.md) → "Punch list for kit"): confirm void/lava death (OPEN-1/2), confirm the lobby-switch symptom isn't just the documented per-IP limit (LOBBY-1), confirm rigs respawn in rounds 2+ (P0-24).** Then a `.115` deploy + version bump if accepted.
+> **Latest (2026-06-23): autonomous polish loop wound down — consolidated to `main` + pushed to `origin` (NOT deployed; versions unchanged; driver cron stopped).** A 21-iteration hunt across lobby/boxes/anti-cheat — full log + evidence in [`BUGS_LOOP.md`](notes/archive/bugs-loop-2026-06/BUGS_LOOP.md) + `loop-evidence/`, summary in [`WHATS_NEW.md`](WHATS_NEW.md). Shipped a series of low-risk fixes (web-browser favicon 204; mid-match lobby-switch feedback banner #5; two defense-in-depth bounds in the host damage-handler + snapshot serializer; web lobby-browser live players/capacity; `healthcheck` Ping retry; two input-validator `$`→`\Z` hardenings) + the project's first Python tests and a pinned `Skip`'d router regression test. Most of the seeded backlog verified **code-correct / by-design** (P0-23 boxes-to-void NOT reproducing on a live headless oracle; P0-24 round-advance re-arm intact; AC-1 rate-guard observe-only as designed). **Kit's remaining punch list (needs a real 2-player session — see [`BUGS_LOOP.md`](notes/archive/bugs-loop-2026-06/BUGS_LOOP.md) → "Punch list for kit"): confirm void/lava death (OPEN-1/2), confirm the lobby-switch symptom isn't just the documented per-IP limit (LOBBY-1), confirm rigs respawn in rounds 2+ (P0-24).** Then a `.115` deploy + version bump if accepted.
 >
 > **Latest (2026-06-17): full codebase code-review pass (bugs + dead-code cleanup), merged to `main`.** Fixed: server-auth rigs respawn after a lobby empties (B1), spoofable client kick (A1), reconnect slot-table hygiene (A2), anti-cheat round accounting (B2), client crate-cache leak + RX-filter ordering (C1/C5), server-browser parser/state (E2/E3), control-plane concurrent-create port race + router-port reservation + cache lock + atomic registry writes (F1/F2/F3/F6), plus the earlier `BroadcastSfPacket` gate / mid-match-join guard / reaper grace / stop-lobby numeric (#2d/#5c/#5d/#5e). Removed dead code across host/client/box/server-browser/infra (incl. a per-input `FindObjectsOfType` that fed nothing, and SFBoxFix DEATH-2/DEATH-3). **NOT deployed yet — needs a `.115` deploy + 2-player live check** (B1 + box/death-path changes touch the live gameplay loop). Deferred: `#2a` weaponType/aim wiring + `#4` OPEN-1..6 (need a live session), `#11` IP scrub (tooling); the Windows launcher got source-only fixes but was not rebuilt. See [`WHATS_NEW.md`](WHATS_NEW.md).
 >
@@ -50,7 +96,7 @@ Where the project is and what's coming next. Refreshed continuously — see [`WH
 >
 > **Top still-open** (tracked in GitHub issues #2–#5 + the review): the ~24h crash *root cause* (now contained, not fixed — float-`+Inf` accumulator hypothesis in [`notes/CRASH_INVESTIGATION.md`](notes/CRASH_INVESTIGATION.md)); client `_localSlot` discovery never adopting `mLocalPlayerIndex` (#5/C-P1-B); the dist/ installer generation being broken (use the root zip); LICENSE-vs-tree contradiction on the patched assembly; real 2-client live verification of OPEN-1..6 (#4). Earlier audit-fix pass (2026-06-06): installer/router/serve-lobbies hardening, host snapshot-serializer dedup + projectiles-on-FixedUpdate, P0-23 floor diagnostic. Sections below dated 2026-05-23 are partially superseded.
 
-## Current state
+## July 2026 state
 
 Live server end-to-end. Steam Stick Fight (Windows or Linux/Proton) connects to a headless SF instance running [`sf-headless-host/SFHeadlessHost.dll`](sf-headless-host/) — a BepInEx + Harmony plugin that turns SF into its own v25-speaking dedicated server.
 
@@ -71,21 +117,21 @@ See [`notes/SESSION_2026-05-23.md`](notes/SESSION_2026-05-23.md) for the deep se
 - Phase 6.17 v0.4 polish ideas — projectile occlusion against NSOs (currently only static scene), per-weapon damage values
 
 **Shipped this session (active, not reverted):**
-- ✅ P0-12 — `MapInfoSync` Vector2 key quantization (silent platform desync from ULP drift)
-- ✅ P0-13 — full-keyframe snapshot to new v26 endpoints (late-joiners get at-rest box positions)
-- ✅ P0-14 — v26.5 `WorldStateSnapshot` carries authoritative `MapInfoSyncableBase` positions
-- ✅ P0-15 — `DestructiblePiece` guard suppresses post-large-lerp swept-collision destructions
-- ✅ Phase 6.12.2 v1.0 — Shift-correction reconciliation (CSGO model: server corrections applied as offset to current local pos)
-- ✅ Phase 6.17 v0.2 — Server-side projectile hit registration (swept sphere check)
-- ✅ Phase 6.17 v0.3 — Particle direction bytes + wall occlusion via Linecast
-- ✅ Phase 6.20 — Chat command admin suite (`/weapons`, `/kick`, `/anticheat`, `/map`, `/listmaps`)
-- ✅ serve-lobbies.py polish — card layout, copy-to-clipboard, `/healthz`
-- ✅ Deploy fix — `setup-all.sh` now deploys `SFHeadlessHost.dll` to BOTH oracle and Steam installs
+- Done: P0-12 — `MapInfoSync` Vector2 key quantization (silent platform desync from ULP drift)
+- Done: P0-13 — full-keyframe snapshot to new v26 endpoints (late-joiners get at-rest box positions)
+- Done: P0-14 — v26.5 `WorldStateSnapshot` carries authoritative `MapInfoSyncableBase` positions
+- Done: P0-15 — `DestructiblePiece` guard suppresses post-large-lerp swept-collision destructions
+- Done: Phase 6.12.2 v1.0 — Shift-correction reconciliation (CSGO model: server corrections applied as offset to current local pos)
+- Done: Phase 6.17 v0.2 — Server-side projectile hit registration (swept sphere check)
+- Done: Phase 6.17 v0.3 — Particle direction bytes + wall occlusion via Linecast
+- Done: Phase 6.20 — Chat command admin suite (`/weapons`, `/kick`, `/anticheat`, `/map`, `/listmaps`)
+- Done: serve-lobbies.py polish — card layout, copy-to-clipboard, `/healthz`
+- Done: Deploy fix — `setup-all.sh` now deploys `SFHeadlessHost.dll` to BOTH oracle and Steam installs
 
 **Reverted this session (tried, broke things, rolled back in `4affabc`):**
-- ❌ P0-11 Y-aware destruction filter — forwarded chain stress-breaks. Back to drop-all.
-- ❌ P1-8 attacker-slot anti-spoof — blocked all player-on-player damage. Removed.
-- ❌ Dynamic-NSO client patch — caused spurious NSO-on-NSO destructions. Back to stock kinematic.
+- Dropped: P0-11 Y-aware destruction filter — forwarded chain stress-breaks. Back to drop-all.
+- Dropped: P1-8 attacker-slot anti-spoof — blocked all player-on-player damage. Removed.
+- Dropped: Dynamic-NSO client patch — caused spurious NSO-on-NSO destructions. Back to stock kinematic.
 
 ## End-state goal — CONFIRMED 2026-05-23
 
@@ -119,30 +165,30 @@ PER-FRAME (server side)
 ```
 
 Where we are vs. that target:
-- ✅ v26 wire protocol shipped (snapshot, input, fire-weapon)
-- ✅ Client snapshot smoothing + divergence-snap (Phase 6.11.2 + 6.12.2 v0.2)
-- ✅ Tick-history ring buffer on server (Phase 6.14.5 v0.1)
-- ✅ Server-authoritative NSOs + dynamic-client + kinematic-platforms (Phase 6.19)
-- ✅ **Shift-correction reconciliation (Phase 6.12.2 v1.0)** — server corrections applied as offset to current local position; no more "snap back to stale server pos" feel. The canonical CSGO/Valorant model.
-- ✅ **Server-side projectile hit registration (Phase 6.17 v0.2)** — swept sphere check, authoritative damage emit. Polish pending: particle direction bytes, wall occlusion (v0.3).
-- ⏳ **Local NSO push prediction (Phase 6.18)** — boxes feel responsive now thanks to dynamic client NSOs (commit `6875908`), but still no "predict local push, server confirms" loop. Optional polish.
-- ⏳ **Full Movement.cs state-restore replay** — current shift-correction handles the position; subtle internal-state divergence (jump state, grounded flag, etc.) would need a full state-restore loop. Only matters in pathological lag cases.
+- Done: v26 wire protocol shipped (snapshot, input, fire-weapon)
+- Done: Client snapshot smoothing + divergence-snap (Phase 6.11.2 + 6.12.2 v0.2)
+- Done: Tick-history ring buffer on server (Phase 6.14.5 v0.1)
+- Done: Server-authoritative NSOs + dynamic-client + kinematic-platforms (Phase 6.19)
+- Done: **Shift-correction reconciliation (Phase 6.12.2 v1.0)** — server corrections applied as offset to current local position; no more "snap back to stale server pos" feel. The canonical CSGO/Valorant model.
+- Done: **Server-side projectile hit registration (Phase 6.17 v0.2)** — swept sphere check, authoritative damage emit. Polish pending: particle direction bytes, wall occlusion (v0.3).
+- Pending: **Local NSO push prediction (Phase 6.18)** — boxes feel responsive now thanks to dynamic client NSOs (commit `6875908`), but still no "predict local push, server confirms" loop. Optional polish.
+- Pending: **Full Movement.cs state-restore replay** — current shift-correction handles the position; subtle internal-state divergence (jump state, grounded flag, etc.) would need a full state-restore loop. Only matters in pathological lag cases.
 
 ## Roadmap
 
-### Phase 6.9 — real authoritative NetworkPlayer per client ✅
+### Phase 6.9 — real authoritative NetworkPlayer per client (done)
 - Ripped the Phase 6.7 mirror rig (`SpawnMirrorRigsForAllClients`, `UpdateMirrorRigPosition`, `MakeRigKinematicMirror`) and the settle-phase coroutine
 - Renamed → `SpawnAuthoritativePlayersForAllClients` + `ConfigureAuthoritativeRig`
 - Per-instance `Controller.mHasControl = true` on each spawned rig (server-side authority)
 - `HandlePlayerUpdate` is now pure relay; no longer drives anything server-side
 
-### Phase 6.10 — server snapshots ✅
+### Phase 6.10 — server snapshots (done)
 - New v26 msgType `PktWorldStateSnapshot` (39)
 - Server broadcasts at 30Hz to all spawned clients on v26 port (1339)
 - Wire format: `u32 serverTick, u8 playerCount, [u8 slot, f32 x, f32 y, f32 z] × N`
 - Stock clients ignore msgType 39 (their `MsgType` enum stops at 38) — safe to ship before client plugin lands
 
-### Phase 6.11 — client reconciliation ✅ (snap, no smoothing yet)
+### Phase 6.11 — client reconciliation (done; snap, no smoothing yet)
 - New BepInEx plugin: [`sf-client-recon/`](sf-client-recon/) shipped to each player's `<SF install>/BepInEx/plugins/`
 - Binds UDP 1339, parses incoming `PktWorldStateSnapshot`, snap-corrects local `NetworkPlayer` position to server's authoritative view
 - Phase 6.11.2 (next): replace instant snap with smooth interpolation over ~100ms
@@ -155,12 +201,12 @@ Where we are vs. that target:
 - Oracle tags each outgoing snapshot with `lastInputSeq` (last sequence number consumed for that slot)
 - Client maintains a sequence-tagged input ring buffer; on snapshot arrival, if local predicted position at sequence N differs from server position at sequence N beyond a tolerance, the client replays buffered inputs from N to current — the canonical CSGO rollback model
 
-### Phase 6.13 — World shards (multi-lobby) ✅ v1 + ✅ v1.5
+### Phase 6.13 — World shards (multi-lobby) (done: v1 and v1.5)
 - v1 (shipped 2026-05-23): multi-process — each lobby is its own Proton+SF oracle on its own UDP port, fully isolated. Driven by [`launch-lobby.sh`](launch-lobby.sh), [`stop-lobby.sh`](stop-lobby.sh), [`list-lobbies.sh`](list-lobbies.sh), [`stop-all-lobbies.sh`](stop-all-lobbies.sh).
 - v1.5 (shipped 2026-05-23): lobby browser endpoint — [`serve-lobbies.py`](serve-lobbies.py) exposes the registry as JSON at `GET /lobbies`. Any server browser (in-game mod, web UI) can poll. Filters out stale entries.
 - v2 (design only): in-process — N additive scenes at Z-offset in one SF process, per-shard state isolation, Harmony dispatch on SF singletons. See [`notes/phase6/12-PHASE6.13-sharding.md`](notes/phase6/12-PHASE6.13-sharding.md) for the design + roadmap.
 
-### Phase 6.14 — Server-authoritative NSO positions ✅ (v0.1)
+### Phase 6.14 — Server-authoritative NSO positions (done, v0.1)
 - Server includes NSO positions in `WorldStateSnapshot` (msgType 39)
 - Client snaps local NSO transforms to server values
 - Next: smoothing/interpolation between snapshots (6.14.1)
@@ -170,7 +216,7 @@ Where we are vs. that target:
 - CSGO-style 100ms tick history; server rewinds positions to validate damage events
 - Gated behind anticheat-lite (slot↔SteamID validation, weapon plausibility) shipping first
 
-### Phase 6.15 — Chat-command admin interface ✅ v1
+### Phase 6.15 — Chat-command admin interface (done: v1)
 - v1 (shipped 2026-05-23): `/code`, `/room`, `/ping`, `/start`, `/help`. Server parses `/`-prefixed `PktPlayerTalked` (body = raw UTF-8 confirmed from decompile), responds via `SendChatToPlayer` on the requester's owner channel `(slot*2)+3`. Lobby code plumbed via `SF_LOBBY_CODE` env var set by `launch-lobby.sh`.
 - v1 docs: [`notes/phase6/14-chat-commands.md`](notes/phase6/14-chat-commands.md)
 - Next (v2): `/options`, `/join CODE`, `/newlobby`, `/public`, `/private`, `/invite USER` — these need multi-lobby coordination, gated on Phase 6.13 v2 in-process sharding.
@@ -183,36 +229,3 @@ Where we are vs. that target:
 - Workshop maps loaded at runtime (not just pre-dumped Landfall maps)
 - Client-side smooth interpolation on snapshot apply (Phase 6.11.2)
 - Input prediction replay rollback (Phase 6.12.2)
-
-## Client patched Assembly-CSharp (imported reference)
-
-Prebuilt client artifacts — the patched `Assembly-CSharp.srv.v25.dll`, `SFClientRecon.dll`, and `SFServerBrowser.dll` — ship in [`dist/`](dist) and are bundled by the [`1-click-install/`](1-click-install) installer. (Earlier notes referenced a `client-mod/` directory that was never committed; these prebuilt DLLs supersede it.)
-
-## Where to start reading
-
-- [`sf-headless-host/SFHeadlessHost.cs`](sf-headless-host/SFHeadlessHost.cs) — the live plugin (~6,400 lines; map-terrain helper in [`sf-headless-host/SfMapTerrainHost.cs`](sf-headless-host/SfMapTerrainHost.cs), ~1,280). Key entry points: `Awake()` (installs the Harmony patches), `SfDispatch` (inbound v25/v26 packet router), `HandlePlayerInput` (v26 `PktPlayerInput`), `HandlePlayerUpdate` (v25 position relay), `SpawnAuthoritativePlayersForAllClients` / `TrySpawnPlayer` / `ConfigureAuthoritativeRig` (server-authoritative rigs), `BuildWorldStateBody` (60Hz snapshot serializer), `TickProjectiles` (server-side projectile sim + hit reg)
-- [`notes/phase6/10-PHASE6.5-host-side-gameplay.md`](notes/phase6/10-PHASE6.5-host-side-gameplay.md) — current host-side patch set + rationale
-- [`notes/phase6/11-PHASE6.6-pickup-and-physics.md`](notes/phase6/11-PHASE6.6-pickup-and-physics.md) — pickup forwarding + diagnosis of why boxes initially didn't move
-- `refs/decompiled/Assembly-CSharp/MultiplayerManager.cs` — host-side dispatcher *(local-only: `refs/` is the decompiled game source, gitignored for copyright — build it per the README, not on GitHub)*
-- `refs/decompiled/Assembly-CSharp/NetworkSyncableObject.cs` — the sync pattern, good reference for snapshot design *(local-only, same as above)*
-
-## How to test locally
-
-Server side:
-
-```bash
-SFHEADLESS_BRIDGEPORT=1341 SFHEADLESS_PORT=1337 SFHEADLESS_DEBUG=1 \
-  bash launch-sf-headless.sh
-```
-
-Client side — Steam Stick Fight launch options:
-
-```
-WINEDLLOVERRIDES="winhttp=n,b" %command% -address 127.0.0.1 -port 1337
-```
-
-Logs:
-- `$SF_MIRROR/BepInEx/LogOutput.log` — plugin output
-- `/tmp/sf-oracle-unity-1341.log` — Unity log (use this for SF's own diagnostics)
-
-The `-address` / `-port` flags are read by a patched `Assembly-CSharp.dll` shipped with the client (not in this repo for copyright reasons). The patched DLL has no embedded IP; everything comes from the CLI flags.

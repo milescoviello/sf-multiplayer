@@ -1,5 +1,7 @@
 # Live test checklist — 2-player smoke test
 
+> **Historical (June 2026).** Players now connect through the router on `sf.milescoviello.com:1338` with the 1-click installer; the address and steps below are from the old host. What still needs real players: [`../NEXT_STEPS.md`](../NEXT_STEPS.md#needs-real-players).
+
 Two players against the live oracle, `69.53.117.43:1337` (game UDP 1337). After a deploy, confirm the plugin booted and isn't throwing — substitute the current plugin version banner for the `grep` pattern:
 
 ```bash

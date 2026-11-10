@@ -24,7 +24,7 @@ import (
 //	[4] nonce
 //
 // Disambiguation from game traffic: a Stick Fight datagram is
-// [u32 ts][u8 msgType≤46][...]. selectMagic[4] = 'R' (0x52 = 82) is not a valid
+// [u32 ts][u8 msgType≤57][...]. selectMagic[4] = 'R' (0x52 = 82) is not a valid
 // msgType, and we additionally compare the full 8-byte magic, so a control
 // datagram can never be mistaken for game traffic (or vice-versa).
 var selectMagic = []byte{'S', 'F', 'R', 'T', 'R', 0x00, 0x00, 0x01}

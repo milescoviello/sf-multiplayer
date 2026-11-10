@@ -37,7 +37,7 @@ else
   c_g=''; c_y=''; c_r=''; c_b=''; c_n=''
 fi
 say() { printf "${c_b}[*]${c_n} %s\n" "$*"; }
-ok()  { printf "${c_g}[✓]${c_n} %s\n" "$*"; }
+ok()  { printf "${c_g}[ok]${c_n} %s\n" "$*"; }
 warn(){ printf "${c_y}[!]${c_n} %s\n" "$*"; }
 err() { printf "${c_r}[!]${c_n} %s\n" "$*" >&2; }
 

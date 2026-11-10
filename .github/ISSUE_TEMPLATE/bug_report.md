@@ -1,23 +1,26 @@
 ---
 name: Bug report
-about: Something broken in the mod, server, or installer
+about: Something broken in the game, the server, or the installer
 title: "[bug] "
 labels: bug
 ---
 
 **What happened**
 
-**Steps to reproduce**
+**When** (roughly, with your time zone) **and which lobby** (MAIN / CASUAL / COMP / REPLAY)
+
+**Steps to reproduce** (if you know them)
 1.
 2.
 
-**Expected behavior**
+**What you expected**
 
-**Version / commit**
-
-**Environment**
-- Client OS: <!-- Windows native / Linux (Proton) -->
-- Connecting to: <!-- official oracle / your own server -->
+**Your setup**
+- OS: <!-- Windows 10 / Windows 11 / Linux / Steam Deck -->
+- Started with the "Stick Fight Online" shortcut? <!-- yes / no -->
 
 **Logs**
-<!-- BepInEx LogOutput.log / Unity output_log.txt excerpts if you have them. -->
+Attach these two files from your Stick Fight folder (in Steam: right-click
+Stick Fight > Manage > Browse local files):
+- `BepInEx/LogOutput.log`
+- `sf-online/launch.log`
