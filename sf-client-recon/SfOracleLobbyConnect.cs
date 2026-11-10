@@ -430,8 +430,14 @@ namespace SFClientRecon
                 var accF = AccessTools.Field(_mmType, "mHasBeenAcceptedFromServer");
                 bool accepted = RefOk(accF) && (bool)accF.GetValue(mm);
                 if (!accepted) return;
-                var onDisc = AccessTools.Method(_mmType, "OnDisconnected");
+                // By signature: the online build's OnDisconnected(bool). The game code
+                // SFOnlinePatcher builds also keeps stock's OnDisconnected() next to
+                // it, and a by-name lookup picked that one ("parameters do not match
+                // signature"), so the leave failed and the switch to the new lobby
+                // stalled.
+                var onDisc = AccessTools.Method(_mmType, "OnDisconnected", new Type[] { typeof(bool) });
                 if (RefOk(onDisc)) onDisc.Invoke(mm, new object[] { true });
+                else { onDisc = AccessTools.Method(_mmType, "OnDisconnected", new Type[0]); if (RefOk(onDisc)) onDisc.Invoke(mm, null); }
                 if (RefOk(accF)) accF.SetValue(mm, false);
                 // Forget the old lobby's roster too: the new lobby's ClientInit
                 // first "removes disconnected clients" still listed here, by

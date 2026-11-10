@@ -1,10 +1,10 @@
 {
-  "version": "20261110-1908-2f749bf",
+  "version": "20261110-2050-ac1ed1a",
   "server": "sf.milescoviello.com", "port": 1338,
   "files": [
     {"path": "BepInEx/patchers/SFOnline/SFOnlinePatcher.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnlinePatcher.dll", "sha256": "59E6EE34435B95F3E696B381809EEBE8864E7E061EECD86E4159DBA7EE5B7B8F"},
     {"path": "BepInEx/patchers/SFOnline/SFOnline.donor", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnline.donor", "sha256": "9848AA08EB115A696C508F84F6B902FE564B9F7E83CB66D0E3D928E646A05B58"},
-    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "2D486A1A4B8B288ED46000B4C2E82A00DBD474AB2B7C7AC938CB56AF18480F02"},
+    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "CBB0EC5D5AF82625ACAAFADE4FF0A64D8A22A3E0BC786B07849D38A168D96E53"},
     {"path": "BepInEx/plugins/SFServerBrowser.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFServerBrowser.dll", "sha256": "ED6046AF8AFBBC747A3AB12758C43D3C5A0BABF374434ED5039F816BD4485A51"},
     {"path": "sf-online/launch.ps1", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.ps1", "sha256": "05B93AE34252FD79014F5240E54512B25F5B101AE2F4539389645977E5C4CFEA", "os": "windows"},
     {"path": "sf-online/launch.vbs", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.vbs", "sha256": "71EE6F8C861E7FB8E7CD8ABA88BC0FD7A7F63C0F85756521878BDBF3FE055E42", "os": "windows"},
