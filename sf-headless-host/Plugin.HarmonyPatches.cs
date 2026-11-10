@@ -170,6 +170,21 @@ namespace SFHeadlessHost
         // rounds; the lobby's first drop goes to the positive side), presents on
         // Xmas maps (Landfall scenes 104-124).
         private static bool _spawnedLastWeaponOnLeftSide;
+
+        // Bridge "dropWeapon" (test tool): weapon <id> (the drop id, as in the
+        // "[weapons] drop" log) falls from 4 units above player <slot>.
+        internal string DropWeaponAbove(int slot, int id)
+        {
+            Vector3 p;
+            if (!_reportedPos.TryGetValue(slot, out p)) return "no position for slot " + slot;
+            var mmType = CachedType("MultiplayerManager");
+            var mm = (object)mmType != null ? UnityEngine.Object.FindObjectOfType(mmType) : null;
+            var spawnWeapon = (object)mm != null ? AccessTools.Method(mmType, "SpawnWeapon", new[] { typeof(int), typeof(Vector3), typeof(bool) }) : null;
+            if ((object)spawnWeapon == null) return "SpawnWeapon not found";
+            Vector3 at = new Vector3(0f, p.y + 4f, p.z);
+            spawnWeapon.Invoke(mm, new object[] { id, at, false });
+            return "dropped weapon " + id + " at " + at.ToString("0.0");
+        }
         internal static void ServerSpawnWeapon(object gmInst)
         {
             try
@@ -220,6 +235,7 @@ namespace SFHeadlessHost
         // the victim's client applies a bite).
         private static System.Reflection.FieldInfo _snTarget, _snMainRig, _snRange, _snInfo, _snLife, _snNso, _ciIsDead;
         private static System.Reflection.MethodInfo _nsoNewSnakeTarget;
+        private static System.Reflection.FieldInfo _nsoIsSnakeF;
         private static Type _hipType, _charInfoType;
         private static bool _snakeReflectOk, _snakeReflectTried;
         private static int _snakeTargetsSent;
@@ -249,6 +265,17 @@ namespace SFHeadlessHost
                     if (!_snakeReflectOk) Log.LogWarning("[snake] SnakeAI reflection incomplete — server snake targeting off.");
                 }
                 if (!_snakeReflectOk || (object)Instance == null) return;
+                // Stock NetworkSyncableObject.Awake flags a snake (mIsSnake) so it
+                // never sends position updates: a snake's only message is its
+                // target. This build's Awake doesn't, so the server's snakes sent
+                // positions and every client read a position byte as the target
+                // (255 = nobody): snakes never chased, bit or pushed anything.
+                var nsoObj = (object)_snNso != null ? _snNso.GetValue(__instance) : null;
+                if (nsoObj != null)
+                {
+                    if ((object)_nsoIsSnakeF == null) _nsoIsSnakeF = AccessTools.Field(nsoObj.GetType(), "mIsSnake");
+                    if ((object)_nsoIsSnakeF != null && !(bool)_nsoIsSnakeF.GetValue(nsoObj)) _nsoIsSnakeF.SetValue(nsoObj, true);
+                }
                 if ((_snTarget.GetValue(__instance) as Rigidbody) != null) return;      // already chasing
                 if ((float)_snLife.GetValue(__instance) < 0.5f) return;
                 var info = (object)_snInfo != null ? _snInfo.GetValue(__instance) : null;

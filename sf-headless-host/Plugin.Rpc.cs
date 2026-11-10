@@ -209,6 +209,16 @@ namespace SFHeadlessHost
                 if (ok) { Log.LogInfo($"Bridge: mapNow({scene})"); SwitchMapNow(scene, "bridge-mapNow"); }
                 SendBridgeJson(from, $"{{\"reply\":\"ack\",\"cmd\":\"mapNow\",\"ok\":{(ok ? "true" : "false")},\"scene\":{scene}}}");
             }
+            else if (cmd == "dropWeapon")
+            {
+                string info = DropWeaponAbove(ExtractIntField(body, "slot", 0), ExtractIntField(body, "weapon", 24));
+                SendBridgeJson(from, $"{{\"reply\":\"dropWeapon\",\"info\":\"{info}\"}}");
+            }
+            else if (cmd == "fireTest")
+            {
+                string info = FireTest(ExtractIntField(body, "slot", 0), ExtractIntField(body, "weapon", 25));
+                SendBridgeJson(from, $"{{\"reply\":\"fireTest\",\"info\":\"{info}\"}}");
+            }
             else if (cmd == "start")
             {
                 // Test tool (loopback only): what "/start" does, without chat.

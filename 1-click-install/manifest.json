@@ -1,9 +1,9 @@
 {
-  "version": "20261110-0327-deece3d",
+  "version": "20261110-0607-116620e",
   "server": "sf.milescoviello.com", "port": 1338,
   "files": [
     {"path": "sf-online/Assembly-CSharp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/Assembly-CSharp.srv.v25.dll", "sha256": "C89E6EB217C120257472D6F4DFF0F3EF031A05D1A7B5E9490B96C746DB855E8C"},
-    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "8473AB56BBA1A80F7A08CBFD1E2B61C0F969660C2C472E7DB676A7B5025EA249"},
+    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "EF36E5F6D3CBA783A7FCAE26B9AD82A326A0E50E43BB0F90D094971A5B2723EB"},
     {"path": "BepInEx/plugins/SFServerBrowser.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFServerBrowser.dll", "sha256": "28973F45D92AB950967F154BDC27415E33A432C9325CA926C56180AA57C40AC8"},
     {"path": "sf-online/launch.ps1", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.ps1", "sha256": "6C9B502C9D5EDB09A32F96FA852CCFED8C9E46229BE7722E223CED70BAADECBC", "os": "windows"},
     {"path": "sf-online/launch.vbs", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.vbs", "sha256": "71EE6F8C861E7FB8E7CD8ABA88BC0FD7A7F63C0F85756521878BDBF3FE055E42", "os": "windows"},

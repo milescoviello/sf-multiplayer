@@ -1,3 +1,40 @@
+# What's new — 2026-11-10: fixes from watching real games
+
+**Weapon drops.** Sky drops started 2 s after a map loaded, before players had
+readied, so guns fell during loading and the countdown; the stock timer only
+runs in the fight. Drops now start at StartMatch + the 1 s countdown + the stock
+delay. Each map's MapInfo rules apply: boss maps (dontSpawnItems) get only their
+placed weapons, no sky drops; extraWeaponSpawnTime adds to every delay.
+Verified on HalloweenBoss4: corner weapons only, no drops.
+
+**Player colors (both players blue).** The patched game's SpawnPlayerDummy
+recoloured the shared color-0 material to the dummy's color, so after player 1's
+copy spawned everything using color 0 turned blue. Each copy now gets its own
+material and color 0 is put back.
+
+**Player list order.** The game indexes its player list with slot numbers (round
+winner, crown and win counter, a player falling out, a player leaving, snake
+targets) but our clients added the other players' copies before their own, so
+index != slot on many clients. The list is kept in slot order and the winner is
+applied by slot.
+
+**Snakes.** Three faults: the server's snakes sent position updates (this build's
+NetworkSyncableObject.Awake doesn't flag snakes), which every client read as the
+snake's target (often 255 = nobody); the target, a slot, was applied as a list
+index; and the server never flagged its snakes. Now the server flags them, the
+client applies targets by slot and ignores anything but a target message. Server
+snakes were verified to spawn and target; a bite on a real client is still to
+see in play.
+
+**Smoother players.** Stock checks its 50/s send rate once per frame and resets the
+timer, so at 60 fps a player sent only 30 updates/s and looked jerky on other
+screens. Clients now send ~60/s at 60 or 120 fps (48-72/s elsewhere), the same
+for every player. Measured: updates arrive every ~18 ms instead of 33 ms. Arrival
+timing is logged ("[rx-timing]") on the server and clients. The remaining delay
+is the network: two players far from the server see each other ~2x their ping late.
+
+**Test tools (loopback bridge only).** fireTest, dropWeapon, start, mapNow, nso.
+
 # What's new — 2026-11-09 (night): the box bug, public address, install checks
 
 **The box bug (crate-built maps falling apart).** A server race read every

@@ -491,6 +491,11 @@ namespace SFHeadlessHost
             CheckCompLateJoiner();
             // Weapons/combat re-arm only after PostMapLoad pre-combat grace (RunOraclePreCombatStart).
             _pendingRearmCombatAt = -1f;
+            // Stock sky-drop timer: set at StartMatch, counted only in the fight,
+            // which starts 1 s later (GameManager.CountDownCoroutine).
+            bool noSky; float extra;
+            CurrentMapWeaponRules(out noSky, out extra);
+            ScheduleNextSkyWeapon(1f + FirstWeaponDelay() + extra);
         }
     }
 }

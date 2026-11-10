@@ -600,6 +600,7 @@ namespace SFHeadlessHost
                     TickClientVersions();
                     TickSessionTokens();
                     TickPlayerCountFile();
+                    TickRxTiming();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;

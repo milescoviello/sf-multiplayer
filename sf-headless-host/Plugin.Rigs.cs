@@ -286,6 +286,48 @@ namespace SFHeadlessHost
         private static MethodInfo _fSetStateM, _fFireM, _fPickM;
         private static bool _replayReflTried;
         private int _replayedShots;
+        private ushort _fireTestSync = 50000;
+
+        // Bridge "fireTest" (test tool): the server's copy of player <slot>
+        // takes weapon byte <weapon> (weapon index + 1, as PlayerUpdate sends
+        // it) and fires one shot at the nearest other player, through the same
+        // replay path as a real shot (two crafted PlayerUpdate bodies).
+        internal string FireTest(int slot, int weapon)
+        {
+            GameObject rig;
+            if (!SlotToRig.TryGetValue(slot, out rig) || (object)rig == null || !rig) return "no rig for slot " + slot;
+            Vector3 from = rig.transform.position;
+            var hipT = CachedType("Hip");
+            var hip = (object)hipT != null ? rig.GetComponentInChildren(hipT) as Component : null;
+            if ((object)hip != null && hip) from = hip.transform.position;
+            Vector3 to = from + new Vector3(0f, 0f, 5f);
+            foreach (var kv in SlotToRig)
+            {
+                if (kv.Key == slot || (object)kv.Value == null || !kv.Value) continue;
+                var h = (object)hipT != null ? kv.Value.GetComponentInChildren(hipT) as Component : null;
+                to = ((object)h != null && h) ? h.transform.position : kv.Value.transform.position;
+                break;
+            }
+            Vector3 dir = (to - from); dir.x = 0f; dir = dir.sqrMagnitude > 0.001f ? dir.normalized : Vector3.forward;
+            Vector3 muzzle = from + dir * 1.2f + Vector3.up * 0.3f;
+            byte[] pick = new byte[12];
+            pick[8] = 0; pick[11] = (byte)weapon;
+            ReplayDummyFight(rig, pick);
+            byte[] shot = new byte[20];
+            shot[8] = 1; shot[9] = 1; shot[10] = 0;
+            short py = (short)Mathf.RoundToInt(muzzle.y * 100f), pz = (short)Mathf.RoundToInt(muzzle.z * 100f);
+            shot[11] = (byte)py; shot[12] = (byte)(py >> 8); shot[13] = (byte)pz; shot[14] = (byte)(pz >> 8);
+            shot[15] = (byte)(sbyte)Mathf.RoundToInt(dir.y * 100f); shot[16] = (byte)(sbyte)Mathf.RoundToInt(dir.z * 100f);
+            ushort sync = _fireTestSync++;
+            shot[17] = (byte)sync; shot[18] = (byte)(sync >> 8);
+            shot[19] = (byte)weapon;
+            ReplayDummyFight(rig, shot);
+            var fT = CachedType("Fighting");
+            var held = (object)fT != null ? AccessTools.Field(fT, "weapon") : null;
+            var f = (object)fT != null ? rig.GetComponent(fT) : null;
+            object w = ((object)held != null && (object)f != null) ? held.GetValue(f) : null;
+            return "slot " + slot + " fired weapon " + weapon + " from " + muzzle.ToString("0.0") + " dir " + dir.ToString("0.00") + " sync " + sync + " held=" + (w != null ? ((Component)w).name : "none");
+        }
 
         private void ReplayDummyFight(GameObject rig, byte[] body)
         {

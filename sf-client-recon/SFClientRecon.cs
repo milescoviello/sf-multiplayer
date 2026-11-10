@@ -270,6 +270,9 @@ namespace SFClientRecon
             InstallRoundSpawnPatch();
             InstallServerChatCommandPatch();
             InstallGameSocketFixes();
+            InstallColorFix();
+            InstallSnakeTargetFix();
+            InstallPlayerOrderFix();
             InstallNsoClientPushPatches();
             // Defensive NetworkSyncableObject burst/NaN guard (credit: z7572/NaNFixer).
             // Runs regardless of connect mode; SF_NANGUARD=0 disables it.
@@ -396,6 +399,8 @@ namespace SFClientRecon
             try { TickViewerLink(); } catch { }
             try { TickOracleAutoConnect(); } catch { }
             try { TickRejoin(); } catch { }
+            try { RxTiming.Tick(); } catch { }
+            try { TickSendRate(); } catch { }
             try { TickDebugConsole(); } catch { }
             try { TickChannelNullFill(); } catch { }
             List<SnapshotEntry> snap;

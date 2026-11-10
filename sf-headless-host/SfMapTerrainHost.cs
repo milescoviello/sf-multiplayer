@@ -333,12 +333,52 @@ namespace SFHeadlessHost
                 if ((object)matchTimeF != null) matchTimeF.SetValue(gmInst, 0f);
                 var rwcField = AccessTools.Field(gmType, "randomWeaponCounter");
                 if ((object)rwcField != null) rwcField.SetValue(gmInst, 1000f);   // stock timer off; ours below
-                float first = FirstWeaponDelay();
-                ScheduleNextSkyWeapon(first);
-                Log.LogInfo($"[P6.5] RearmOracleCombatLoop({reason}): inFight=true first weapon in {first:0.0}s (spawn option {WeaponSpawnOption}).");
+                // The first sky drop is scheduled when StartMatch goes out (see
+                // BroadcastStartMatch), not here: this runs 2 s after the map
+                // loads, before players have even readied, so guns fell during
+                // loading and the countdown.
+                Log.LogInfo($"[P6.5] RearmOracleCombatLoop({reason}): inFight=true (spawn option {WeaponSpawnOption}).");
                 _skyWeaponTickAt = Time.realtimeSinceStartup + 1.5f;
             }
             catch (Exception e) { Log.LogWarning($"[P6.5] RearmOracleCombatLoop({reason}): {e.Message}"); }
+        }
+
+        // The current map's stock weapon rules (MapInfo, read by GameManager in
+        // the stock map sequence): dontSpawnItems = no sky drops at all (boss
+        // maps keep only their placed weapons), extraWeaponSpawnTime = added
+        // to every drop delay. The MapInfo object is deactivated after load,
+        // so search inactive objects too. Cached per map scene.
+        private string _weaponRulesScene;
+        private bool _weaponRulesNoSky;
+        private float _weaponRulesExtra;
+        internal void CurrentMapWeaponRules(out bool noSkyItems, out float extraTime)
+        {
+            string scene = _currentMapSceneName ?? "";
+            if (scene != _weaponRulesScene)
+            {
+                _weaponRulesScene = scene;
+                _weaponRulesNoSky = false;
+                _weaponRulesExtra = 0f;
+                try
+                {
+                    var miType = CachedType("MapInfo");
+                    if (RefOk(miType))
+                        foreach (var o in Resources.FindObjectsOfTypeAll(miType))
+                        {
+                            var c = o as Component;
+                            if (!RefOk(c) || c.gameObject.scene.name != scene || !c.gameObject.scene.isLoaded) continue;
+                            var dsF = AccessTools.Field(miType, "dontSpawnItems");
+                            var exF = AccessTools.Field(miType, "extraWeaponSpawnTime");
+                            if (RefOk(dsF)) _weaponRulesNoSky = (bool)dsF.GetValue(c);
+                            if (RefOk(exF)) _weaponRulesExtra = (float)exF.GetValue(c);
+                            break;
+                        }
+                }
+                catch (Exception e) { Log.LogWarning($"[P6.5] map weapon rules: {e.Message}"); }
+                Log.LogInfo($"[P6.5] map '{scene}' weapon rules: sky drops {(_weaponRulesNoSky ? "OFF (map weapons only)" : "on")}, extra delay {_weaponRulesExtra:0.0}s");
+            }
+            noSkyItems = _weaponRulesNoSky;
+            extraTime = _weaponRulesExtra;
         }
 
         internal void ScheduleNextSkyWeapon(float delaySec)
@@ -382,8 +422,12 @@ namespace SFHeadlessHost
                 }
 
                 if (WeaponSpawnOption == 2) return;              // "none": map weapons only
+                if (!_startMatchSentThisRound) return;           // stock: the timer runs only in the fight
+                bool noSkyItems; float extraWeaponTime;
+                CurrentMapWeaponRules(out noSkyItems, out extraWeaponTime);
+                if (noSkyItems) return;                          // MapInfo.dontSpawnItems (boss maps): map weapons only
                 if (_oracleNextSkyWeaponAt < 0f)
-                    ScheduleNextSkyWeapon(FirstWeaponDelay());
+                    ScheduleNextSkyWeapon(FirstWeaponDelay() + extraWeaponTime);
                 float now = Time.realtimeSinceStartup;
                 if (now < _oracleNextSkyWeaponAt) return;
 
@@ -391,7 +435,7 @@ namespace SFHeadlessHost
                 int n = 0;
                 do { ServerSpawnWeapon(gmInst); n++; } while (UnityEngine.Random.value > 0.9f && n < 8);
                 _skyWeaponSpawnCount += n;
-                float next = NextWeaponDelay();
+                float next = NextWeaponDelay() + extraWeaponTime;
                 if (_skyWeaponSpawnCount <= 8 || _skyWeaponSpawnCount % 10 == 0)
                     Log.LogInfo($"[P6.5] weapon drop #{_skyWeaponSpawnCount} (x{n}), next in {next:0.0}s");
                 ScheduleNextSkyWeapon(next);

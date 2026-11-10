@@ -83,6 +83,7 @@ namespace SFHeadlessHost
                 catch (Exception) { continue; }
                 if (d == null || d.Length < 14 || from == null) continue;
                 var item = new RxItem { Data = d, From = from, At = _clock.Elapsed.TotalSeconds };
+                if (d[4] == PktPlayerUpdate) NoteUpdateArrival(d[d.Length - 1], _clock.ElapsedMilliseconds);
                 if (FastRelay && d[4] == PktPlayerUpdate)
                 {
                     try { item.Relayed = TryFastRelay(d, from); } catch { item.Relayed = false; }
@@ -173,5 +174,52 @@ namespace SFHeadlessHost
         }
 
         private void StopRxThread() { _rxRun = false; }
+
+        // Arrival timing of each player's PlayerUpdates at the server (channel =
+        // slot*2+2), on this thread: the uplink half of how evenly a player
+        // moves on everyone else's screen (clients send every 20 ms). Logged
+        // every 10 s from the main thread as "[rx-timing]".
+        private readonly object _rtLock = new object();
+        private readonly long[] _rtLast = new long[64], _rtN = new long[64], _rtSum = new long[64], _rtMax = new long[64], _rtLate33 = new long[64], _rtLate66 = new long[64], _rtBunched = new long[64];
+        private float _rtLogAt;
+        private void NoteUpdateArrival(byte ch, long now)
+        {
+            if (ch >= 64) return;
+            Monitor.Enter(_rtLock);
+            try
+            {
+                long last = _rtLast[ch]; _rtLast[ch] = now;
+                if (last == 0) return;
+                long gap = now - last;
+                if (gap > 1000) return;
+                _rtN[ch]++; _rtSum[ch] += gap;
+                if (gap > _rtMax[ch]) _rtMax[ch] = gap;
+                if (gap > 33) _rtLate33[ch]++;
+                if (gap > 66) _rtLate66[ch]++;
+                if (gap < 5) _rtBunched[ch]++;
+            }
+            finally { Monitor.Exit(_rtLock); }
+        }
+
+        private void TickRxTiming()
+        {
+            if (Time.realtimeSinceStartup < _rtLogAt) return;
+            _rtLogAt = Time.realtimeSinceStartup + 10f;
+            var sb = new System.Text.StringBuilder();
+            Monitor.Enter(_rtLock);
+            try
+            {
+                for (int ch = 0; ch < 64; ch++)
+                {
+                    if (_rtN[ch] < 20) continue;
+                    sb.Append(" | slot ").Append((ch - 2) / 2).Append(": ").Append(_rtN[ch]).Append(" updates, mean gap ")
+                      .Append((_rtSum[ch] / (double)_rtN[ch]).ToString("0.0")).Append(" ms, >33ms ").Append(_rtLate33[ch])
+                      .Append(", >66ms ").Append(_rtLate66[ch]).Append(", bunched ").Append(_rtBunched[ch]).Append(", max ").Append(_rtMax[ch]).Append(" ms");
+                    _rtN[ch] = _rtSum[ch] = _rtMax[ch] = _rtLate33[ch] = _rtLate66[ch] = _rtBunched[ch] = 0;
+                }
+            }
+            finally { Monitor.Exit(_rtLock); }
+            if (sb.Length > 0) Log.LogInfo("[rx-timing]" + sb);
+        }
     }
 }

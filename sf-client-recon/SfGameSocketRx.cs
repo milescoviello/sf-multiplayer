@@ -118,6 +118,7 @@ namespace SFClientRecon
                 if (n < 14) { _gameRxBadLen++; continue; }   // 5-byte header + 9-byte trailer minimum
                 var pkt = new byte[n];
                 Buffer.BlockCopy(buf, 0, pkt, 0, n);
+                RxTiming.OnPacket(pkt, n);
                 int ch = pkt[n - 1];
                 List<byte[]>[] channels;
                 try { channels = _p2pChannelsF.GetValue(handler) as List<byte[]>[]; } catch { continue; }
