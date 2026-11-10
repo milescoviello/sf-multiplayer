@@ -27,6 +27,11 @@ brings back 100 fps before the join goes further (player updates are relayed
 on the receive thread, never waiting on frames). Four idle lobbies went from
 ~2.8 cores to under 1.
 
+**Lobby list stays current.** It was fetched only when it opened or on REFRESH,
+so counts went stale while it stayed open (it showed 0/4 for the lobby the
+player had just joined, and RST stayed enabled). While the Browse tab is open it
+now refetches every 5 s, quietly; a lost reply keeps the list (browser 0.6.1).
+
 **"[perf]" in the client log** every 10 s: frame rate, slowest frame, and this
 mod's own cost per frame (about 1 ms on the test client, broken down by section
 when it is over 1.5 ms). A "laggy" report from a player's log now shows whether

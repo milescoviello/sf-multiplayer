@@ -37,7 +37,7 @@ namespace SFServerBrowser
     {
         public const string PluginGuid = "com.stickfightdev.server-browser";
         public const string PluginName = "SFServerBrowser";
-        public const string PluginVersion = "0.6.0";
+        public const string PluginVersion = "0.6.1";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -69,6 +69,8 @@ namespace SFServerBrowser
         private bool _isFetching;
         private float _lastFetchAt = -999f;
         private const float FetchCooldown = 3f;
+        private const float ListAutoRefresh = 5f;
+        private bool _quietFetch;   // an auto-refresh: a lost reply keeps the list as it was
         private Vector2 _serversScroll;
 
         // ---- Create ----------------------------------------------------------
@@ -237,6 +239,19 @@ namespace SFServerBrowser
                 if (_overlayOpen) { _tab = Tab.Browse; _focusJoinField = false; RefreshServers(); }
             }
 
+            // The list was fetched only when the overlay opened or on REFRESH, so
+            // its player counts went stale while it stayed open (it showed 0/4 for
+            // the lobby we had just joined). While the Browse tab is open, fetch it
+            // again every 5 s, quietly (no "Fetching lobbies…" flicker).
+            if (_overlayOpen && _tab == Tab.Browse && _useUdpList && !_isFetching
+                && Time.realtimeSinceStartup - _lastFetchAt >= ListAutoRefresh)
+            {
+                _lastFetchAt = Time.realtimeSinceStartup;
+                _isFetching = true;
+                _quietFetch = true;
+                StartCoroutine(FetchServersUdpCoroutine());
+            }
+
             // Refresh the F3 HUD roster at 2Hz (mirrors the uGUI overlay's _nextPoll).
             // GetConnectedPlayers does heavy reflection and OnGUI fires several times
             // per frame, so calling it from DrawHudPanel ran that path 3-5x/frame.
@@ -293,6 +308,7 @@ namespace SFServerBrowser
             }
             _lastFetchAt = Time.realtimeSinceStartup;
             _isFetching = true;
+            _quietFetch = false;
             _statusText = "Fetching lobbies…";
             StartCoroutine(_useUdpList ? FetchServersUdpCoroutine() : FetchServersCoroutine());
         }
@@ -527,6 +543,8 @@ namespace SFServerBrowser
             while (th.IsAlive) yield return null;
 
             _isFetching = false;
+            bool quiet = _quietFetch; _quietFetch = false;
+            if (err != null && quiet) yield break;
             if (err != null) { _statusText = "Router unreachable: " + err; _servers.Clear(); _pingMs = -1; yield break; }
             _pingMs = Mathf.Max(0, Environment.TickCount - t0);
             ParseServersUdp(resp);
