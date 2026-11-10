@@ -250,13 +250,8 @@ namespace SFHeadlessHost
         {
             try
             {
-                if ((object)_nsoType == null)
-                {
-                    _nsoType = CachedType("NetworkSyncableObject");
-                    if ((object)_nsoType == null) return;
-                    _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
-                    _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
-                }
+                EnsureNsoIndexAccessors();
+                if ((object)_nsoType == null) return;
                 var all = UnityEngine.Object.FindObjectsOfType(_nsoType);
                 if (all == null) return;
                 float now = Time.realtimeSinceStartup;

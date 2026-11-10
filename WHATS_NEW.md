@@ -1,3 +1,44 @@
+# What's new — 2026-11-09 (night): the box bug, public address, install checks
+
+**The box bug (crate-built maps falling apart).** A server race read every
+networked object's index as 0 for the whole session: the crate-health
+diagnostic set the cached NetworkSyncableObject type without its index
+accessors, and when it ran first every other initializer skipped. Then:
+- the server's crate table collapsed to one entry, so bullet pushes from players
+  were dropped ("no object N");
+- snapshots sent every crate as id 0, so clients could follow just one crate;
+- clients ran crates as predicted local physics steered toward the server, and
+  crates with no server pose simply fell: on Desert8 the whole level fell out of
+  the world within ~3 s on players' screens while the server's stood.
+Fixed at the source (type and accessors always set together, every reader self-
+heals). Verified on the win11 client: server and client agree crate by crate.
+
+**Crates follow the server (client 0.7.2 default).** Like every non-host player
+in the stock game, crates on your screen are the server's simulation; your
+pushes, shots and blasts move them there and you see it after your ping. The
+predicted mode stays available with SF_CRATES_PREDICTED=1.
+
+**Bullets push crates on the server.** Besides the id race, the server never ran
+NetworkSyncableObject.Init for map objects, so the rigidbody list the stock
+PlayerForceAdded handler indexes was null and every push threw. It is built the
+stock way on first use; a client's bullet impulse now applies on the server.
+
+**Public address.** sf.milescoviello.com → the home IP (DNS only) and UDP 1338 →
+the server VM: verified from the campus network (80 ms, no loss) and from the
+LAN through the public address (the router loops back).
+
+**Installs.** Fresh install from the public GitHub zip on a clean game copy:
+install, shortcut, lobby list, join, spawn, uninstall back to the original
+files. Fixed: launchers only switch to a server address that answers (the
+proxied DNS answer would have left every install on "Connecting..."); each game
+copy gets its own firewall rule and shortcuts (uninstalling one copy removed the
+other's rule, and the firewall prompt then covered the game); a game restarted
+into its lobby comes to the front.
+
+**Replays.** A COMP match recorded and watched on the real client (rounds, score
+banner, crown, movement, shots). A recording cut off by a restart is listed at
+lobby start instead of waiting for that lobby's next recording.
+
 # What's new — 2026-11-09 (late): sessions, lobby restarts, Linux / Steam Deck
 
 **Lobby restarts no longer strand players.** Every server update, watchdog

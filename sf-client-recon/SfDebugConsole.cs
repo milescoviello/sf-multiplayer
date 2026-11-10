@@ -55,9 +55,70 @@ namespace SFClientRecon
                 if (cmd == "boxes") { DumpBoxes(); return; }
                 if (cmd.StartsWith("box ")) { DumpBox(cmd.Substring(4).Trim()); return; }
                 if (cmd == "rigs") { DumpRigs(); return; }
-                Debug.Log("[dbg] commands: boxes | box <id> | rigs | help");
+                // Pushing crates is a test aid only: a player could otherwise push any
+                // crate by writing a file. Off unless SFCLIENTRECON_DEBUG_FORCE=1.
+                if (cmd.StartsWith("force "))
+                {
+                    if (Environment.GetEnvironmentVariable("SFCLIENTRECON_DEBUG_FORCE") == "1") ForceBox(cmd.Substring(6).Trim());
+                    else Debug.Log("[dbg] force is off (test machines set SFCLIENTRECON_DEBUG_FORCE=1)");
+                    return;
+                }
+                if (cmd == "nsoinit") { NsoInitReport(); return; }
+                Debug.Log("[dbg] commands: boxes | box <id> | rigs | nsoinit | help");
             }
-            catch (Exception e) { Debug.Log("[dbg] '" + cmd + "' failed: " + e.GetType().Name + ": " + e.Message); }
+            catch (Exception e) { var ie = e.InnerException ?? e; Debug.Log("[dbg] '" + cmd + "' failed: " + ie.GetType().Name + ": " + ie.Message + "\n" + ie.StackTrace); }
+        }
+
+        // force <id> <y> <z>: push crate <id> the way a bullet hit does (stock
+        // NetworkSyncableObject.ForceAdded, impulse on its first body), which
+        // also sends the host PlayerForceAdded. Test aid for the server's
+        // client crate-force path.
+        private void ForceBox(string args)
+        {
+            var parts = args.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            ushort id; float fy, fz;
+            if (parts.Length < 3 || !ushort.TryParse(parts[0], out id) || !float.TryParse(parts[1], out fy) || !float.TryParse(parts[2], out fz))
+            { Debug.Log("[dbg] usage: force <id> <y> <z>"); return; }
+            var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+            var idxProp = AccessTools.Property(nsoType, "Index");
+            var forceAdded = AccessTools.Method(nsoType, "ForceAdded");
+            foreach (var o in UnityEngine.Object.FindObjectsOfType(nsoType))
+            {
+                if (idxProp == null || (ushort)idxProp.GetValue(o, null) != id) continue;
+                var rbsF = AccessTools.Field(nsoType, "mAllRigidBodies");
+                var nmF = AccessTools.Field(nsoType, "mNetworkManager");
+                var allowF = AccessTools.Field(nsoType, "m_AllowForceFromClient");
+                object rbs = rbsF != null ? rbsF.GetValue(o) : null, nm = nmF != null ? nmF.GetValue(o) : null;
+                var rb0 = (o as Component).GetComponentInChildren<Rigidbody>();
+                if (rb0 != null)
+                    Debug.Log("[dbg] object " + id + " rb: mass=" + rb0.mass + " constraints=" + (int)rb0.constraints + " ccd=" + rb0.collisionDetectionMode
+                        + " drag=" + rb0.drag + " angDrag=" + rb0.angularDrag + " kin=" + rb0.isKinematic + " interp=" + rb0.interpolation
+                        + " solverIters=" + rb0.solverIterations + " sleepThr=" + rb0.sleepThreshold + " pos=" + rb0.position.ToString("0.00"));
+                Debug.Log("[dbg] object " + id + ": mAllRigidBodies=" + (rbs == null ? "null" : ((Array)rbs).Length.ToString())
+                    + " mNetworkManager=" + (nm == null || !(nm is UnityEngine.Object) || !(UnityEngine.Object)nm ? "null" : "ok")
+                    + " allowForceFromClient=" + (allowF != null ? allowF.GetValue(o) : "?"));
+                forceAdded.Invoke(o, new object[] { (byte)0, new Vector3(0f, fy, fz), ForceMode.Impulse });
+                Debug.Log("[dbg] force " + id + " (" + fy + "," + fz + ") sent like a bullet hit");
+                return;
+            }
+            Debug.Log("[dbg] no object with id " + id);
+        }
+
+        // How many networked objects never ran NetworkSyncableObject.Init
+        // (no rigidbody list: a bullet or punch on them throws, no push).
+        private void NsoInitReport()
+        {
+            var nsoType = AccessTools.TypeByName("NetworkSyncableObject");
+            var rbsF = AccessTools.Field(nsoType, "mAllRigidBodies");
+            var listenF = AccessTools.Field(nsoType, "mIsListening");
+            int total = 0, noRbs = 0, notListening = 0;
+            foreach (var o in UnityEngine.Object.FindObjectsOfType(nsoType))
+            {
+                total++;
+                if (rbsF.GetValue(o) == null) noRbs++;
+                if (listenF != null && !(bool)listenF.GetValue(o)) notListening++;
+            }
+            Debug.Log("[dbg] NSOs: " + total + " total, " + noRbs + " without Init (no rigidbody list), " + notListening + " not listening");
         }
 
         // One line per pushable crate: id, position (y,z — the play plane),

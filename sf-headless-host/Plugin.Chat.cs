@@ -66,6 +66,20 @@ namespace SFHeadlessHost
             byte ch = (byte)((target.Slot * 2) + 3);
             SendSfPacket(target.Addr, PktPlayerTalked, body, 0uL, ch);
         }
+        // /map and the bridge's "mapNow" (test tool): this scene, now.
+        internal void SwitchMapNow(int sceneIdx, string why)
+        {
+            _currentSceneIndex = sceneIdx;
+            // Reuse AdvanceRound's MapChange + StartMatch chain via the pending timer.
+            // AdvanceRound picks a random map though, so we need a direct call shape.
+            _pendingRoundAdvanceAt = -1f;
+            BroadcastMapChange(_currentSceneIndex);
+            ResetDeathTrackingForNewRound();
+            ArmStartMatchAfterLoad(NextMatchDelaySec);
+            ScheduleOracleReloadCurrentMap(why);
+            foreach (var kv in _sfClients) kv.Value.Spawned = false;
+        }
+
         private static readonly string[] CompLockedCommands = { "/kick", "/next", "/map", "/restart", "/weapons", "/anticheat", "/tickrate", "/tick" };
 
         private static void EnsureAdminEnvLoaded()
@@ -188,17 +202,9 @@ namespace SFHeadlessHost
                             SendChatToPlayer(sender, $"Scene {sceneIdx} isn't in the playable Landfall set.");
                             break;
                         }
-                        _currentSceneIndex = sceneIdx;
                         SendChatToPlayer(sender, $"Map set to scene {sceneIdx}. Switching now...");
                         Log.LogInfo($"[chat] /map {sceneIdx} by slot={sender.Slot}");
-                        // Reuse AdvanceRound's MapChange + StartMatch chain via the pending timer.
-                        // AdvanceRound picks a random map though, so we need a direct call shape.
-                        _pendingRoundAdvanceAt = -1f;
-                        BroadcastMapChange(_currentSceneIndex);
-                        ResetDeathTrackingForNewRound();
-                        ArmStartMatchAfterLoad(NextMatchDelaySec);
-                        ScheduleOracleReloadCurrentMap("chat-/map");
-                        foreach (var kv in _sfClients) kv.Value.Spawned = false;
+                        SwitchMapNow(sceneIdx, "chat-/map");
                         break;
                     }
                     case "/listmaps":

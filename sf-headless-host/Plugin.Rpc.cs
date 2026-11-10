@@ -200,6 +200,30 @@ namespace SFHeadlessHost
                 bool ok = TryForceMove(slot, dir, out string err);
                 SendBridgeJson(from, $"{{\"reply\":\"ack\",\"cmd\":\"forceMove\",\"ok\":{(ok?"true":"false")},\"err\":\"{err}\"}}");
             }
+            else if (cmd == "mapNow")
+            {
+                // Test tool (loopback only): what "/map <n>" does, without chat.
+                int scene = ExtractIntField(body, "scene", -1);
+                bool ok = false;
+                foreach (var m in _allLandfallMaps) if (m == scene) { ok = true; break; }
+                if (ok) { Log.LogInfo($"Bridge: mapNow({scene})"); SwitchMapNow(scene, "bridge-mapNow"); }
+                SendBridgeJson(from, $"{{\"reply\":\"ack\",\"cmd\":\"mapNow\",\"ok\":{(ok ? "true" : "false")},\"scene\":{scene}}}");
+            }
+            else if (cmd == "start")
+            {
+                // Test tool (loopback only): what "/start" does, without chat.
+                bool ok = !_matchStarted;
+                if (ok) FireMatchStart("bridge start");
+                SendBridgeJson(from, $"{{\"reply\":\"ack\",\"cmd\":\"start\",\"ok\":{(ok ? "true" : "false")}}}");
+            }
+            else if (cmd == "nso")
+            {
+                SendBridgeJson(from, $"{{\"reply\":\"nso\",\"info\":\"{NsoInfo(ExtractIntField(body, "id", -1))}\"}}");
+            }
+            else if (cmd == "nsolist")
+            {
+                SendBridgeJson(from, $"{{\"reply\":\"nsolist\",\"info\":\"{NsoList()}\"}}");
+            }
             else if (cmd == "rigdiag")
             {
                 string info = RigDiag();

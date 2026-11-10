@@ -27,19 +27,26 @@ namespace SFClientRecon
         private const float PushRelayInterval = 0.2f;
         private const float PushRelayMinDelta = 0.04f;
 
-        // Crate modes (v0.6.0). Default = PREDICTED + RECONCILED: crates run
-        // dynamic local physics (instant, full-framerate push feel) and are
-        // continuously steered toward the oracle's sim — the single authority —
-        // by ReconcilePushableCrates. The old default (pure local physics +
-        // 5Hz relay, no incoming correction) meant every client lived in its
-        // own crate universe: A's pushes never appeared on B, and the server's
-        // "truth" ping-ponged between the clients' divergent relays.
-        //   SF_CRATES_LOCAL_PHYSICS=1        → legacy local+relay mode (A/B rollback)
-        //   SF_CRATES_SERVER_AUTHORITATIVE=1 → stock kinematic-follow (debug)
+        // Crate modes. Default (0.7.2) = STOCK kinematic-follow: like every
+        // non-host player in the stock game, crates on our screen follow the
+        // server's simulation; our pushes, shots and blasts move them there
+        // (PlayerForceAdded / the server's copy of us) and we see the result
+        // after our ping. The earlier default, PREDICTED + RECONCILED (dynamic
+        // local physics steered toward the server), made crate-built maps fall
+        // apart on players' screens (Desert8: the whole level fell out of the
+        // world in ~3 s) whenever the server's crate ids were broken (a server
+        // race read every id as 0, fixed in the same release): crates without
+        // a server pose just fell. Following the server is vanilla behaviour
+        // and can't drift from it.
+        //   SF_CRATES_PREDICTED=1   → predicted + reconciled (the old default)
+        //   SF_CRATES_LOCAL_PHYSICS=1 → legacy local+relay mode (A/B rollback)
         private static bool ServerAuthoritativeCrates()
         {
+            string p = Environment.GetEnvironmentVariable("SF_CRATES_PREDICTED");
+            if (!string.IsNullOrEmpty(p) && (p == "1" || p.ToLowerInvariant() == "true")) return false;
             string v = Environment.GetEnvironmentVariable("SF_CRATES_SERVER_AUTHORITATIVE");
-            return !string.IsNullOrEmpty(v) && (v == "1" || v.ToLowerInvariant() == "true");
+            if (!string.IsNullOrEmpty(v) && (v == "0" || v.ToLowerInvariant() == "false")) return false;
+            return !LegacyLocalCrates();
         }
 
         private static bool LegacyLocalCrates()
@@ -57,8 +64,7 @@ namespace SFClientRecon
             if (!_oracleConnectMode) return;
             if (ServerAuthoritativeCrates())
             {
-                Log.LogInfo("[nso-push] STOCK kinematic-follow crates forced (SF_CRATES_SERVER_AUTHORITATIVE=1) — "
-                          + "client local physics OFF; crates follow server snapshots.");
+                Log.LogInfo("[nso-push] crates follow the server (stock kinematic-follow; SF_CRATES_PREDICTED=1 for local prediction).");
                 return;
             }
             _oraclePushMode = true;

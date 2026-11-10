@@ -85,11 +85,16 @@ namespace SFHeadlessHost
             _boxDiagLastAt = Time.realtimeSinceStartup;
             try
             {
-                if ((object)_nsoType == null)
-                {
-                    _nsoType = CachedType("NetworkSyncableObject");
-                    if ((object)_nsoType == null) return;
-                }
+                // Set the type together with its index accessors: this used to set
+                // _nsoType alone, and when this diagnostic ran first after boot
+                // every other initializer (all "if _nsoType == null") skipped, the
+                // accessors stayed null and EVERY object read as index 0 for the
+                // rest of the session: the crate table collapsed to one entry
+                // (bullet pushes "no object N"), snapshots sent every crate as
+                // id 0 so clients could follow just one, and their predicted
+                // crates fell out of crate-built maps (Desert8).
+                EnsureNsoIndexAccessors();
+                if ((object)_nsoType == null) return;
                 var all = UnityEngine.Object.FindObjectsOfType(_nsoType);
                 int total = all != null ? all.Length : 0;
                 int voided = 0;

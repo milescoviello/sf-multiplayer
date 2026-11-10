@@ -299,15 +299,16 @@ namespace SFHeadlessHost
             catch (Exception ex) { Log.LogWarning($"[BOXES] WakeNsosNearGhostSweep: {ex.Message}"); }
         }
 
-        private void EnsureNsoTypeCache()
+        private void EnsureNsoTypeCache() { EnsureNsoIndexAccessors(); }
+
+        // The NSO type and its index accessors, always set together (see
+        // Plugin.Diagnostics: setting the type alone made every index read 0).
+        private static void EnsureNsoIndexAccessors()
         {
-            if ((object)_nsoType != null) return;
-            _nsoType = CachedType("NetworkSyncableObject");
-            if ((object)_nsoType != null)
-            {
-                _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
-                _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
-            }
+            if ((object)_nsoType == null) _nsoType = CachedType("NetworkSyncableObject");
+            if ((object)_nsoType == null) return;
+            if ((object)_nsoIndexProp == null) _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
+            if ((object)_nsoIndexField == null) _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
         }
 
         private ushort GetNsoIndex(Component nsoComp)
@@ -388,13 +389,8 @@ namespace SFHeadlessHost
             if (_nsoSpawnPos.Count == 0) return;
             try
             {
-                if ((object)_nsoType == null)
-                {
-                    _nsoType = CachedType("NetworkSyncableObject");
-                    if ((object)_nsoType == null) return;
-                    _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
-                    _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
-                }
+                EnsureNsoIndexAccessors();
+                if ((object)_nsoType == null) return;
                 float now = Time.realtimeSinceStartup;
                 int resetsThisTick = 0;
                 foreach (var kv in _nsoSpawnPos)
@@ -657,13 +653,8 @@ namespace SFHeadlessHost
             _nsoSrvEntries.Clear();
             try
             {
-                if ((object)_nsoType == null)
-                {
-                    _nsoType = CachedType("NetworkSyncableObject");
-                    if ((object)_nsoType == null) return;
-                    _nsoIndexProp = AccessTools.Property(_nsoType, "Index");
-                    _nsoIndexField = AccessTools.Field(_nsoType, "m_Index");
-                }
+                EnsureNsoIndexAccessors();
+                if ((object)_nsoType == null) return;
                 var all = UnityEngine.Object.FindObjectsOfType(_nsoType);
                 if (all == null) return;
                 foreach (var nso in all)
