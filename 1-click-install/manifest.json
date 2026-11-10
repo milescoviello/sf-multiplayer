@@ -1,14 +1,17 @@
 {
-  "version": "20261110-2050-ac1ed1a",
+  "version": "20261110-2259-b7bf0fb",
   "server": "sf.milescoviello.com", "port": 1338,
   "files": [
-    {"path": "BepInEx/patchers/SFOnline/SFOnlinePatcher.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnlinePatcher.dll", "sha256": "59E6EE34435B95F3E696B381809EEBE8864E7E061EECD86E4159DBA7EE5B7B8F"},
-    {"path": "BepInEx/patchers/SFOnline/SFOnline.donor", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnline.donor", "sha256": "9848AA08EB115A696C508F84F6B902FE564B9F7E83CB66D0E3D928E646A05B58"},
-    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "CBB0EC5D5AF82625ACAAFADE4FF0A64D8A22A3E0BC786B07849D38A168D96E53"},
+    {"path": "BepInEx/patchers/SFOnline/SFOnlinePatcher.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnlinePatcher.dll", "sha256": "83C176A7B573ECCE483FB875C1ABAB9A098BEC7162F10E7208C95D1357565A67"},
+    {"path": "BepInEx/patchers/SFOnline/SFOnline.donor", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnline.donor", "sha256": "B1BEA12DB26903B10DE14EE307DC179244E79619BED2E1CD69463722E8766D94"},
+    {"path": "sf-online/bepinex-x86/winhttp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/winhttp-x86.dll", "sha256": "CC643B54484F694A8E0E6641CAC79D74141009AFC9E24D826F6FD7FD48FD182A"},
+    {"path": "sf-online/bepinex-x64/winhttp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/winhttp-x64.dll", "sha256": "8C6CDBC38836DEE87E3368F5DE1994D7C0CCEBF29E4CE7ABA3C0981F9375412C"},
+    {"path": "winhttp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/winhttp-x64.dll", "sha256": "8C6CDBC38836DEE87E3368F5DE1994D7C0CCEBF29E4CE7ABA3C0981F9375412C"},
+    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "4F02947881FA095844B7DAE94774E675E31F917983B715EA5A008D7CFB4E5488"},
     {"path": "BepInEx/plugins/SFServerBrowser.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFServerBrowser.dll", "sha256": "ED6046AF8AFBBC747A3AB12758C43D3C5A0BABF374434ED5039F816BD4485A51"},
-    {"path": "sf-online/launch.ps1", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.ps1", "sha256": "05B93AE34252FD79014F5240E54512B25F5B101AE2F4539389645977E5C4CFEA", "os": "windows"},
+    {"path": "sf-online/launch.ps1", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.ps1", "sha256": "2BB4B76B36EB036442A8C200D0A1E87221245DB28B4759849C690D81DB2896DF", "os": "windows"},
     {"path": "sf-online/launch.vbs", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.vbs", "sha256": "71EE6F8C861E7FB8E7CD8ABA88BC0FD7A7F63C0F85756521878BDBF3FE055E42", "os": "windows"},
-    {"path": "sf-online/launch.py", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.py", "sha256": "518DBDE11652E5EFB188E2B078AA0978380CC6644903CE46B4F61197ED2A89B5", "os": "linux"},
+    {"path": "sf-online/launch.py", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.py", "sha256": "B5E0EED0195C7E6A9FDEED717F13E0650EF3319A7819F1802DB949AD12D87BFB", "os": "linux"},
     {"path": "sf-online/sf-wrap.sh", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/sf-wrap.sh", "sha256": "14323D62C73278F454CF0E6910B0FF1F51BE248D3CA4840294EE4BD4A5D512D4", "os": "linux"},
     {"path": "sf-online/steam_options.py", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/steam_options.py", "sha256": "B7786E564BB4C455F7C8B6AAC23ABA88A6C310D4F833A924F0E456764067C67A", "os": "linux"}
   ]

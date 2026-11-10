@@ -21,9 +21,38 @@ namespace SFClientRecon
             Log.LogInfo($"[P6.11] Discovered localSlot={_localSlot} ({source}).");
         }
 
+        // Until we have a slot (menu, lobby list, before spawning) every lookup
+        // scanned the scene (FindObjectsOfType), and it ran every frame: about 7 ms
+        // a frame on a fast PC, 12-15 ms on a 2009 Core 2 Duo. A miss is now
+        // remembered: 0.25 s for the first 3 s after a reset (joining a lobby, a
+        // new map), so the slot is picked up right after spawning, then 0.5 s,
+        // and 2 s once nothing has turned up for 15 s (sitting in the menu).
+        private float _slotMissUntil = -1f, _slotResetAt = -100f;
+
         private int FindLocalSlot()
         {
             if (_localSlot >= 0) return _localSlot;
+            float now = Time.realtimeSinceStartup;
+            if (now < _slotMissUntil) return -1;
+            int found = FindLocalSlotScan();
+            if (found < 0)
+            {
+                float since = now - _slotResetAt;
+                _slotMissUntil = now + (since < 3f ? 0.25f : since < 15f ? 0.5f : 2f);
+            }
+            return found;
+        }
+
+        // Forget the slot and look again soon (lobby join or switch, map change).
+        internal void ResetLocalSlot()
+        {
+            _localSlot = -1;
+            _slotMissUntil = -1f;
+            _slotResetAt = Time.realtimeSinceStartup;
+        }
+
+        private int FindLocalSlotScan()
+        {
             try
             {
                 // v0.6.0 — slot discovery, most-authoritative first. History:

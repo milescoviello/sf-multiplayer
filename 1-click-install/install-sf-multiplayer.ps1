@@ -58,7 +58,7 @@ $Backup    = Join-Path $Managed 'Assembly-CSharp.dll.vanilla.bak'
 $Plug      = Join-Path $Sf 'BepInEx\plugins'
 $Online    = Join-Path $Sf 'sf-online'
 $PatchDir  = Join-Path $Sf 'BepInEx\patchers\SFOnline'
-$StockHash = (Get-Content (Join-Path $Files 'game-file.sha256') -TotalCount 1).Trim()
+$StockHashes = @(Get-Content (Join-Path $Files 'game-file.sha256') | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim().ToUpper() })   # every stock build the mod knows
 foreach ($f in @((Join-Path $Files 'SFOnlinePatcher.dll'), (Join-Path $Files 'SFOnline.donor'), (Join-Path $Files 'SFClientRecon.dll'), (Join-Path $Files 'SFServerBrowser.dll'), (Join-Path $Files 'launch.ps1'), (Join-Path $Files 'launch.vbs'))) {
     if (-not (Test-Path $f)) { throw "Missing installer file: $f (extract the whole zip first)" }
 }
@@ -82,7 +82,7 @@ if ($gameIsPatched) {
         Warn 'An older install patched the game file and left no backup: asking Steam to re-check Stick Fight.'
         Start-Process 'steam://validate/674940' -ErrorAction SilentlyContinue
     }
-} elseif ($gameHash -ine $StockHash) {
+} elseif ($StockHashes -notcontains $gameHash.ToUpper()) {
     Warn "Your game file isn't the stock Steam version, and the online mode is built from it."
     Warn 'Steam is re-checking Stick Fight; run this installer again when it has finished.'
     Start-Process 'steam://validate/674940' -ErrorAction SilentlyContinue
@@ -92,12 +92,17 @@ if ($gameIsPatched) {
 
 # ------------------------------------------------------------ BepInEx
 Step 3 'BepInEx (mod loader)...'
+$Arch = Get-PeArch (Join-Path $Sf 'StickFight.exe')
+if (-not $Arch) { $Arch = 'x64' }
+$bepZip = Get-ChildItem (Join-Path $Here 'bepinex') -Filter "BepInEx_win_${Arch}_*.zip" -ErrorAction SilentlyContinue | Select-Object -First 1
+if (-not $bepZip) { throw "Missing bepinex\BepInEx_win_${Arch}_*.zip in the installer folder." }
 $hasBep = (Test-Path (Join-Path $Sf 'BepInEx\core\BepInEx.dll')) -and (Test-Path (Join-Path $Sf 'winhttp.dll'))
 if ($hasBep) {
-    Ok 'Already installed.'
+    if ((Get-PeArch (Join-Path $Sf 'winhttp.dll')) -ne $Arch) {
+        Set-BepInExLoader $bepZip.FullName $Sf
+        Ok "BepInEx loader switched to $Arch (the game is $Arch; the old one never loaded)."
+    } else { Ok "Already installed ($Arch)." }
 } else {
-    $bepZip = Get-ChildItem (Join-Path $Here 'bepinex') -Filter 'BepInEx_win_x86_*.zip' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $bepZip) { throw 'Missing bepinex\BepInEx_win_x86_*.zip in the installer folder.' }
     Expand-Archive -Path $bepZip.FullName -DestinationPath $Sf -Force
     Set-Content -Path (Join-Path $Online 'installed-bepinex.txt') -Value $bepZip.Name
     Ok ("Installed {0}" -f $bepZip.Name)
@@ -159,6 +164,9 @@ Ok ("Server {0}:{1}" -f $hostPart, $portPart)
 # Updates run as the normal user: let Users modify the mod's own files.
 $users = '*S-1-5-32-545:(OI)(CI)M'          # BUILTIN\Users, any Windows language
 foreach ($d in @($Plug, $Online, $PatchDir)) { & icacls $d /grant $users /T /C /Q | Out-Null }
+# The BepInEx loader too: the launcher swaps it if the game changes architecture.
+$loaderFile = Join-Path $Sf 'winhttp.dll'
+if (Test-Path $loaderFile) { & icacls $loaderFile /grant '*S-1-5-32-545:M' /C /Q | Out-Null }
 Ok 'Updates will not need admin.'
 try {
     Get-SfFirewallRules (Join-Path $Sf 'StickFight.exe') | Remove-NetFirewallRule

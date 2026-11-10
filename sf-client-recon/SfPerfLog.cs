@@ -16,8 +16,8 @@ namespace SFClientRecon
         // more than 1.5 ms per frame).
         private static readonly string[] PerfNames = { "pings", "players-left", "viewer-link", "auto-connect", "rejoin", "rx-timing",
             "send-rate", "smooth-log", "debug-console", "channel-fill", "snapshots", "init-from-server", "smooth-targets",
-            "crate-push-relay", "fast-combat-input" };
-        private readonly long[] _perfSec = new long[16];
+            "crate-push-relay", "fast-combat-input", "input-send", "select-lobby" };
+        private readonly long[] _perfSec = new long[17];
         private long _perfLast;
         private void PerfMarkStart() { _perfLast = System.Diagnostics.Stopwatch.GetTimestamp(); }
         private void PerfMark(int i)

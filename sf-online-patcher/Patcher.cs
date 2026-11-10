@@ -72,18 +72,22 @@ namespace SFOnlinePatcher
                 var rp = new ReaderParameters { AssemblyResolver = res, ReadingMode = ReadingMode.Immediate };
                 var donor = ModuleDefinition.ReadModule(donorPath, rp);
 
+                // The donor lists every stock build it applies to (the first is the one it
+                // was made from; later ones, e.g. the 64-bit Steam build, have their own
+                // transplant list that keeps that build's own changes).
                 string meta = Resource(donor, "SFOnline.meta") ?? "";
-                string list = Resource(donor, "SFOnline.transplant");
-                if (list == null) { Log.LogError("SFOnline.donor has no transplant list."); return; }
-                string want = null;
-                foreach (var line in meta.Split('\n')) if (line.StartsWith("stock-sha256 ")) want = line.Substring(13).Trim();
+                var known = new List<string>();
+                foreach (var line in meta.Split('\n')) if (line.StartsWith("stock-sha256 ")) known.Add(line.Substring(13).Trim().ToUpperInvariant());
                 string gameFile = Path.Combine(Paths.ManagedPath, "Assembly-CSharp.dll");
                 string have = Sha256(gameFile);
-                if (want != null && !string.Equals(want, have, StringComparison.OrdinalIgnoreCase))
+                int which = known.IndexOf(have.ToUpperInvariant());
+                if (which < 0)
                 {
-                    Log.LogError("Your StickFight_Data/Managed/Assembly-CSharp.dll isn't the stock Steam version (sha256 " + have + "), so the online build can't be made from it. In Steam: Stick Fight > Properties > Installed Files > Verify integrity, then start Stick Fight Online again.");
+                    Log.LogError("Your StickFight_Data/Managed/Assembly-CSharp.dll isn't a stock Steam version this mod knows (sha256 " + have + "), so the online build can't be made from it. In Steam: Stick Fight > Properties > Installed Files > Verify integrity, then start Stick Fight Online again. If that doesn't help, the game had an update: report it on GitHub.");
                     return;
                 }
+                string list = Resource(donor, which == 0 ? "SFOnline.transplant" : "SFOnline.transplant." + known[which]);
+                if (list == null) { Log.LogError("SFOnline.donor has no transplant list for this game build."); return; }
                 var keys = new List<string>();
                 foreach (var k in list.Split('\n')) if (k.Length > 0) keys.Add(k);
 
@@ -94,8 +98,8 @@ namespace SFOnlinePatcher
                 new Transplant(trial, donor).Run(keys);
                 var t = new Transplant(stock, donor);
                 t.Run(keys);
-                Log.LogInfo(string.Format("Online build ready: {0} methods from the online build, {1} helper types, {2} added methods, {3} added fields ({4:0} ms).",
-                    t.Transplanted, t.TypesCloned, t.MethodsCloned, t.FieldsCloned, (DateTime.UtcNow - t0).TotalMilliseconds));
+                Log.LogInfo(string.Format("Online build ready: {0} methods from the online build, {1} helper types, {2} added methods, {3} added fields ({4:0} ms, game build {5}).",
+                    t.Transplanted, t.TypesCloned, t.MethodsCloned, t.FieldsCloned, (DateTime.UtcNow - t0).TotalMilliseconds, have.Substring(0, 8)));
             }
             catch (Exception e)
             {

@@ -103,7 +103,7 @@ if grep -q UDPReceive "$managed/Assembly-CSharp.dll" 2>/dev/null; then
         warn 'An older install patched the game file and left no backup: asking Steam to re-check Stick Fight.'
         (xdg-open "steam://validate/$APPID" >/dev/null 2>&1 &) || true
     fi
-elif [ "$(sha256sum "$managed/Assembly-CSharp.dll" 2>/dev/null | cut -d' ' -f1 | tr a-f A-F)" != "$(head -1 "$files/game-file.sha256" | tr -d '\r ' | tr a-f A-F)" ]; then
+elif ! tr -d '\r ' < "$files/game-file.sha256" | grep -qixF "$(sha256sum "$managed/Assembly-CSharp.dll" 2>/dev/null | cut -d' ' -f1)"; then
     warn "Your game file isn't the stock Steam version, and the online mode is built from it."
     warn 'Steam is re-checking Stick Fight; run this installer again when it has finished.'
     (xdg-open "steam://validate/$APPID" >/dev/null 2>&1 &) || true
@@ -112,11 +112,22 @@ else
 fi
 
 step 3 'BepInEx (mod loader)...'
+# The game's PE architecture: 64-bit since Stick Fight's 2026 Steam update,
+# 32-bit before. BepInEx's loader (winhttp.dll) has to match it.
+pe_arch() { python3 -c 'import struct,sys
+d=open(sys.argv[1],"rb").read(4096); o=struct.unpack_from("<I",d,0x3c)[0]; m=struct.unpack_from("<H",d,o+4)[0]
+print({0x8664:"x64",0x14c:"x86"}.get(m,""))' "$1" 2>/dev/null; }
+arch="$(pe_arch "$game/StickFight.exe")"; [ -n "$arch" ] || arch=x64
+zip="$(ls "$here"/bepinex/BepInEx_win_${arch}_*.zip 2>/dev/null | head -1)"
+[ -n "$zip" ] || die "Missing bepinex/BepInEx_win_${arch}_*.zip in the installer folder."
 if [ -f "$game/BepInEx/core/BepInEx.dll" ] && [ -f "$game/winhttp.dll" ]; then
-    ok 'Already installed.'
+    if [ "$(pe_arch "$game/winhttp.dll")" != "$arch" ]; then
+        python3 -c 'import zipfile,sys; open(sys.argv[2],"wb").write(zipfile.ZipFile(sys.argv[1]).read("winhttp.dll"))' "$zip" "$game/winhttp.dll"
+        ok "BepInEx loader switched to $arch (the game is $arch; the old one never loaded)."
+    else
+        ok "Already installed ($arch)."
+    fi
 else
-    zip="$(ls "$here"/bepinex/BepInEx_win_x86_*.zip 2>/dev/null | head -1)"
-    [ -n "$zip" ] || die 'Missing bepinex/BepInEx_win_x86_*.zip in the installer folder.'
     python3 -m zipfile -e "$zip" "$game"
     basename "$zip" > "$online/installed-bepinex.txt"
     ok "Installed $(basename "$zip")"

@@ -226,7 +226,7 @@ namespace SFClientRecon
             // Re-derive the local slot each map (cheap: direct
             // mLocalPlayerIndex read) — the old forever-cache could pin a
             // stale slot across a reconnect.
-            Instance._localSlot = -1;
+            Instance.ResetLocalSlot();
             _countDownDeferred = false;
             Instance.StartCoroutine(Instance.RebuildMapCachesAfterLoadCoroutine());
             try { Instance.StartCoroutine(Instance.ForceMapLoadWatchdog(data)); }

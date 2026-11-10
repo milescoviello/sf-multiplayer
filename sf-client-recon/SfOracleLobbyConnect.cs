@@ -280,6 +280,7 @@ namespace SFClientRecon
             try
             {
                 _oracleConnectStarted = true;
+                if (Instance != null) Instance.ResetLocalSlot();   // look for our slot right away
                 Log.LogInfo($"[oracle-lobby] {source} → connecting to {OracleServerHost}:{OracleServerPort} (no Steam).");
                 var pkt = GetPktHandler();
                 if (!RefOk(pkt))
@@ -402,7 +403,7 @@ namespace SFClientRecon
                 // until the NEW lobby's first MapChange re-derives it — and the new
                 // host rejects input for a slot whose handshaken owner doesn't match,
                 // so the player's input is silently dropped until then.
-                inst._localSlot = -1;
+                inst.ResetLocalSlot();
                 inst._lastAnnouncedSlot = -2;
                 try { inst.SendSelectLobbyPacket(); }
                 catch (Exception e) { Log.LogWarning($"[oracle-lobby] SELECT send: {e.Message}"); }

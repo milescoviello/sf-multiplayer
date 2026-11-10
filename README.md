@@ -75,7 +75,7 @@ The game opens with the lobby list on screen. Pick a lobby and press **JOIN**. T
 
 | Problem | Fix |
 |---|---|
-| The game started but there's no lobby list | You started it from Steam. Use the **Stick Fight Online** shortcut. |
+| The game started but there's no lobby list | You started it from Steam. Use the **Stick Fight Online** shortcut. If you did use the shortcut, start it once more, and if that doesn't help, run the installer again: it fixes the mod loader for Stick Fight's 64-bit Steam build. |
 | Windows SmartScreen or antivirus blocks the installer, or files vanish after installing | BepInEx (the mod loader) is a common false positive. Add an exclusion for your Stick Fight folder, then run the installer again. |
 | The installer can't find Stick Fight | It asks for the folder. Steam libraries on another drive are at `<drive>:\SteamLibrary\steamapps\common\StickFightTheGame`. |
 | Stuck on "Connecting to the server…" | Check your internet, and that nothing blocks outgoing UDP. Press F2 and join again. |

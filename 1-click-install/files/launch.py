@@ -75,6 +75,18 @@ def answers(ip, port):
     return False
 
 
+def pe_arch(path):
+    # 'x64' or 'x86' from a Windows binary's PE header ('' if unreadable).
+    try:
+        with open(path, 'rb') as f:
+            d = f.read(4096)
+        o = int.from_bytes(d[0x3c:0x40], 'little')
+        m = int.from_bytes(d[o + 4:o + 6], 'little')
+        return {0x8664: 'x64', 0x14c: 'x86'}.get(m, '')
+    except (OSError, ValueError):
+        return ''
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, 'rb') as f:
@@ -118,6 +130,10 @@ def update(cfg):
     changed = 0
     for f in m.get('files', []):
         if f.get('os') == 'windows':
+            continue
+        # The game-root loader is for launchers older than this one (see
+        # build.sh); this one picks the loader by the game's architecture below.
+        if f['path'] == 'winhttp.dll':
             continue
         rel = f['path']
         if '..' in rel.split('/') or rel.startswith('/') or '\\' in rel:
@@ -174,6 +190,18 @@ def main():
         update(cfg)
     except Exception as e:  # never block the game on an update problem
         log('update check failed (starting anyway): %s' % e)
+    # Stick Fight's Steam build is 64-bit since its 2026 update; installs made
+    # before that got the 32-bit BepInEx loader, which a 64-bit game never
+    # loads. The update ships both to sf-online/bepinex-<arch>/: use the right one.
+    arch = pe_arch(os.path.join(GAME, 'StickFight.exe'))
+    loader = os.path.join(GAME, 'winhttp.dll')
+    fix = os.path.join(DIR, 'bepinex-%s' % arch, 'winhttp.dll')
+    if arch and os.path.exists(loader) and pe_arch(loader) != arch and os.path.exists(fix):
+        try:
+            shutil.copyfile(fix, loader)
+            log('switched the BepInEx loader to %s' % arch)
+        except OSError as e:
+            log('could not switch the BepInEx loader: %s' % e)
     # Older installs kept a modified game file here; the patcher replaces it.
     old = os.path.join(DIR, 'Assembly-CSharp.dll')
     if os.path.exists(old):

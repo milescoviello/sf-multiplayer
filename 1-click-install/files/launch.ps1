@@ -65,6 +65,9 @@ if ($cfg -and $cfg.manifestUrl) {
         $changed = 0
         foreach ($f in $m.files) {
             if ($f.os -eq 'linux') { continue }
+            # The game-root loader is for launchers older than this one (see
+            # build.sh); this one picks the loader by the game's architecture below.
+            if ($f.path -eq 'winhttp.dll') { continue }
             $rel = ($f.path -replace '/', '\')
             if ($rel.Contains('..') -or [IO.Path]::IsPathRooted($rel)) { Log "skipped unsafe path $($f.path)"; continue }
             $dest = Join-Path $Game $rel
@@ -93,6 +96,37 @@ if ($cfg -and $cfg.manifestUrl) {
 # name first.
 $oldGameFile = Join-Path $Dir 'Assembly-CSharp.dll'
 if (Test-Path $oldGameFile) { try { Remove-Item $oldGameFile -Force; Log 'removed the old online game file (the patcher builds it now)' } catch { } }
+# Stick Fight's Steam build is 64-bit since its 2026 update; installs made
+# before that got the 32-bit BepInEx loader, which a 64-bit game never loads.
+# The update ships both loaders to sf-online\bepinex-<arch>\; put the right
+# one in place (the game folder may need admin: one prompt).
+function Get-PeArch($path) {
+    try {
+        $fs = [IO.File]::OpenRead($path)
+        try { $buf = New-Object byte[] 4096; [void]$fs.Read($buf, 0, 4096) } finally { $fs.Close() }
+        $pe = [BitConverter]::ToInt32($buf, 0x3C)
+        if ($pe -lt 0 -or $pe + 6 -gt 4096) { return '' }
+        switch ([BitConverter]::ToUInt16($buf, $pe + 4)) { 0x8664 { return 'x64' } 0x14c { return 'x86' } default { return '' } }
+    } catch { return '' }
+}
+$exeArch = Get-PeArch (Join-Path $Game 'StickFight.exe')
+$loader = Join-Path $Game 'winhttp.dll'
+if ($exeArch -and (Test-Path $loader) -and ((Get-PeArch $loader) -ne $exeArch)) {
+    $fix = Join-Path $Dir "bepinex-$exeArch\winhttp.dll"
+    if (Test-Path $fix) {
+        try { Copy-Item $fix $loader -Force -ErrorAction Stop; Log "switched the BepInEx loader to $exeArch" }
+        catch {
+            Log "switching the BepInEx loader to $exeArch needs admin: asking"
+            try {
+                Start-Process -FilePath 'cmd.exe' -ArgumentList "/c copy /y `"$fix`" `"$loader`"" -Verb RunAs -Wait -WindowStyle Hidden
+                if ((Get-PeArch $loader) -eq $exeArch) { Log "switched the BepInEx loader to $exeArch (elevated)" } else { throw 'not switched' }
+            } catch {
+                Log "loader not switched: $($_.Exception.Message)"
+                try { [void](New-Object -ComObject WScript.Shell).Popup("Stick Fight was updated to 64-bit and the mod needs one change. Run INSTALL-sf-multiplayer.bat again (from the installer zip) to fix it.", 0, 'Stick Fight Online', 48) } catch { }
+            }
+        }
+    }
+}
 $ip = Resolve-ServerIp $server
 if (-not $ip) {
     Log "can't resolve $server"

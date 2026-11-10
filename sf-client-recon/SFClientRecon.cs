@@ -49,7 +49,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.6";
+        public const string PluginVersion = "0.7.7";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -480,18 +480,20 @@ namespace SFClientRecon
                 }
             }
 
+            PerfMark(16);
             // Phase 6.12 — send input packets at 60Hz once local slot is known.
             if (_socket != null && _serverEp != null && Time.realtimeSinceStartup - _lastInputSendAt >= InputSendInterval)
             {
                 _lastInputSendAt = Time.realtimeSinceStartup;
                 SendPlayerInputPacket();
             }
-            else if (_serverEp != null && FindLocalSlot() < 0
-                     && Time.realtimeSinceStartup - _lastInputWarnAt > 5f)
+            else if (_serverEp != null && Time.realtimeSinceStartup - _lastInputWarnAt > 5f
+                     && FindLocalSlot() < 0)   // the cheap check first: this ran every frame
             {
                 _lastInputWarnAt = Time.realtimeSinceStartup;
                 Log.LogWarning("[P6.12] No local slot yet — PlayerInput not sent. Wait for spawn.");
             }
+            PerfMark(15);
         }
 
         // v0.6.0 — full Unity console tee. Subscribes to the engine's log
