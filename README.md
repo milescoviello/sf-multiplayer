@@ -3,7 +3,7 @@
 # Stick Fight Online
 
 **Stick Fight: The Game on a dedicated server.**
-No player hosts the match, so one player's bad connection or rage-quit can't wreck it for everyone.
+No player hosts the match, so the lobby keeps running no matter who lags or leaves.
 
 ### [Download the installer (.zip)](https://github.com/milescoviello/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
 
