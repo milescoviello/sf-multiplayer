@@ -20,6 +20,10 @@
 set -eu
 
 ROOT="${SF_ORACLE_ROOT:-$HOME/sf-oracle}"
+# SFOnlinePatcher builds the online game code from the stock Assembly-CSharp
+# only when the game gets -address (a player's online launch); a server never
+# does, so tell it to. No effect on an install that still has a patched file.
+export SF_ONLINE_FORCE="${SF_ONLINE_FORCE:-1}"
 SF_DIR="$ROOT/install"
 PROTON="$ROOT/proton/proton"
 

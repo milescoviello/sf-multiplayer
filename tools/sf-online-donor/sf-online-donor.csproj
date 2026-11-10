@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Offline tool (not shipped): builds SFOnline.donor and verifies it. Needs
+       the BepInEx core refs in ../../sf-online-patcher/refs (see its README). -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>CS8632</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Mono.Cecil"><HintPath>../../sf-online-patcher/refs/Mono.Cecil.dll</HintPath></Reference>
+    <Compile Include="../../sf-online-patcher/Transplant.cs" Link="Transplant.cs" />
+  </ItemGroup>
+</Project>

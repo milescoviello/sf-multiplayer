@@ -19,10 +19,12 @@ WHAT IT CHANGES:
   - Nothing in the game's own files. (If an older version of this mod had
     patched the game file, the original is put back.)
   - Installs BepInEx 5.4.23.5 if you don't have it (other mods are kept).
-  - Adds the SFClientRecon and SFServerBrowser plugins. They do nothing
-    unless the game was started with the "Stick Fight Online" shortcut.
-  - Adds <game>\sf-online\ (the launcher and the online game file it uses),
-    a Windows Firewall rule for Stick Fight, and the two shortcuts.
+  - Adds the SFClientRecon and SFServerBrowser plugins and the SFOnlinePatcher
+    (BepInEx\patchers\SFOnline\). They do nothing unless the game was
+    started with the "Stick Fight Online" shortcut; then the patcher builds
+    the online game code in memory from your own game file.
+  - Adds <game>\sf-online\ (the launcher), a Windows Firewall rule for
+    Stick Fight, and the two shortcuts.
 
 UNDO:
   Double-click  UNINSTALL-sf-multiplayer.bat : removes only this mod (and

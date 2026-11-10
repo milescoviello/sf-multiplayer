@@ -3,8 +3,9 @@
 #  1. reads config.json (server, port, manifestUrl);
 #  2. fetches the update manifest (a few KB) and installs any mod file whose
 #     SHA-256 differs, verifying each download before it replaces anything;
-#  3. starts the game on the server (patched game file from sf-online\ for
-#     this launch only; Steam launches stay the normal game).
+#  3. starts the game on the server. The SFOnlinePatcher (BepInEx\patchers\SFOnline\)
+#     builds the online game code in memory for this launch only; Steam
+#     launches stay the normal game.
 # No network, or GitHub down: it just starts the game. Log: launch.log.
 $ErrorActionPreference = 'Continue'
 $Dir  = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -84,11 +85,14 @@ if ($cfg -and $cfg.manifestUrl) {
     } catch { Log "update check failed (starting anyway): $($_.Exception.Message)" }
 }
 
-# The patched Assembly-CSharp lives in sf-online\ and is used only for this
-# launch (BepInEx's Doorstop puts that folder first when Mono loads it); a
-# Steam launch loads the game's own file. Doorstop is forced on here so the
-# server works even if the player switched BepInEx off for normal play.
-# The game only takes an IP address: resolve a host name first.
+# The online game code is built in memory by SFOnlinePatcher, only when the
+# game gets -address (this launch); a Steam launch is the normal game.
+# Doorstop is forced on here so the server works even if the player switched
+# BepInEx off for normal play. Older installs kept a modified game file in
+# sf-online\: remove it. The game only takes an IP address: resolve a host
+# name first.
+$oldGameFile = Join-Path $Dir 'Assembly-CSharp.dll'
+if (Test-Path $oldGameFile) { try { Remove-Item $oldGameFile -Force; Log 'removed the old online game file (the patcher builds it now)' } catch { } }
 $ip = Resolve-ServerIp $server
 if (-not $ip) {
     Log "can't resolve $server"
@@ -100,8 +104,7 @@ if (-not (Test-SfServer $ip $port)) {
     try { [void](New-Object -ComObject WScript.Shell).Popup("The server ($server) isn't answering right now. Stick Fight will start and keep trying to connect.", 8, 'Stick Fight Online', 48) } catch { }
 }
 $server = $ip
-$override = Join-Path $Game 'sf-online'
-$gameArgs = "-address $server -port $port --doorstop-enabled true --doorstop-mono-dll-search-path-override `"$override`""
+$gameArgs = "-address $server -port $port --doorstop-enabled true"
 # Stay (hidden) until the game exits: if the lobby restarted under a match,
 # the game leaves sf-online\rejoin.txt and quits, and is started again
 # straight into that lobby (the game can't rejoin mid-match by itself).

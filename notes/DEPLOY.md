@@ -6,7 +6,7 @@ How the live server is set up, and how to set up another one. The live server is
 
 - A Linux machine with 32-bit library support (`dpkg --add-architecture i386` on Debian / Ubuntu).
 - About 700 MB of RAM per lobby and a third of a core per empty lobby (more with players in it). The live server runs four lobbies.
-- Your own copy of Stick Fight: The Game, with BepInEx 5.4 and the two server plugins.
+- Your own copy of Stick Fight: The Game (its stock `Assembly-CSharp.dll`), with BepInEx 5.4, the online patcher and the two server plugins.
 - A Proton install (copied from a desktop Steam install; no Steam client is needed on the server).
 - UDP port **1338** reachable from the internet. That is the only public port.
 
@@ -24,7 +24,8 @@ sudo apt-get install -y xvfb libc6:i386 libstdc++6:i386 libgl1:i386 libvulkan1:i
 ```
 ~/sf-oracle/
 ├── install/                 the Stick Fight install the lobbies run
-│   ├── StickFight_Data/Managed/Assembly-CSharp.dll   = dist/Assembly-CSharp.srv.v25.dll (the patched game file)
+│   ├── StickFight_Data/Managed/Assembly-CSharp.dll   the game's own stock file
+│   ├── BepInEx/patchers/SFOnline/  SFOnlinePatcher.dll + SFOnline.donor (from 1-click-install/files/)
 │   └── BepInEx/plugins/     SFHeadlessHost.dll, SFBoxFix.dll (server plugins only)
 ├── proton/                  Proton (the `proton` script + its files)
 ├── runtime/                 empty stand-in for the Steam runtime path
@@ -72,7 +73,7 @@ ssh SERVER 'cd ~/sf-multiplayer/deploy && sudo cp sf-*.service sf-*.timer /etc/s
   && sudo systemctl enable --now sf-router sf-lobbies sf-oracle sf-lobby@COMP sf-lobby@CASUAL sf-lobby@REPLAY sf-monitor sf-oracle-watchdog.timer'
 ```
 
-The units assume the user `miles` and `/home/miles/...` paths; change `User=` and the paths for another account.
+The units assume the user `miles` and `/home/miles/...` paths; change `User=` and the paths for another account. `deploy/start-oracle-server.sh` sets `SF_ONLINE_FORCE=1`: the patcher normally only builds the online game code when the game is started with `-address` (a player's online launch), and a server isn't. With it, every lobby builds the same online code from the stock file at start (about 1.5 s); the BepInEx log shows `[SFOnline] Online build ready`.
 
 ## Check that it works
 

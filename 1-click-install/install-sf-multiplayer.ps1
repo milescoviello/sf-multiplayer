@@ -6,10 +6,11 @@
 #     the normal game. (An older install that patched the game file is
 #     undone: the backup is restored, or Steam re-checks the game.)
 #  3. Installs BepInEx 5.4.23.5 if you don't have it (bundled, official zip).
-#  4. Installs the mod: the patched Assembly-CSharp in <game>\sf-online\ (the
-#     launcher has the game load it from there; the game's own file is never
-#     replaced) and the SFClientRecon / SFServerBrowser plugins, which stay
-#     idle unless the game was started for the server.
+#  4. Installs the mod: the SFOnlinePatcher (BepInEx\patchers\SFOnline\), which
+#     builds the online version of the game code in memory from your own
+#     game file, only when the game is started for the server, and the
+#     SFClientRecon / SFServerBrowser plugins, which also stay idle otherwise.
+#     No game file is shipped or replaced.
 #  5. Installs the launcher (<game>\sf-online\), lets normal users update the
 #     mod's files (updates never need admin) and allows the game through
 #     Windows Firewall (no prompt on first start).
@@ -56,20 +57,20 @@ $GameAsm   = Join-Path $Managed 'Assembly-CSharp.dll'
 $Backup    = Join-Path $Managed 'Assembly-CSharp.dll.vanilla.bak'
 $Plug      = Join-Path $Sf 'BepInEx\plugins'
 $Online    = Join-Path $Sf 'sf-online'
-$Patched   = Join-Path $Files 'Assembly-CSharp.srv.v25.dll'
-foreach ($f in @($Patched, (Join-Path $Files 'SFClientRecon.dll'), (Join-Path $Files 'SFServerBrowser.dll'), (Join-Path $Files 'launch.ps1'), (Join-Path $Files 'launch.vbs'))) {
+$PatchDir  = Join-Path $Sf 'BepInEx\patchers\SFOnline'
+$StockHash = (Get-Content (Join-Path $Files 'game-file.sha256') -TotalCount 1).Trim()
+foreach ($f in @((Join-Path $Files 'SFOnlinePatcher.dll'), (Join-Path $Files 'SFOnline.donor'), (Join-Path $Files 'SFClientRecon.dll'), (Join-Path $Files 'SFServerBrowser.dll'), (Join-Path $Files 'launch.ps1'), (Join-Path $Files 'launch.vbs'))) {
     if (-not (Test-Path $f)) { throw "Missing installer file: $f (extract the whole zip first)" }
 }
 New-Item -ItemType Directory -Force -Path $Online | Out-Null
 
 # ------------------------------------------------------------ game file
 Step 2 'Keeping the game itself normal (Steam = normal Stick Fight)...'
-$patchedHash = (Get-FileHash $Patched -Algorithm SHA256).Hash
 $gameHash = ''
 if (Test-Path $GameAsm) { $gameHash = (Get-FileHash $GameAsm -Algorithm SHA256).Hash }
-# Any patched build (older ones too) has the UDP client stock never had.
-$gameIsPatched = ($gameHash -eq $patchedHash)
-if (-not $gameIsPatched -and (Test-Path $GameAsm)) {
+# Any patched build (an older install of this mod) has the UDP client stock never had.
+$gameIsPatched = $false
+if (Test-Path $GameAsm) {
     try { $gameIsPatched = [IO.File]::ReadAllText($GameAsm, [Text.Encoding]::ASCII).Contains('UDPReceive') } catch { }
 }
 if ($gameIsPatched) {
@@ -81,8 +82,12 @@ if ($gameIsPatched) {
         Warn 'An older install patched the game file and left no backup: asking Steam to re-check Stick Fight.'
         Start-Process 'steam://validate/674940' -ErrorAction SilentlyContinue
     }
+} elseif ($gameHash -ine $StockHash) {
+    Warn "Your game file isn't the stock Steam version, and the online mode is built from it."
+    Warn 'Steam is re-checking Stick Fight; run this installer again when it has finished.'
+    Start-Process 'steam://validate/674940' -ErrorAction SilentlyContinue
 } else {
-    Ok 'Game file untouched.'
+    Ok 'Game file untouched (stock).'
 }
 
 # ------------------------------------------------------------ BepInEx
@@ -114,7 +119,11 @@ if ((Test-Path (Join-Path $Sf 'MelonLoader')) -or (Test-Path (Join-Path $Sf 'ver
 # ------------------------------------------------------------ mod files
 Step 4 'Installing the mod...'
 New-Item -ItemType Directory -Force -Path $Plug | Out-Null
-Copy-Item $Patched (Join-Path $Online 'Assembly-CSharp.dll') -Force;           Ok 'Patched Assembly-CSharp (sf-online, used only for the server)'
+New-Item -ItemType Directory -Force -Path $PatchDir | Out-Null
+Copy-Item (Join-Path $Files 'SFOnlinePatcher.dll') (Join-Path $PatchDir 'SFOnlinePatcher.dll') -Force
+Copy-Item (Join-Path $Files 'SFOnline.donor') (Join-Path $PatchDir 'SFOnline.donor') -Force;   Ok 'SFOnlinePatcher (builds the online game code from your own copy, only for the server)'
+$oldOnline = Join-Path $Online 'Assembly-CSharp.dll'                               # older installs shipped a game file
+if (Test-Path $oldOnline) { Remove-Item $oldOnline -Force; Ok 'Removed the old online game file' }
 $oldPre = Join-Path $Sf 'BepInEx\patchers\SFOnlinePreloader.dll'                  # test builds only
 if (Test-Path $oldPre) { Remove-Item $oldPre -Force }
 Copy-Item (Join-Path $Files 'SFClientRecon.dll')   (Join-Path $Plug 'SFClientRecon.dll') -Force;   Ok 'SFClientRecon.dll'
@@ -149,7 +158,7 @@ Ok ("Server {0}:{1}" -f $hostPart, $portPart)
 
 # Updates run as the normal user: let Users modify the mod's own files.
 $users = '*S-1-5-32-545:(OI)(CI)M'          # BUILTIN\Users, any Windows language
-foreach ($d in @($Plug, $Online)) { & icacls $d /grant $users /T /C /Q | Out-Null }
+foreach ($d in @($Plug, $Online, $PatchDir)) { & icacls $d /grant $users /T /C /Q | Out-Null }
 Ok 'Updates will not need admin.'
 try {
     Get-SfFirewallRules (Join-Path $Sf 'StickFight.exe') | Remove-NetFirewallRule

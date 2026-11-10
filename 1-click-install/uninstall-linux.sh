@@ -32,6 +32,7 @@ fi
 for p in SFClientRecon.dll SFServerBrowser.dll; do
     [ -f "$plug/$p" ] && { rm -f "$plug/$p"; ok "Removed $p"; }
 done
+[ -d "$game/BepInEx/patchers/SFOnline" ] && { rm -rf "$game/BepInEx/patchers/SFOnline"; ok 'Removed SFOnlinePatcher'; }
 [ -f "$game/doorstop_config.ini.sf-online.bak" ] && { mv -f "$game/doorstop_config.ini.sf-online.bak" "$game/doorstop_config.ini"; ok 'Restored doorstop_config.ini'; }
 if [ -f "$online/installed-bepinex.txt" ]; then
     if [ -z "$(ls -A "$plug" 2>/dev/null)" ] && [ -z "$(ls -A "$game/BepInEx/patchers" 2>/dev/null)" ]; then

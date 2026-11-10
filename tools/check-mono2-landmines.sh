@@ -24,7 +24,7 @@ set -u
 cd "$(dirname "$0")/.." || exit 2
 
 # Source roots that run under the game's Mono 2.0 (exclude build output + refs).
-ROOTS=(sf-headless-host sf-client-recon sf-server-browser sf-box-fix sf-leveldumper)
+ROOTS=(sf-headless-host sf-client-recon sf-server-browser sf-box-fix sf-leveldumper sf-online-patcher)
 GREP_OPTS=(--include='*.cs' --exclude-dir=bin --exclude-dir=obj --exclude-dir=refs)
 
 # Each pattern is prefixed with ^(?:(?!//).)*  so the keyword only matches when

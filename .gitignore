@@ -80,3 +80,7 @@ decompiled-working/
 
 # Release staging (BepInEx binaries) — only the zipped artifact is tracked
 release-build/
+
+# ---- Local-only game files (Landfall code: never commit) ----
+# private/ holds the stock and patched Assembly-CSharp the patch is made from.
+private/

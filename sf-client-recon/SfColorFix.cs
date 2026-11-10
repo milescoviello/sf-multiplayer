@@ -15,6 +15,7 @@ namespace SFClientRecon
     public partial class Plugin
     {
         private static System.Reflection.FieldInfo _mmColorsF;
+        private static System.Reflection.FieldInfo _scwdStartMatF;
 
         private void InstallColorFix()
         {
@@ -56,8 +57,13 @@ namespace SFClientRecon
                 var mat = new Material(colors[0]);
                 mat.color = own;
                 foreach (var lr in __result.GetComponentsInChildren<LineRenderer>()) lr.sharedMaterial = mat;
-                foreach (var d in __result.GetComponentsInChildren<SetColorWhenDamaged>())
-                    if (d.startMat == colors[0]) d.startMat = mat;
+                // By reflection, like the rest of the plugin: a direct reference
+                // would tie this plugin to one build's assembly name.
+                var scwd = CachedType("SetColorWhenDamaged");
+                if ((object)_scwdStartMatF == null && (object)scwd != null) _scwdStartMatF = AccessTools.Field(scwd, "startMat");
+                if ((object)scwd == null || (object)_scwdStartMatF == null) return;
+                foreach (var d in __result.GetComponentsInChildren(scwd))
+                    if (_scwdStartMatF.GetValue(d) as Material == colors[0]) _scwdStartMatF.SetValue(d, mat);
             }
             catch (Exception e) { Log.LogWarning($"[colors] {e.Message}"); }
         }

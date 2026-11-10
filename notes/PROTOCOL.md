@@ -65,7 +65,7 @@ Total = 5 (prefix) + N (body) + 9 (suffix) = **N + 14**. Minimum packet = 14 byt
 | 37 | OptionsChanged | client → server | options blob | Relay to others |
 | 38 | KickPlayer | server → all | `byte slot` | Host kick. Relay to all including target. |
 
-## Patched-DLL extensions (kit's patched Assembly-CSharp.dll)
+## Online-build extensions (the game code SFOnlinePatcher builds)
 
 | ID | Name | Direction | Body | Notes |
 |----|------|-----------|------|-------|
@@ -268,7 +268,7 @@ until snapshots flow, so loss of the unreliable control datagram self-heals.
 ## Compatibility
 
 - Stock clients (no mod) can't connect at all: they talk Steam P2P, not UDP.
-- The patched game file (`Assembly-CSharp.srv.v25.dll`) handles 0..38 plus 56/57 and ignores the rest.
+- The online game code (built at launch by SFOnlinePatcher) handles 0..38 plus 56/57 and ignores the rest.
 - `SFClientRecon.dll` handles everything above.
 - The server emits 39, 42, 44, 45, 47, 50 and 52; accepts 40, 41, 46, 48 and 51; relays 56/57.
 

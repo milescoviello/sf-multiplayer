@@ -1,3 +1,19 @@
+# What's new — 2026-11-10: no more shipped game file (issue #11)
+
+**The repo no longer contains Landfall's code.** Until now the installer shipped a modified `Assembly-CSharp.dll` (the online game file), and the LICENSE said the repo didn't. That file was a decompile-and-recompile of the whole game assembly. Comparing it method by method with the stock file showed about 630 methods really changed (networking, lobby, UI messages), plus 44 added, out of about 5,700. Everything else was the same code recompiled.
+
+- **`sf-online-patcher`** (new, BepInEx preloader patcher): at an online launch it builds the online game code in memory from the player's own stock `Assembly-CSharp`. It copies only the changed methods (and the compiler-generated helpers and added members they need) from **`SFOnline.donor`**, the online build with every unchanged method body stripped. The other ~5,000 methods stay Landfall's original compiled code, which is a step toward vanilla parity too. A normal launch is untouched, and nothing is written to disk.
+- **Checked before shipping:**
+  - **Offline** (`tools/sf-online-donor`): the same transplant on a fresh stock copy matches the online build for all 5,690 methods, every reference resolves, and ILVerify passes the whole file.
+  - **In the game:** Proton bots played on it against old clients for 4 minutes with the same kills, rounds, pickups and errors as two old clients.
+  - **On a server lobby:** a test lobby ran on it too (`SF_ONLINE_FORCE=1`).
+  - **On real Windows:** the update path from an existing install worked. The first start fetched the patcher and still used the old file, and the second start built the code itself and joined MAIN, with QOL Mod loaded.
+- **Bugs the checks caught along the way:** static/instance changes the online build made (`OnlineBox.Joined`, `mJoined`), methods it made public, cloned helper classes getting a bogus layout record, and duplicate empty iterator constructors (these crashed Mono's JIT).
+- **Installers and launchers:** install the patcher in `BepInEx/patchers/SFOnline/`, delete the old `sf-online/Assembly-CSharp.dll`, and no longer point Doorstop at it. The installers check the game file is the stock version and ask Steam to re-check it if not.
+- **Client 0.7.5:** the color fix reads `SetColorWhenDamaged` by reflection, so the plugin no longer links the game assembly by name.
+- **CI** fails if an `Assembly-CSharp*.dll` is ever committed or packaged again.
+- **Not done here:** the old file is still in the git history (a history rewrite is next), and the live server still runs the old file (switching it is the same patcher with `SF_ONLINE_FORCE=1`).
+
 # What's new — 2026-11-10: repo cleanup
 
 A pass over the whole repo for stale and broken things. Nothing players download changed.

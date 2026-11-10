@@ -35,6 +35,8 @@ foreach ($p in @('SFClientRecon.dll', 'SFServerBrowser.dll')) {
 }
 $pre = Join-Path $Sf 'BepInEx\patchers\SFOnlinePreloader.dll'
 if (Test-Path $pre) { Remove-Item $pre -Force; Ok 'Removed SFOnlinePreloader.dll' }
+$patchDir = Join-Path $Sf 'BepInEx\patchers\SFOnline'
+if (Test-Path $patchDir) { Remove-Item $patchDir -Recurse -Force; Ok 'Removed SFOnlinePatcher' }
 try { $rules = @(Get-SfFirewallRules (Join-Path $Sf 'StickFight.exe')); if ($rules.Count) { $rules | Remove-NetFirewallRule; Ok 'Removed the firewall rule' } } catch { }
 $doorstop = Join-Path $Sf 'doorstop_config.ini'
 if (Test-Path "$doorstop.sf-online.bak") { Move-Item "$doorstop.sf-online.bak" $doorstop -Force; Ok 'Restored doorstop_config.ini' }

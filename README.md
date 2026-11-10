@@ -103,7 +103,7 @@ These are the things the test bots can't check. Real players can:
 - **Windows:** double-click `UNINSTALL-sf-multiplayer.bat` (from the extracted zip).
 - **Linux:** run `./uninstall-linux.sh`.
 
-**What the installer changes:** nothing in the game's own files. It adds the mod loader (BepInEx) if you don't have it, two mod files in `BepInEx/plugins`, a `sf-online` folder in the game folder, the shortcuts, and on Windows a firewall rule for Stick Fight. The uninstaller removes only what it added. Other mods you have are left alone.
+**What the installer changes:** nothing in the game's own files. It adds the mod loader (BepInEx) if you don't have it, two mod files in `BepInEx/plugins`, the online patcher in `BepInEx/patchers/SFOnline`, a `sf-online` folder in the game folder, the shortcuts, and on Windows a firewall rule for Stick Fight. The uninstaller removes only what it added. Other mods you have are left alone.
 
 ## How it works
 
@@ -119,7 +119,7 @@ Here, the match runs on a server instead:
 ```
 
 - **The server runs Stick Fight's own game code**, without graphics, so the rules and physics are the real game's.
-- **The mod on your PC** connects to that server instead of a player host, shows the lobby list, and smooths how other players move on your screen when their updates arrive unevenly.
+- **The mod on your PC** connects to that server instead of a player host, shows the lobby list, and smooths how other players move on your screen when their updates arrive unevenly. The networking changes this needs are made in memory, from your own copy of the game, each time you start Stick Fight Online: no game files are shipped or replaced.
 - **Updates:** each time you start the shortcut, it reads a small file list from this repo and downloads only the files that changed. It checks every download against its checksum before using it.
 
 ---
@@ -130,12 +130,13 @@ Here, the match runs on a server instead:
 |---|---|
 | [`sf-headless-host/`](sf-headless-host) | **Server plugin** (BepInEx + Harmony). Makes a headless copy of Stick Fight act as the match host for every connected player, and adds lobbies, COMP rules, replays and anti-cheat. |
 | [`sf-box-fix/`](sf-box-fix) | Server plugin with crate / physics fixes. |
+| [`sf-online-patcher/`](sf-online-patcher) | **Player patcher** (BepInEx preloader). At an online launch, builds the online game code in memory from the player's own game file; a normal launch is untouched. |
 | [`sf-client-recon/`](sf-client-recon) | **Player plugin.** Connects to the server, smooths remote players, logs performance. |
 | [`sf-server-browser/`](sf-server-browser) | **Player plugin.** The in-game lobby list (F2), scoreboard, English / Spanish. |
 | [`sf-router/`](sf-router) | **Router (Go).** One public UDP port (1338) in front of all lobbies; also answers the lobby list. `go test -race ./...` |
 | [`1-click-install/`](1-click-install) | Windows and Linux installers, the launcher / updater, and `build.sh`. |
 | [`deploy/`](deploy) | What the live server runs: systemd units (`sf-router`, `sf-oracle` = MAIN, `sf-lobby@` = the other lobbies) and `start-oracle-server.sh`. |
-| [`tools/`](tools) | Test and analysis tools, including [`tools/smoothness/`](tools/smoothness) (remote-player smoothness bench). |
+| [`tools/`](tools) | Test and analysis tools, including [`tools/smoothness/`](tools/smoothness) (remote-player smoothness bench) and [`tools/sf-online-donor/`](tools/sf-online-donor) (builds and verifies the patcher's donor file). |
 | [`maps/`](maps) | Map data dumped from the game (spawns, killboxes). |
 | [`notes/`](notes), [`legacy/`](legacy) | Design notes (the [index](notes/README.md) says which are current) and earlier architectures. |
 

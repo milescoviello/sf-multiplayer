@@ -8,8 +8,9 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 
 | Part | Version | Where it ships |
 |---|---|---|
-| SFClientRecon (player plugin) | 0.7.4 | `1-click-install/files/`, auto-update |
+| SFClientRecon (player plugin) | 0.7.5 | `1-click-install/files/`, auto-update |
 | SFServerBrowser (player plugin) | 0.6.1 | `1-click-install/files/`, auto-update |
+| SFOnlinePatcher + SFOnline.donor (player) | 1.0 | `1-click-install/files/`, auto-update; builds the online game code in memory from the player's own game file |
 | SFHeadlessHost (server plugin) | 0.5.0 | `dist/`, live on the server |
 | SFBoxFix (server plugin) | 0.3.3 | `dist/`, live on the server |
 | sf-router | no version | built from `sf-router/` |
@@ -49,6 +50,10 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 - When a lobby restarts mid-match, the relaunched game doesn't take focus on Windows.
 - In one bot test, a remote player fell into the void after a `/map` switch. Not investigated yet.
 - Much of [`notes/`](notes) predates the current server. [`notes/README.md`](notes/README.md) says which docs are current.
+- Issue #11: the shipped game file is gone from the tree (the patcher builds it on each PC), but older commits still contain it. A history rewrite and force-push would purge it.
+- The live server still runs the old modified game file. A test lobby ran fine on the stock file + patcher; switching the four lobbies means installing the patcher there and restarting them.
+- The server's `TickNsoProbe` diagnostic can throw a NullReferenceException after a map change (it reads a crate that was just destroyed). Harmless, but it should null-check.
+- The private bot repo (`StickFightGym.Bot`) is compiled against the old `Assembly-CSharp.srv` name: rebuild it against the stock file to run bots on the patcher build.
 
 ## Working on it
 

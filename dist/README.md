@@ -4,9 +4,10 @@
 
 | File | What it is |
 |---|---|
-| `Assembly-CSharp.srv.v25.dll` | The patched game file: adds `-address` / `-port` and sends the game's messages over plain UDP instead of Steam P2P. The server runs it, and `1-click-install/build.sh` copies it into the player installer (players get it in `<game>/sf-online/`, never over the game's own file). |
 | `SFHeadlessHost.dll` | Server plugin: makes a headless Stick Fight host the match. |
 | `SFBoxFix.dll` | Server plugin: crate / physics fixes, loaded next to SFHeadlessHost. |
+
+The online game code isn't a file here or anywhere in the repo: it is Landfall's code. Players' installs build it in memory from their own copy with [`sf-online-patcher`](../sf-online-patcher) (shipped from `1-click-install/files/`).
 
 These are the builds the live server runs; whoever deploys a new server build copies it here too. To set up a server, see [`notes/DEPLOY.md`](../notes/DEPLOY.md).
 

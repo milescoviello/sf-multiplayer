@@ -20,6 +20,11 @@ the folders. Current state and open work: [`NEXT_STEPS.md`](../NEXT_STEPS.md).
   files are Landfall's. Then `dotnet build -c Release` in the plugin folder.
   Run `tools/check-mono2-landmines.sh` before you ship: some C# compiles but
   breaks under Mono 2.0.
+- **The online patcher** (`sf-online-patcher/`): its `refs/` needs `BepInEx.dll`
+  and `Mono.Cecil.dll` from BepInEx 5.4's `core/` folder. Its donor file
+  (`1-click-install/files/SFOnline.donor`) is rebuilt by `tools/sf-online-donor`
+  from the stock and the online game files, which stay in a local `private/`
+  folder (git ignores it). Never commit an `Assembly-CSharp*.dll`: CI fails on it.
 - **Router** (`sf-router/`): `go build ./... && go test -race ./...`.
 - **Python tooling:** `python -m pytest test_serve_lobbies.py test_sf_monitor.py`.
 

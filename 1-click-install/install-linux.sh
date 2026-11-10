@@ -6,8 +6,9 @@
 #  2. Never changes the game's own files (an older install that patched the
 #     game file is undone).
 #  3. Installs BepInEx 5.4.23.5 if you don't have it (bundled, official zip).
-#  4. Installs the mod: the online game file in <game>/sf-online/ and the
-#     SFClientRecon / SFServerBrowser plugins.
+#  4. Installs the mod: the SFOnlinePatcher (builds the online game code in
+#     memory from your own game file, only for the server) and the
+#     SFClientRecon / SFServerBrowser plugins. No game file is shipped.
 #  5. Sets Stick Fight's Steam launch option to sf-wrap.sh, which starts the
 #     game unchanged unless the "Stick Fight Online" launcher asked for the
 #     server (needs Steam closed: it asks).
@@ -38,7 +39,7 @@ warn() { printf '    \033[33m!!\033[0m  %s\n' "$1"; }
 die()  { printf '    \033[31mERROR\033[0m  %s\n' "$1"; exit 1; }
 
 command -v python3 >/dev/null || die "python3 is needed (it comes with SteamOS and most distros)."
-for f in Assembly-CSharp.srv.v25.dll SFClientRecon.dll SFServerBrowser.dll launch.py sf-wrap.sh steam_options.py; do
+for f in SFOnlinePatcher.dll SFOnline.donor game-file.sha256 SFClientRecon.dll SFServerBrowser.dll launch.py sf-wrap.sh steam_options.py; do
     [ -f "$files/$f" ] || die "Missing installer file files/$f (extract the whole zip first)."
 done
 
@@ -102,8 +103,12 @@ if grep -q UDPReceive "$managed/Assembly-CSharp.dll" 2>/dev/null; then
         warn 'An older install patched the game file and left no backup: asking Steam to re-check Stick Fight.'
         (xdg-open "steam://validate/$APPID" >/dev/null 2>&1 &) || true
     fi
+elif [ "$(sha256sum "$managed/Assembly-CSharp.dll" 2>/dev/null | cut -d' ' -f1 | tr a-f A-F)" != "$(head -1 "$files/game-file.sha256" | tr -d '\r ' | tr a-f A-F)" ]; then
+    warn "Your game file isn't the stock Steam version, and the online mode is built from it."
+    warn 'Steam is re-checking Stick Fight; run this installer again when it has finished.'
+    (xdg-open "steam://validate/$APPID" >/dev/null 2>&1 &) || true
 else
-    ok 'Game file untouched.'
+    ok 'Game file untouched (stock).'
 fi
 
 step 3 'BepInEx (mod loader)...'
@@ -124,7 +129,9 @@ fi
 
 step 4 'Installing the mod...'
 mkdir -p "$plug"
-cp -f "$files/Assembly-CSharp.srv.v25.dll" "$online/Assembly-CSharp.dll"; ok 'Online game file (sf-online, used only for the server)'
+mkdir -p "$game/BepInEx/patchers/SFOnline"
+cp -f "$files/SFOnlinePatcher.dll" "$files/SFOnline.donor" "$game/BepInEx/patchers/SFOnline/"; ok 'SFOnlinePatcher (builds the online game code from your own copy, only for the server)'
+[ -f "$online/Assembly-CSharp.dll" ] && { rm -f "$online/Assembly-CSharp.dll"; ok 'Removed the old online game file'; }
 cp -f "$files/SFClientRecon.dll" "$plug/SFClientRecon.dll"; ok 'SFClientRecon.dll'
 cp -f "$files/SFServerBrowser.dll" "$plug/SFServerBrowser.dll"; ok 'SFServerBrowser.dll'
 for srv in SFHeadlessHost.dll SFBoxFix.dll; do   # server-only: never on a player's PC

@@ -6,7 +6,8 @@
 #     SHA-256 differs, verifying each download before it replaces anything;
 #  3. leaves a one-shot note for sf-wrap.sh (the game's Steam launch option)
 #     and starts Stick Fight through Steam: that one launch goes to the
-#     server; a normal Steam launch stays the normal game.
+#     server (BepInEx's SFOnlinePatcher builds the online game code in memory
+#     from the game's own file); a normal Steam launch stays the normal game.
 # No network, or GitHub down: it just starts the game. Log: launch.log.
 import hashlib, json, os, shutil, socket, subprocess, sys, time, urllib.request
 
@@ -173,6 +174,14 @@ def main():
         update(cfg)
     except Exception as e:  # never block the game on an update problem
         log('update check failed (starting anyway): %s' % e)
+    # Older installs kept a modified game file here; the patcher replaces it.
+    old = os.path.join(DIR, 'Assembly-CSharp.dll')
+    if os.path.exists(old):
+        try:
+            os.remove(old)
+            log('removed the old online game file (the patcher builds it now)')
+        except OSError:
+            pass
     ip = resolve(cfg['server'])
     if not ip:
         log("can't resolve " + cfg['server'])

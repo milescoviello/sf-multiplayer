@@ -39,3 +39,16 @@ jobs:
         run: pip install pytest
       - name: Run tests
         run: python -m pytest test_serve_lobbies.py test_sf_monitor.py -v
+
+  game-files:
+    name: no Landfall game files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: No Assembly-CSharp in the tree or in the installer zip
+        run: |
+          # The online game code is built on each player's PC from their own
+          # copy (sf-online-patcher); the repo must never carry the game file.
+          if git ls-files | grep -iE '(^|/)Assembly-CSharp[^/]*\.dll$'; then echo "an Assembly-CSharp DLL is committed"; exit 1; fi
+          if unzip -l sf-multiplayer-StickFight-Installer.zip | grep -i 'Assembly-CSharp'; then echo "the installer zip contains Assembly-CSharp"; exit 1; fi
+          echo "no game files"
