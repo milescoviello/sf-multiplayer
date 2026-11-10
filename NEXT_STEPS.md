@@ -10,7 +10,7 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 |---|---|---|
 | SFClientRecon (player plugin) | 0.7.4 | `1-click-install/files/`, auto-update |
 | SFServerBrowser (player plugin) | 0.6.1 | `1-click-install/files/`, auto-update |
-| SFHeadlessHost (server plugin) | 0.4.5 (the version string hasn't been bumped since July; the build is current) | `dist/`, live on the server |
+| SFHeadlessHost (server plugin) | 0.5.0 | `dist/`, live on the server |
 | SFBoxFix (server plugin) | 0.3.3 | `dist/`, live on the server |
 | sf-router | no version | built from `sf-router/` |
 
@@ -48,7 +48,6 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 - On a non-host shooter's own screen, their snakes wander. Stock does the same, so it stays.
 - When a lobby restarts mid-match, the relaunched game doesn't take focus on Windows.
 - In one bot test, a remote player fell into the void after a `/map` switch. Not investigated yet.
-- The server plugin still reports version 0.4.5.
 - Much of [`notes/`](notes) predates the current server. [`notes/README.md`](notes/README.md) says which docs are current.
 
 ## Working on it

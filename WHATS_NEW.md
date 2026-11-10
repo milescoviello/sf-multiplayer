@@ -1,6 +1,6 @@
 # What's new — 2026-11-10: repo cleanup
 
-A pass over the whole repo for stale and broken things. Nothing players run changed.
+A pass over the whole repo for stale and broken things. Nothing players download changed.
 
 - **Docs brought up to date:** the README (a start-here guide for players), `NEXT_STEPS.md` (current state, what needs real players, open work), `notes/DEPLOY.md` (setting up a server today), `notes/PROTOCOL.md` (message types 44-52 and the router's LIST / CREATE / RESTART / BIND operations), `notes/ROUTER.md` (port 1338), `notes/ARCHITECTURE.md` (a current section on top), `deploy/README.md`, `dist/README.md`, `monitoring/MONITOR_ACCESS.md`, the contributing guide and the bug report template. The older docs in `notes/` say at the top that they're history, and `notes/README.md` says which is which.
 - **Old files moved to `legacy/`:** the June launcher (`dist/SFLauncher.exe` and friends, which couldn't connect), the early Windows / Spanish install scripts from `deploy/`, and old local-test scripts (`setup-all.sh`, `launch-sf-player.sh`, the ALKA-era `oracle-watchdog.sh`). The June bug-hunt loop (`BUGS_LOOP.md`, `loop-evidence/`) moved to `notes/archive/`. `stress-test-anticheat.py` moved to `tools/`.
@@ -9,6 +9,7 @@ A pass over the whole repo for stale and broken things. Nothing players run chan
 - **Router defaults:** `sf-router` and `launch-router.sh` default to port 1338, as the server runs them.
 - **No emoji** anywhere in the repo.
 - **Code comments:** both plugins' header comments map the current files instead of line numbers from before the July split.
+- **Server plugin 0.5.0:** SFHeadlessHost reported 0.4.5, the July number, through everything since. Now 0.5.0 (no code change beyond the version), deployed to all four lobbies.
 
 # What's new — 2026-11-10 (later): smooth remote players, idle lobbies
 
