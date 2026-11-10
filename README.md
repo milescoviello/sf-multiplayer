@@ -1,203 +1,153 @@
 <div align="center">
 
-## Try it: [Stick Fight Online installer (.zip)](https://github.com/milescoviello/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
+# Stick Fight Online
 
-Unzip → double-click **`INSTALL-sf-multiplayer.bat`** → play with the **Stick Fight Online** shortcut.
-The shortcut updates the mod by itself before every start. Starting Stick Fight from Steam stays the normal game.
+**Stick Fight: The Game on a dedicated server.**
+No player hosts the match, so one player's bad connection or rage-quit can't wreck it for everyone.
 
-`SFClientRecon 0.7.0` · `SFServerBrowser 0.6.0` · lobby list opens on start (**F2** to toggle)
+### [⬇ Download the installer (.zip)](https://github.com/milescoviello/sf-multiplayer/raw/main/sf-multiplayer-StickFight-Installer.zip)
 
-Something not working? See [Install troubleshooting](#install-troubleshooting).
+Windows · Linux / Steam Deck (beta) · needs Stick Fight: The Game on Steam
+
+**Open beta:** it works, and we need testers. See [what to test](#beta-what-we-need-tested).
 
 </div>
 
 ---
 
-# sf-multiplayer — Stick Fight: The Game dedicated server
+## Play in 3 steps (Windows)
 
-**A community project** to kill **Stick Fight's peer-to-peer host model** and replace it with a real **dedicated, server-authoritative** backend — so matches stop rubber-banding, surviving a host's connection drop, and showing each player a different physics simulation.
+1. **Download** the zip above and **extract it** (right-click → *Extract All*). Don't run it from inside the zip.
+2. **Double-click `INSTALL-sf-multiplayer.bat`**, say *Yes* to the admin prompt, and wait for **INSTALL COMPLETE**.
+3. **Start the game with the new "Stick Fight Online" shortcut** (on your desktop and in the Start menu).
 
-In stock Stick Fight one of the players *is* the host: their PC runs the match, everyone else relays through them, and if they lag or leave, the lobby dies and the simulation diverges. **sf-multiplayer removes that.** A headless copy of the game runs the match on a dedicated server (the "oracle"); every player is just a client. The result is lower, *consistent* lag, no host-migration drops, and both screens converging on the **same** authoritative world.
+The game opens with the lobby list on screen. Pick a lobby and press **JOIN**. That's it.
 
-> **What it gives you**
-> - **Dedicated server, no P2P host** — the match lives on the oracle, not on a player's PC.
-> - **Server-authoritative simulation** — physics, killboxes, weapon spawns and damage all resolved on the server (client predicts locally, server reconciles — the CS:GO / Valorant model).
-> - **Anti-cheat** — damage is validated server-side with tick-history rewind; movement/fire is bounded; clients can't fabricate hits or teleport.
-> - **Less lag, more in-sync** — 60 Hz client input, 60 Hz authoritative snapshots, uncapped FPS, client-local crate physics for smoothness.
-> - **Multi-lobby** — one server runs many isolated matches at once; a single-port UDP router fronts them all.
+- **Updates are automatic.** The shortcut checks for a new version every time you start it. You never download the zip again.
+- **Steam still starts the normal game.** The mod only switches on when you use the Stick Fight Online shortcut.
 
-## Features (the client mod)
+## Play on Linux / Steam Deck (beta)
 
-Everything below ships in the **1-click installer** above — drop it on any Steam copy of Stick Fight and you're online.
+> Not yet tested on a real Steam Deck. If you have one, please try it and [tell us how it went](#report-a-bug).
 
-| Feature | What it does |
+1. **Extract the zip** and open a terminal in the `StickFight-Online` folder (in the file manager: right-click → *Open Terminal Here*).
+2. **Run `./install-linux.sh`.** It asks to close Steam, because it can only set Stick Fight's launch option while Steam is closed. Say yes.
+3. **Start "Stick Fight Online"** from your app menu or desktop.
+
+**Steam Deck Game Mode:** in Desktop Mode, open Steam → *Add a Non-Steam Game* → pick **Stick Fight Online**. After that it's in your library in Game Mode.
+
+## Lobbies
+
+| Lobby | Players | What it is |
+|---|---|---|
+| **MAIN** | up to 4 | Normal Stick Fight rules. |
+| **CASUAL** | up to 4 | Same as MAIN, so two groups can play at once. |
+| **COMP** | 1v1 | Competitive rules from the [DSF](https://discord.gg/nrzMBA6XVc) Discord (below). Needs the latest version, which the shortcut keeps you on. |
+| **REPLAY** | watch only | Watch recorded COMP matches. |
+
+**COMP rules:** 100 HP, no health regen, high weapon spawn rate, the DSF weapon and map pool, random spawns, two sets of first-to-25. When two players die at nearly the same time, the server uses each player's ping to decide who died first, so there are no draws. If someone disconnects mid-round, the round is replayed. The server throws out impossible damage (too much, or a hit from too far away) and packet floods.
+
+## In the game
+
+| Key | Does |
 |---|---|
-| **Dedicated-server client** (`SFClientRecon`) | Connects to the dedicated server instead of a P2P host; the game keeps its stock settings (frame rate, physics). |
-| **In-game lobby & server browser** | Press **F2** for the native in-game lobby (BROWSE / JOIN by code / CREATE / SETTINGS), or use the "PLAY ONLINE" menu button. Auto-finds the server from your `-address`. |
-| **English + Spanish UI** | English by default; switch to Spanish in the lobby's **SETTINGS** tab (your choice is saved). |
-| **Server-authoritative crates** | Crates push, tip, tumble and fall off edges like vanilla — but driven so both clients agree, without the old rubber-banding. |
-| **Weapon fixes** | Thrown weapons fly clean and never damage the thrower; the throw button never sticks; map weapons register correctly. |
-| **Explosive barrels & map gimmicks** | Powder barrels detonate again; frozen map scripts can be self-driven (`SF_MAP_LOCAL_TYPES`). |
-| **Anti-cheat host** | Server-side damage validation, tick rewind, and bounds checks (`SFHeadlessHost`). |
-| **Clean uninstall** | The uninstaller restores your game *exactly* as it was and leaves any other mods you had untouched. |
+| **F2** | Open / close the lobby list (works in the menu and during a match) |
+| **Esc** | Close the lobby list |
+| **F3** | Player list (during a match) |
+| **F4** | Show / hide the win counter (during a match) |
+| **Enter** | Chat (type a command, then Enter) |
 
-## Install troubleshooting
+**Starting a match:** same as normal Stick Fight. With 2 or more players in the lobby, fight; when only one is left standing, the match starts. Or type `/start` in chat.
 
-The installer finds Stick Fight, installs BepInEx if you don't have it, puts the mod in `BepInEx\plugins` and `<game>\sf-online\`, allows the game through Windows Firewall and adds the **Stick Fight Online** shortcut. It never changes the game's own files, so Steam launches stay normal, and the uninstaller removes only what it added. The launcher logs what it did to `<game>\sf-online\launch.log`.
+**Chat commands:** type `/help` in chat for the full list. The useful ones:
 
-**First: did the mod actually load?**
-Launch the game once, quit, then open your Stick Fight folder (right-click the game in Steam → Manage → Browse local files) and look for `BepInEx/LogOutput.log`.
-- **No `BepInEx` folder at all** → the installer ran against the wrong folder. Steam libraries on a second drive live at `<drive>:\SteamLibrary\steamapps\common\StickFightTheGame` — re-run the `.bat` and point it there.
-- **`LogOutput.log` exists and contains `Loading [SFClientRecon`** → the mod is in; your problem is connection-side (see below).
+| Command | Does |
+|---|---|
+| `/score` or `/ping` | Score (in COMP) and everyone's ping |
+| `/next` | Skip to the next map (not in COMP) |
+| `/map 12` | Switch to map 12 (not in COMP; `/listmaps` lists them) |
+| `/discount` | COMP: take back the last point (e.g. after a lag-out) |
+| `/lobbies` | What the other lobbies are doing |
 
-**Windows: antivirus / SmartScreen**
-BepInEx's loader (`winhttp.dll`) is a common antivirus false positive, and SmartScreen warns on any unknown `.bat`. If files keep disappearing after you install, add an exclusion for the Stick Fight folder and re-run the installer. Also: run the `.bat` from an extracted folder, not from inside the zip — Explorer's zip preview breaks the relative paths.
+**Watching replays:** join **REPLAY**, press **L** to list the recorded matches, **1-9** to watch one, **R** to restart it.
 
-**Linux / Steam Deck (Proton)**
-Run `./install-linux.sh` from the extracted zip (close Steam first, or let it close Steam for you). It sets Stick Fight's Steam launch option to
+## Something wrong?
 
-```
-"<game>/sf-online/sf-wrap.sh" %command%
-```
+| Problem | Fix |
+|---|---|
+| The game started but there's no lobby list | You started it from Steam. Use the **Stick Fight Online** shortcut. |
+| Windows SmartScreen or antivirus blocks the installer, or files vanish after installing | BepInEx (the mod loader) is a common false positive. Add an exclusion for your Stick Fight folder, then run the installer again. |
+| The installer can't find Stick Fight | It asks for the folder. Steam libraries on another drive are at `<drive>:\SteamLibrary\steamapps\common\StickFightTheGame`. |
+| Stuck on "Connecting to the server…" | Check your internet, and that nothing blocks outgoing UDP. Press F2 and join again. |
+| "Your client is out of date" | You started the game some other way. Use the shortcut: it updates first. |
+| Linux: Stick Fight starts as the normal game | The launch option didn't get set (Steam was open). Run `./install-linux.sh` again, or set it by hand in Steam → Stick Fight → Properties → Launch Options: `"<game>/sf-online/sf-wrap.sh" %command%` |
 
-and adds a **Stick Fight Online** app entry (on the Deck: Desktop Mode → Steam → Add a Non-Steam Game → Stick Fight Online, then it works from Game Mode). Start the game from that entry to play online; a normal Steam launch stays the plain game. If Steam was running during the install, paste the line above into Steam → Stick Fight → Properties → Launch Options yourself. `<game>/sf-online/launch.log` says what the launcher did; `./uninstall-linux.sh` undoes everything.
+### Report a bug
 
-**Stuck on "Connecting to the server…"** or a "Can't find the server" message
-The mod loaded but can't reach the server: check your connection and that nothing blocks outbound UDP. Backing out to the menu and opening the lobby list again (F2) clears most one-off hangs.
+[Open an issue](https://github.com/milescoviello/sf-multiplayer/issues) and say what happened and roughly when. Attach these two files from your Stick Fight folder (in Steam: right-click Stick Fight → *Manage* → *Browse local files*):
 
-**"Your client is out of date"**
-You started the game some other way than the shortcut and missed an update. Start it with **Stick Fight Online** (COMP requires the current client).
+- `BepInEx/LogOutput.log` (what the mod did, plus your frame rate and connection)
+- `sf-online/launch.log` (what the launcher and updater did)
 
-**Still stuck?** Open an [issue](https://github.com/milescoviello/sf-multiplayer/issues) and attach `BepInEx/LogOutput.log` plus `StickFight_Data/output_log.txt` — between them we can see exactly what loaded and what didn't.
+## Beta: what we need tested
 
-## Recent fixes
+These are the things the test bots can't check. Real players can:
 
-Active development (see the [commit history](https://github.com/kitslayer/sf-multiplayer/commits/main) for who did what):
+- **Blocking:** does the shield show where the other player is actually blocking?
+- **Feel at real pings:** do other players move smoothly when you're far from the server?
+- **Steam Deck / Linux:** does the installer work on a real Deck?
+- **Snakes on maps with crates:** do the snakes push the crates?
 
-- **Crates** tip / tumble / fall off edges like vanilla again (the rotation was frozen on the wrong axis); player-push capped so they're not over-floaty.
-- **Weapons** — thrown weapons fly clean and never hit the thrower; the throw button no longer sticks; fast-throw can't duplicate a weapon (rate-limited — also closes that server exploit); map weapons stopped vanishing (a repeated init was deleting them).
-- **Explosive barrels** detonate again.
-- **In-game menu** is clickable again (IMGUI control-id shift was eating clicks).
-- **Lobby UI** auto-finds the server, English/Spanish toggle, native uGUI lobby (**F2**), team scoreboard (RED vs BLUE + extra players, **F4**).
-- **Performance** — killed per-frame reflection + log spam; uncapped FPS; input sent at a fixed 60 Hz regardless of your frame rate.
-- **Stability/hardening** (ongoing review passes) — server-snapshot NaN/Inf sanitization, crate-classification cache correctness, round-boundary projectile cleanup, lobby-switch slot handling, control-plane/ops-script safety, plus input-validator + monitoring hardening. See [`WHATS_NEW.md`](WHATS_NEW.md).
+## Uninstall
 
-## What’s in this repo
+- **Windows:** double-click `UNINSTALL-sf-multiplayer.bat` (from the extracted zip).
+- **Linux:** run `./uninstall-linux.sh`.
 
-|Path                                                                                                                                                         |What it is                                                                                                                                                                                                                                                                                            |
-|-------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-|[`sf-headless-host/`](sf-headless-host)                                                                                                                      |**Server-side plugin.** BepInEx + Harmony plugin (~7,100 lines, plus a ~1,280-line map-terrain helper) that turns headless Stick Fight into a v25 + v26-speaking authoritative server. Drives SF’s own host-side gameplay via Harmony patches, broadcasts state snapshots, processes client inputs, validates damage with tick-history rewind.|
-|[`sf-client-recon/`](sf-client-recon)                                                                                                                        |**Client-side companion plugin.** BepInEx plugin shipped to each player’s install. Receives `WorldStateSnapshot`, smoothly reconciles local state toward server values, detects divergence, sends `PktPlayerInput` at 60Hz, emits projectile-fire events.                                             |
-|[`sf-server-browser/`](sf-server-browser) |**In-game lobby browser plugin.** IMGUI "SERVERS" menu — lists lobbies (`GET /lobbies`), JOIN / join-by-code, and CREATE (`POST`, token-gated). Reads `SF_LOBBY_ENDPOINT`.|
-|[`sf-router/`](sf-router) |**Single-port UDP router (Go).** One public port fronts many lobbies; routes each client to its lobby's backend `SF.exe` via a SELECT control datagram + the `/tmp/sf-lobbies` registry. Unit-tested (`go test -race`).|
-|[`launch-router.sh`](launch-router.sh) |Launches the router in registry (multi-lobby) mode.|
-|[`launch-sf-headless.sh`](launch-sf-headless.sh)                                                                                                             |Single-oracle launcher (Proton + batchmode).                                                                                                                                                                                                                                                          |
-|[`launch-lobby.sh`](launch-lobby.sh) / [`stop-lobby.sh`](stop-lobby.sh) / [`list-lobbies.sh`](list-lobbies.sh) / [`stop-all-lobbies.sh`](stop-all-lobbies.sh)|Multi-lobby management — each lobby is its own isolated SF process + wineprefix + UDP port.                                                                                                                                                                                                           |
-|[`serve-lobbies.py`](serve-lobbies.py)                                                                                                                       |HTTP `/lobbies` JSON endpoint + HTML viewer (for in-game / web server browsers).                                                                                                                                                                                                                      |
-|[`setup-all.sh`](setup-all.sh)                                                                                                                               |One-command build + deploy of both plugins.                                                                                                                                                                                                                                                           |
-|[`launch-sf-player.sh`](launch-sf-player.sh)                                                                                                                 |Graphical second-player instance for local end-to-end testing.                                                                                                                                                                                                                                        |
-|[`deploy/`](deploy)                                                                                                                                          |Windows `.bat` wrappers for lobby management.                                                                                                                                                                                                                                                         |
-|[`maps/`](maps)                                                                                                                                              |123 Landfall scene JSON dumps — geometry, spawns, killboxes. Used by the server for authoritative spawn positions.                                                                                                                                                                                    |
-|[`tools/`](tools)                                                                                                                                            |Python utilities. `dump-sf-maps.py` is an offline UnityPy-based map extractor.                                                                                                                                                                                                                        |
-|[`sf-leveldumper/`](sf-leveldumper)                                                                                                                          |One-shot BepInEx plugin that walks Landfall scenes and dumps geometry to JSON. Not loaded at runtime.                                                                                                                                                                                                 |
-|[`notes/`](notes)                                                                                                                                            |Living design + research docs. [`WHATS_NEW.md`](WHATS_NEW.md) is the running session log; [`NEXT_STEPS.md`](NEXT_STEPS.md) is current state + roadmap; [`notes/ARCHITECTURE.md`](notes/ARCHITECTURE.md) is the system overview.                                                                       |
-|[`legacy/`](legacy)                                                                                                                                          |Earlier architectures (Go dedicated server, v26 client plugin draft, lobby browser, launcher fork) kept for reference. Not in the active data path.                                                                                                                                                   |
+**What the installer changes:** nothing in the game's own files. It adds the mod loader (BepInEx) if you don't have it, two mod files in `BepInEx/plugins`, a `sf-online` folder in the game folder, the shortcuts, and on Windows a firewall rule for Stick Fight. The uninstaller removes only what it added. Other mods you have are left alone.
 
-## Architecture
+## How it works
+
+In normal Stick Fight, one player's PC hosts the match. Everyone else connects through them, so when the host lags, everyone lags, and when the host leaves, the lobby is gone.
+
+Here, the match runs on a server instead:
 
 ```
-Player machines                                Server machine
-(Windows native or Linux/Proton)               (Linux + Proton + Goldberg + BepInEx)
-
-StickFight.exe (graphical)                     StickFight.exe -batchmode -nographics
-  + patched Assembly-CSharp.dll    v25 UDP       + SFHeadlessHost.dll
-  + SFClientRecon.dll              ────────►       • v25 + v26 server (UDP 1337 / 1339)
-                                   v26 input       • Harmony-patches MultiplayerManager
-                                   60Hz            • 60Hz WorldStateSnapshot broadcast
-                                   ◄────────       • Server-authoritative NSOs, projectiles
-                                   v26 snap        • Damage validation w/ tick-history rewind
-                                   60Hz
+ your PC ──────┐
+ friend's PC ──┼──► sf.milescoviello.com:1338 ──► MAIN · CASUAL · COMP · REPLAY
+ friend's PC ──┘     (one port for every lobby)     (each lobby is its own copy of
+                                                     Stick Fight running on the server)
 ```
 
-Real Stick Fight runs in `-batchmode -nographics`. It hosts the match using its own gameplay code; `SFHeadlessHost.dll` makes that code think it’s a multiplayer host. Clients connect on raw UDP. See [`notes/ARCHITECTURE.md`](notes/ARCHITECTURE.md) for the full overview, including authority model and channel routing.
+- **The server runs Stick Fight's own game code**, without graphics, so the rules and physics are the real game's.
+- **The mod on your PC** connects to that server instead of a player host, shows the lobby list, and smooths how other players move on your screen when their updates arrive unevenly.
+- **Updates:** each time you start the shortcut, it reads a small file list from this repo and downloads only the files that changed. It checks every download against its checksum before using it.
 
-## Quickstart
+---
 
-### Launch a single server (headless Stick Fight)
+## For developers
 
-```
-SFHEADLESS_BRIDGEPORT=1341 SFHEADLESS_PORT=1337 SFHEADLESS_DEBUG=1 \
-  bash launch-sf-headless.sh
-```
+| Folder | What it is |
+|---|---|
+| [`sf-headless-host/`](sf-headless-host) | **Server plugin** (BepInEx + Harmony). Makes a headless copy of Stick Fight act as the match host for every connected player, and adds lobbies, COMP rules, replays and anti-cheat. |
+| [`sf-box-fix/`](sf-box-fix) | Server plugin with crate / physics fixes. |
+| [`sf-client-recon/`](sf-client-recon) | **Player plugin.** Connects to the server, smooths remote players, logs performance. |
+| [`sf-server-browser/`](sf-server-browser) | **Player plugin.** The in-game lobby list (F2), scoreboard, English / Spanish. |
+| [`sf-router/`](sf-router) | **Router (Go).** One public UDP port (1338) in front of all lobbies; also answers the lobby list. `go test -race ./...` |
+| [`1-click-install/`](1-click-install) | Windows and Linux installers, the launcher / updater, and `build.sh`. |
+| [`deploy/`](deploy) | What the live server runs: systemd units (`sf-router`, `sf-oracle` = MAIN, `sf-lobby@` = the other lobbies) and `start-oracle-server.sh`. |
+| [`tools/`](tools) | Test and analysis tools, including [`tools/smoothness/`](tools/smoothness) (remote-player smoothness bench). |
+| [`maps/`](maps) | Map data dumped from the game (spawns, killboxes). |
+| [`notes/`](notes), [`legacy/`](legacy) | Older design notes and earlier architectures. Much of it is out of date. |
 
-This launches Stick Fight under Proton in `-batchmode -nographics`, loads `SFHeadlessHost.dll` via BepInEx, and binds the v25 raw-UDP server on `0.0.0.0:1337`. Logs go to `$SF_MIRROR/BepInEx/LogOutput.log` and `/tmp/sf-oracle-unity-1341.log`.
+**Build a plugin:** each plugin folder needs a `refs/` folder with `Assembly-CSharp.dll` and `UnityEngine.dll` (from your own `StickFight_Data/Managed/`) and `BepInEx.dll` + `0Harmony.dll` (from BepInEx 5.4). They aren't in this repo because the game files are Landfall's. Then run `dotnet build -c Release` in the plugin folder. The game is Unity 5.6 on Mono 2.0, so `tools/check-mono2-landmines.sh` flags C# that compiles but breaks at runtime.
 
-### Launch a multi-lobby host
+**Ship an update to players:** build the plugins, run `1-click-install/build.sh` (it copies the files, writes `manifest.json` with each file's SHA-256 and rebuilds the zip), then commit and push to `main`. Every player gets it the next time they start the shortcut.
 
-```
-bash launch-lobby.sh CODE123      # spawn one isolated lobby
-bash list-lobbies.sh              # tabulate running lobbies
-python serve-lobbies.py           # HTTP /lobbies JSON for browsers
-```
+**Run your own server:** a Linux machine with Proton, a copy of Stick Fight with BepInEx and the two server plugins, and the units in [`deploy/`](deploy). [`notes/DEPLOY.md`](notes/DEPLOY.md) has the long version but predates the router: players now connect on UDP 1338 (the router), and the per-lobby ports (1337, 1341…) stay on the server.
 
-Each lobby is a fully isolated SF process on its own UDP port with its own wineprefix. ~500 MB RAM + 1 vCPU per lobby; a hobby VPS handles 6–8 concurrent.
+**Wire format:** Stick Fight's own messages, sent as plain UDP instead of Steam P2P: `[u32 timestamp][u8 msgType][body][u64 steamID][u8 channel]`. The last 9 bytes carry what Steam P2P used to supply. The server adds message types 39+ for world snapshots, input and its own control messages. Details: [`notes/PROTOCOL.md`](notes/PROTOCOL.md).
 
-### Connect a real client
-
-For a Steam install of Stick Fight, set these launch options:
-
-```
-WINEDLLOVERRIDES="winhttp=n,b" %command% -address 127.0.0.1 -port 1337
-```
-
-The `-address` / `-port` flags are read by a patched `Assembly-CSharp.dll`. For a Goldberg-shimmed local mirror, use [`launch-sf-player.sh`](launch-sf-player.sh).
-
-### Build the plugins
-
-Both `SFHeadlessHost` and `SFClientRecon` are .NET 4.6 BepInEx 5 assemblies. **You need to provide the reference DLLs locally** — they’re not in this repo for copyright reasons. Each plugin’s `refs/` directory needs:
-
-- `Assembly-CSharp.dll` — from your Stick Fight install (`StickFight_Data/Managed/`)
-- `UnityEngine.dll` — same directory
-- `BepInEx.dll`, `0Harmony.dll` — from a BepInEx 5.4.x install
-
-Then:
-
-```
-bash setup-all.sh
-```
-
-This builds both plugins and deploys them to your local oracle + Steam installs.
-
-## Wire protocol
-
-Every packet wraps the SF MsgType body in a 14-byte envelope:
-`[u32 timestamp LE][u8 msgType][N body][u64 steamID LE][u8 channel]`
-
-SF’s stock `P2PPackageHandler.MsgType` enum has 38 entries (`Ping=0` … `KickPlayer=38`). This repo extends with **v26.7** (current snapshot wire version — append-only sections, so older clients ignore trailing ones):
-
-|ID|Direction              |Purpose                                                                                                                                 |
-|--|-----------------------|----------------------------------------------------------------------------------------------------------------------------------------|
-|39|server → clients @ 60Hz|`WorldStateSnapshot` — player positions w/ `lastInputSeq`, NSO positions, projectile positions, `MapInfoSyncableBase` platform positions|
-|40|client → server @ 60Hz |`PktPlayerInput` — stick + aim + buttons + sequence number                                                                              |
-|41|client → server, event |`PktClientFireWeapon` — emitted on local `Weapon.ActuallyShoot`                                                                         |
-
-Implementation lives in [`sf-headless-host/SFHeadlessHost.cs`](sf-headless-host/SFHeadlessHost.cs) (server) and [`sf-client-recon/SFClientRecon.cs`](sf-client-recon/SFClientRecon.cs) (client). Full byte layouts in [`notes/PROTOCOL.md`](notes/PROTOCOL.md). Channel-routing reference in [`notes/ARCHITECTURE.md`](notes/ARCHITECTURE.md).
-
-## Development status
-
-> **Heads up on doc freshness:** this project moves fast and some of the notes
-> and READMEs linked below lag behind the code — facts in this top-level README
-> are kept current, but deeper docs may describe an older iteration. They'll be
-> brought up to date as the server gets closer to complete; when in doubt, the
-> commit history and `WHATS_NEW.md` are the freshest sources.
-
-- [`WHATS_NEW.md`](WHATS_NEW.md) — running session log (start here)
-- [`NEXT_STEPS.md`](NEXT_STEPS.md) — current state + remaining work
-- [`notes/ARCHITECTURE.md`](notes/ARCHITECTURE.md) — full system overview
-- [`notes/PROTOCOL.md`](notes/PROTOCOL.md) — wire-format spec
-- [`notes/OBJECT_SYNC.md`](notes/OBJECT_SYNC.md) — debugging guide for SF’s three world-object sync mechanisms (NSO, MapInfoSyncableBase, DestructiblePiece)
-- [`notes/BUGS_BACKLOG.md`](notes/BUGS_BACKLOG.md) — incident log with root causes + fixes
-- [`notes/REVIEW_2026-06-10.md`](notes/REVIEW_2026-06-10.md) — last standalone full-repo deep audit (the 2026-06-22 polish loop and 2026-06-25 review sweep that followed are logged in [`WHATS_NEW.md`](WHATS_NEW.md))
+**Where things stand:** [`WHATS_NEW.md`](WHATS_NEW.md) is the change log (newest first) and [`NEXT_STEPS.md`](NEXT_STEPS.md) the current state and open work. Both are kept current.
 
 Issues and PRs welcome.
 
@@ -207,12 +157,10 @@ Issues and PRs welcome.
 
 | Name | Role | Contact |
 |------|------|---------|
-| **kit** | **Lead & maintainer.** Dedicated server & VPS oracle, headless host, v26 protocol, single-port relay/router, multi-lobby, monitoring, anti-cheat, hosting & deploy. | GitHub: [@kitslayer](https://github.com/kitslayer) |
+| **kit** | **Lead & maintainer.** Dedicated server & VPS oracle, headless host, v26 protocol, single-port relay/router, multi-lobby, monitoring, anti-cheat, hosting & deploy. | GitHub: [@milescoviello](https://github.com/milescoviello) |
 | **ALKA** | **Major early contributor — client side (now departed).** Client mod, in-game lobby/GUI, crate & box physics, FPS uncap, the Windows installer, and live testing & QA. Has since moved on to a separate edition for the Spanish-speaking community. | GitHub: [@AlkaPrime12](https://github.com/AlkaPrime12) |
 
-This project is led and maintained by kit — the dedicated server, backend, protocol, router, and hosting. ALKA contributed a great deal on the client side early on (the client mod, in-game lobby/GUI, and crate/box physics) before stepping away from this project, and that work is still part of what ships here. The split of work is visible in each author's commits — see the [commit history](https://github.com/kitslayer/sf-multiplayer/commits/main).
-
-Repo: [github.com/kitslayer/sf-multiplayer](https://github.com/kitslayer/sf-multiplayer)
+This project is led and maintained by kit — the dedicated server, backend, protocol, router, and hosting. ALKA contributed a great deal on the client side early on (the client mod, in-game lobby/GUI, and crate/box physics) before stepping away from this project, and that work is still part of what ships here. The split of work is visible in each author's commits — see the [commit history](https://github.com/milescoviello/sf-multiplayer/commits/main).
 
 ### Other
 
