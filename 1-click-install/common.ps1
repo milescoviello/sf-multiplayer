@@ -45,3 +45,12 @@ function Get-ShortcutPaths {
     $paths += (Join-Path ([Environment]::GetFolderPath('Programs')) $ShortcutName)
     return $paths
 }
+
+# The firewall rule for THIS copy of the game only (another copy on the same
+# PC, e.g. a second Steam library, keeps its own rule).
+function Get-SfFirewallRules($exe) {
+    Get-NetFirewallRule -DisplayName 'Stick Fight Online' -ErrorAction SilentlyContinue | Where-Object {
+        $prog = ($_ | Get-NetFirewallApplicationFilter -ErrorAction SilentlyContinue).Program
+        $prog -and ([IO.Path]::GetFullPath($prog) -ieq [IO.Path]::GetFullPath($exe))
+    }
+}

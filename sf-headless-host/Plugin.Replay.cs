@@ -94,10 +94,7 @@ namespace SFHeadlessHost
                 string code = Environment.GetEnvironmentVariable("SF_LOBBY_CODE") ?? "LOBBY";
                 string dir = Path.Combine(ReplayRoot, code);
                 Directory.CreateDirectory(dir);
-                // A ".part" left by an earlier run (the server was stopped mid-
-                // recording) is as complete as it will get: list it.
-                foreach (var part in Directory.GetFiles(dir, "*.sfrp.part"))
-                    try { File.Move(part, part.Substring(0, part.Length - 5)); } catch { }
+                RecoverPartReplays();
                 var roster = new List<string>();
                 foreach (var kv in _sfClients)
                     if (IsParticipant(kv.Value)) roster.Add($"{kv.Value.Slot}:{kv.Value.SteamID}");
@@ -112,6 +109,26 @@ namespace SFHeadlessHost
                 PruneReplays(dir);
             }
             catch (Exception e) { Log.LogWarning($"[replay] start failed: {e.Message}"); _replay = null; }
+        }
+
+        // A ".part" left by an earlier run (the lobby was restarted or stopped
+        // mid-recording) is as complete as it will get: list it. Run at boot
+        // too, so a match cut off by a restart is in REPLAY right away (it used
+        // to wait for this lobby's next recording).
+        private void RecoverPartReplays()
+        {
+            if (!RecordingEnabled || _replay != null) return;
+            try
+            {
+                string dir = Path.Combine(ReplayRoot, Environment.GetEnvironmentVariable("SF_LOBBY_CODE") ?? "LOBBY");
+                if (!Directory.Exists(dir)) return;
+                foreach (var part in Directory.GetFiles(dir, "*.sfrp.part"))
+                {
+                    try { File.Move(part, part.Substring(0, part.Length - 5)); Log.LogInfo($"[replay] recovered {Path.GetFileName(part)} (cut off by a restart)."); }
+                    catch { }
+                }
+            }
+            catch (Exception e) { Log.LogWarning($"[replay] recover: {e.Message}"); }
         }
 
         private void OnApplicationQuit() { StopRxThread(); StopRecording("quit"); }

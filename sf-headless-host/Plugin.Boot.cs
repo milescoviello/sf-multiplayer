@@ -683,6 +683,7 @@ namespace SFHeadlessHost
                 _sfServer.Client.Blocking = false;
                 Log.LogInfo($"SF server: listening on UDP {BindPort} (raw v25 protocol).");
                 StartRxThread();
+                RecoverPartReplays();
             }
             catch (Exception e)
             {

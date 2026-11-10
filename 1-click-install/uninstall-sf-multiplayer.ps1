@@ -35,7 +35,7 @@ foreach ($p in @('SFClientRecon.dll', 'SFServerBrowser.dll')) {
 }
 $pre = Join-Path $Sf 'BepInEx\patchers\SFOnlinePreloader.dll'
 if (Test-Path $pre) { Remove-Item $pre -Force; Ok 'Removed SFOnlinePreloader.dll' }
-try { Get-NetFirewallRule -DisplayName 'Stick Fight Online' -ErrorAction SilentlyContinue | Remove-NetFirewallRule; Ok 'Removed the firewall rule' } catch { }
+try { $rules = @(Get-SfFirewallRules (Join-Path $Sf 'StickFight.exe')); if ($rules.Count) { $rules | Remove-NetFirewallRule; Ok 'Removed the firewall rule' } } catch { }
 $doorstop = Join-Path $Sf 'doorstop_config.ini'
 if (Test-Path "$doorstop.sf-online.bak") { Move-Item "$doorstop.sf-online.bak" $doorstop -Force; Ok 'Restored doorstop_config.ini' }
 
@@ -50,5 +50,13 @@ if ($weInstalledBep -and $otherPlugins.Count -eq 0) {
 } elseif ($weInstalledBep) { Warn 'BepInEx kept: other mods are installed in BepInEx\plugins.' }
 
 if (Test-Path $Online) { Remove-Item $Online -Recurse -Force; Ok 'Removed the launcher' }
-foreach ($lnk in (Get-ShortcutPaths)) { if (Test-Path $lnk) { Remove-Item $lnk -Force; Ok "Removed $lnk" } }
+# Only shortcuts that start THIS copy (the names are shared by every copy).
+$shell = New-Object -ComObject WScript.Shell
+foreach ($lnk in (Get-ShortcutPaths)) {
+    if (-not (Test-Path $lnk)) { continue }
+    $args0 = ''
+    try { $args0 = $shell.CreateShortcut($lnk).Arguments } catch { }
+    if ($args0 -and -not $args0.ToLower().Contains($Online.ToLower())) { Warn "Kept $lnk (it starts another copy of Stick Fight)"; continue }
+    Remove-Item $lnk -Force; Ok "Removed $lnk"
+}
 Write-Host 'Done. Stick Fight is back to normal.' -ForegroundColor Green

@@ -152,7 +152,7 @@ $users = '*S-1-5-32-545:(OI)(CI)M'          # BUILTIN\Users, any Windows languag
 foreach ($d in @($Plug, $Online)) { & icacls $d /grant $users /T /C /Q | Out-Null }
 Ok 'Updates will not need admin.'
 try {
-    Get-NetFirewallRule -DisplayName 'Stick Fight Online' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
+    Get-SfFirewallRules (Join-Path $Sf 'StickFight.exe') | Remove-NetFirewallRule
     New-NetFirewallRule -DisplayName 'Stick Fight Online' -Direction Inbound -Program (Join-Path $Sf 'StickFight.exe') -Protocol UDP -Action Allow -Profile Any | Out-Null
     Ok 'Windows Firewall: Stick Fight allowed (no prompt on first start).'
 } catch { Warn ("Firewall rule not added ({0}); Windows may ask once on first start: click Allow." -f $_.Exception.Message) }

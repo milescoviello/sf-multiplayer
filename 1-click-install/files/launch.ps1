@@ -105,12 +105,32 @@ $gameArgs = "-address $server -port $port --doorstop-enabled true --doorstop-mon
 # Stay (hidden) until the game exits: if the lobby restarted under a match,
 # the game leaves sf-online\rejoin.txt and quits, and is started again
 # straight into that lobby (the game can't rejoin mid-match by itself).
+# A restarted game opens behind whatever had focus: Windows only lets the
+# foreground app give focus away, and this launcher runs hidden. A tapped Alt
+# key lifts that lock for SetForegroundWindow.
+function Bring-ToFront($proc) {
+    try {
+        Add-Type -Namespace SfOnline -Name Win -MemberDefinition @'
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(System.IntPtr h);
+[DllImport("user32.dll")] public static extern bool ShowWindow(System.IntPtr h, int cmd);
+[DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, System.UIntPtr extra);
+'@ -ErrorAction SilentlyContinue
+        for ($i = 0; $i -lt 60 -and $proc.MainWindowHandle -eq [IntPtr]::Zero -and -not $proc.HasExited; $i++) { Start-Sleep -Milliseconds 500; $proc.Refresh() }
+        $h = $proc.MainWindowHandle
+        if ($h -eq [IntPtr]::Zero) { return }
+        [SfOnline.Win]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero)
+        [SfOnline.Win]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero)
+        [void][SfOnline.Win]::ShowWindow($h, 9)
+        [void][SfOnline.Win]::SetForegroundWindow($h)
+    } catch { Log "bring to front: $($_.Exception.Message)" }
+}
 $note = Join-Path $Dir 'rejoin.txt'
 Remove-Item $note -Force -ErrorAction SilentlyContinue
 $env:SF_RELAUNCH = '1'
 for ($run = 0; $run -lt 4; $run++) {
     Log "starting StickFight.exe $gameArgs"
     $p = Start-Process -FilePath (Join-Path $Game 'StickFight.exe') -ArgumentList $gameArgs -WorkingDirectory $Game -PassThru
+    if ($run -gt 0) { Bring-ToFront $p }
     $p.WaitForExit()
     if (-not (Test-Path $note)) { break }
     $lobby = ''
