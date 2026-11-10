@@ -604,6 +604,7 @@ namespace SFHeadlessHost
                     ProfBegin(); TickReplayPlayback(); ProfEnd("TickReplayPlayback");
                     TickClientVersions();
                     TickSessionTokens();
+                    TickPlayerCountFile();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {
                         _pendingRearmCombatAt = -1f;

@@ -2,6 +2,7 @@ package router
 
 import (
 	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -64,5 +65,54 @@ func TestRestartRefusedWhileLobbyHasPlayers(t *testing.T) {
 	case c := <-restarted:
 		t.Fatalf("controller ran for a busy lobby (%s)", c)
 	case <-time.After(300 * time.Millisecond):
+	}
+}
+
+// With a fresh self-report the lobby's count wins over lingering flows: a
+// lobby whose players have left can be restarted right away.
+func TestRestartUsesReportedPlayers(t *testing.T) {
+	echoA, stopA := startEcho(t, "A")
+	defer stopA()
+	resolve := func(code string) (*net.UDPAddr, bool) {
+		if code == "AAAA" {
+			return echoA, true
+		}
+		return nil, false
+	}
+	cli, routerAddr, r := newRoutingTest(t, resolve)
+	defer r.Close()
+	defer cli.Close()
+	var reported atomic.Int32
+	r.SetPlayersOf(func(code string) (int, bool) { return int(reported.Load()), true })
+	restarted := make(chan string, 4)
+	r.SetController(func(op byte, code string) { restarted <- code })
+	selectAndWaitAck(t, cli, "AAAA", 1)
+	if got := sendRecv(t, cli, "p"); got != "A:p" {
+		t.Fatalf("player traffic got %q", got)
+	}
+	other, err := net.DialUDP("udp", nil, routerAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer other.Close()
+	ctl := func(nonce uint32) byte {
+		if _, err := other.Write(buildSelect(opRestart, "AAAA", nonce)); err != nil {
+			t.Fatalf("write RESTART: %v", err)
+		}
+		_ = other.SetReadDeadline(time.Now().Add(2 * time.Second))
+		buf := make([]byte, 64)
+		n, err := other.Read(buf)
+		if err != nil {
+			t.Fatalf("read ctl ack: %v", err)
+		}
+		return buf[n-1-4]
+	}
+	if st := ctl(9); st != ctlAccepted {
+		t.Fatalf("reported empty (flow still open): status %#x, want accepted", st)
+	}
+	<-restarted
+	reported.Store(1)
+	if st := ctl(10); st != ctlRejected {
+		t.Fatalf("reported 1 player: status %#x, want rejected", st)
 	}
 }

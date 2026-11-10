@@ -51,6 +51,33 @@ func (r *Registry) Capacity(code string) byte {
 	return defaultCapacity
 }
 
+// PlayersStale is how old a lobby's .players report may be before the router
+// stops trusting it (the lobby rewrites it at least every 6 s).
+const PlayersStale = 15 * time.Second
+
+// Players returns the player count the lobby itself reports in
+// <dir>/<CODE>.players, or ok=false if there is no report or it is stale.
+func (r *Registry) Players(code string) (int, bool) {
+	code = strings.ToUpper(strings.TrimSpace(code))
+	if code == "" || strings.ContainsAny(code, "/\\.") {
+		return 0, false
+	}
+	path := filepath.Join(r.dir, code+".players")
+	fi, err := os.Stat(path)
+	if err != nil || time.Since(fi.ModTime()) > PlayersStale {
+		return 0, false
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return 0, false
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || n < 0 || n > 255 {
+		return 0, false
+	}
+	return n, true
+}
+
 // Lookup returns the backend address for a lobby code (case-insensitive). It
 // serves from the in-memory cache (kept warm by StartRefresh in production) and
 // only scans the filesystem as a lazy fallback when the cache is stale — and

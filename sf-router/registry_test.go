@@ -125,3 +125,35 @@ func TestRegistryCapacity(t *testing.T) {
 		}
 	}
 }
+
+// A lobby's own player report: used while fresh, ignored when stale/garbled.
+func TestRegistryPlayersReport(t *testing.T) {
+	dir := t.TempDir()
+	reg := NewRegistry(dir, time.Second)
+	if _, ok := reg.Players("CASUAL"); ok {
+		t.Fatal("no report should be ok=false")
+	}
+	path := filepath.Join(dir, "CASUAL.players")
+	if err := os.WriteFile(path, []byte("3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if n, ok := reg.Players("casual"); !ok || n != 3 {
+		t.Fatalf("fresh report: got %d,%v want 3,true", n, ok)
+	}
+	old := time.Now().Add(-PlayersStale - time.Second)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := reg.Players("CASUAL"); ok {
+		t.Fatal("stale report should be ok=false")
+	}
+	if err := os.WriteFile(path, []byte("lots"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := reg.Players("CASUAL"); ok {
+		t.Fatal("garbled report should be ok=false")
+	}
+	if _, ok := reg.Players("../CASUAL"); ok {
+		t.Fatal("path-like code should be ok=false")
+	}
+}

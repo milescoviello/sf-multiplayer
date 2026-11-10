@@ -112,6 +112,9 @@ type Router struct {
 	lister func() []string
 	// capacityOf, when set, returns a lobby's max players for LIST (else 4).
 	capacityOf func(code string) byte
+	// playersOf, when set, returns the player count a lobby reports itself
+	// (ok=false: no fresh report, estimate from flows).
+	playersOf func(code string) (int, bool)
 
 	// controller, when set, handles CREATE/RESTART control ops by proxying to the
 	// local control plane (the router can't spawn Proton itself). Called on a
@@ -318,10 +321,9 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 		}
 		codes := lister()
 		sort.Strings(codes)
-		st := r.Stats() // locks r.mu internally; we hold no lock here
 		lobbies := make([]LobbyInfo, 0, len(codes))
 		for _, c := range codes {
-			players := (st.ByCode[c] + 1) / 2 // a player ≈ 2 flows (recon + game socket)
+			players := r.playersIn(c)
 			if players > 255 {
 				players = 255
 			}
@@ -404,9 +406,9 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 		// browser's RST button), so it is only honoured for an empty lobby:
 		// otherwise any player could end a COMP match for both players.
 		if op == opRestart {
-			if n := r.Stats().ByCode[code]; n > 0 {
+			if n := r.playersIn(code); n > 0 {
 				r.sendCtlAck(cliAddr, nonce, ctlRejected)
-				log.Printf("[router] RESTART %q from %s refused: %d live flow(s) in that lobby", code, cliAddr, n)
+				log.Printf("[router] RESTART %q from %s refused: %d player(s) in that lobby", code, cliAddr, n)
 				return
 			}
 		}
@@ -506,6 +508,30 @@ func (r *Router) SetDefaultCode(code string) {
 func (r *Router) SetLister(fn func() []string) {
 	r.mu.Lock()
 	r.lister = fn
+	r.mu.Unlock()
+}
+
+// playersIn is a lobby's player count: what the lobby reports (its .players
+// file, via playersOf) while that report is fresh, else an estimate from the
+// open flows (a player ≈ 2: snapshot + game socket), which stay open for
+// FlowIdleTimeout after a player leaves.
+func (r *Router) playersIn(code string) int {
+	r.mu.Lock()
+	fn := r.playersOf
+	r.mu.Unlock()
+	if fn != nil {
+		if n, ok := fn(code); ok {
+			return n
+		}
+	}
+	return (r.Stats().ByCode[code] + 1) / 2
+}
+
+// SetPlayersOf sets the lookup for a lobby's self-reported player count.
+// Call before Run.
+func (r *Router) SetPlayersOf(fn func(code string) (int, bool)) {
+	r.mu.Lock()
+	r.playersOf = fn
 	r.mu.Unlock()
 }
 
