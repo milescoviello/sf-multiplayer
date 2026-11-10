@@ -1,3 +1,10 @@
+# What's new — 2026-11-10 (afternoon): COMP ping equalizer, server on the patcher
+
+- **COMP ping equalizer** (server 0.5.1). Player against player, the server relay is already even: each player sees the other with the other's upload delay plus their own download delay, the same sum both ways. Ping only gives an edge on what the server decides and sends. So in COMP the lower-ping player gets the round start, weapon drops and pickup results held back by half the ping gap (capped at 100 ms), and their pickup requests are held the same way, so a race for a weapon is decided as if both pings were equal. Movement, hits and crates are untouched. Tested with a real ping gap (an 80 to 500 ms delay on one client): round starts, weapon events and pickup requests held for whichever player was lower, rounds and scoring unchanged. One line per round in the plugin log: `[ping-eq] last round: ...`.
+- **The live server runs on the stock game file plus the patcher** (`SF_ONLINE_FORCE=1` in `start-oracle-server.sh`), like the players. The old modified file is parked on the server.
+- **Client 0.7.6:** switching lobbies in-game works again on the patcher-built code. The leave step looked up `MultiplayerManager.OnDisconnected` by name and got stock's parameterless one (kept next to the online build's `OnDisconnected(bool)`); it now asks by signature. That's the only method with such a leftover overload.
+- **Server debug probe:** `TickNsoProbe` no longer throws after a map change (it read a crate that was just destroyed).
+
 # What's new — 2026-11-10: no more shipped game file (issue #11)
 
 **The repo no longer contains Landfall's code.** Until now the installer shipped a modified `Assembly-CSharp.dll` (the online game file), and the LICENSE said the repo didn't. That file was a decompile-and-recompile of the whole game assembly. Comparing it method by method with the stock file showed about 630 methods really changed (networking, lobby, UI messages), plus 44 added, out of about 5,700. Everything else was the same code recompiled.

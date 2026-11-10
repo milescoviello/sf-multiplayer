@@ -191,16 +191,21 @@ namespace SFHeadlessHost
             public bool HasRigidbody;
             public bool IsKinematic;
         }
+        private static bool IsDeadProbe(ProbeNsoEntry e) { return e.Component == null; }
+
         private static void TickNsoProbe()
         {
             if (_probeNsos.Count == 0) return;
             if (Time.realtimeSinceStartup < _probeNextLogAt) return;
             _probeNextLogAt = Time.realtimeSinceStartup + 5f;
             int moved = 0;
+            // Unity's == (not a cast to object): a crate destroyed by a map change
+            // is a non-null reference to a dead object, and touching its transform
+            // threw a NullReferenceException in Update. Drop dead entries.
+            _probeNsos.RemoveAll(IsDeadProbe);
             for (int i = 0; i < _probeNsos.Count; i++)
             {
                 var e = _probeNsos[i];
-                if ((object)e.Component == null) continue;
                 Vector3 cur = e.Component.transform.position;
                 float disp = (cur - e.InitialPos).magnitude;
                 if (disp > 0.05f) moved++;

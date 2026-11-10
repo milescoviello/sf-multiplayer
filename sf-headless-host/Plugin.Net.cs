@@ -365,6 +365,7 @@ namespace SFHeadlessHost
                 // mSpawnedWeapons which is empty on the oracle, so we
                 // bypass validation. (1 client, no anti-cheat threat model.)
                 case PktClientRequestingWeaponPickUp:
+                    if (PeMaybeHoldPickup(cli, data, bodyOffset, bodyLen)) break;   // COMP ping equalizer
                     HandlePickupRequest(cli, data, bodyOffset, bodyLen);
                     break;
 
@@ -655,6 +656,7 @@ namespace SFHeadlessHost
             int tailOff = 5 + (body?.Length ?? 0);
             WriteU64LE(pkt, tailOff, steamID);
             pkt[tailOff + 8] = channel;
+            if (PeMaybeHold(to, msgType, pkt)) return;   // COMP ping equalizer (Plugin.PingEqualizer.cs)
             try
             {
                 _sfServer.Send(pkt, pkt.Length, to);

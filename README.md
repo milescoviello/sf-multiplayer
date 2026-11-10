@@ -45,7 +45,7 @@ The game opens with the lobby list on screen. Pick a lobby and press **JOIN**. T
 | **COMP** | 1v1 | Competitive rules from the [DSF](https://discord.gg/nrzMBA6XVc) Discord (below). Needs the latest version, which the shortcut keeps you on. |
 | **REPLAY** | watch only | Watch recorded COMP matches. |
 
-**COMP rules:** 100 HP, no health regen, high weapon spawn rate, the DSF weapon and map pool, random spawns, two sets of first-to-25. When two players die at nearly the same time, the server uses each player's ping to decide who died first, so there are no draws. If someone disconnects mid-round, the round is replayed. The server throws out impossible damage (too much, or a hit from too far away) and packet floods.
+**COMP rules:** 100 HP, no health regen, high weapon spawn rate, the DSF weapon and map pool, random spawns, two sets of first-to-25. When two players die at nearly the same time, the server uses each player's ping to decide who died first, so there are no draws. If someone disconnects mid-round, the round is replayed. The server evens out ping: the round start, weapon drops and who gets a contested weapon reach both players as if they had the same ping. It also throws out impossible damage (too much, or a hit from too far away) and packet floods.
 
 ## In the game
 

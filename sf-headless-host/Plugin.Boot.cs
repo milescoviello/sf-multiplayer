@@ -601,6 +601,7 @@ namespace SFHeadlessHost
                     TickSessionTokens();
                     TickPlayerCountFile();
                     TickIdleFrameCap();
+                    TickPingEqualizer();
                     TickRxTiming();
                     if (_pendingRearmCombatAt > 0f && Time.realtimeSinceStartup >= _pendingRearmCombatAt)
                     {

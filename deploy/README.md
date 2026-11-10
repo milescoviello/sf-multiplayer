@@ -34,7 +34,7 @@ SF_COMP=1
 SF_ANTICHEAT_ENFORCE=1
 ```
 
-REPLAY uses `SF_REPLAY_MODE=1` and `SF_REPLAY_SOURCE=/home/miles/sf-replays/COMP`. CASUAL only sets its ports.
+COMP also gets the ping equalizer (on by default in COMP; `SF_PING_EQUALIZE=0` turns it off, `SF_PING_EQUALIZE_MAX_MS` caps the hold, default 100). REPLAY uses `SF_REPLAY_MODE=1` and `SF_REPLAY_SOURCE=/home/miles/sf-replays/COMP`. CASUAL only sets its ports.
 
 ## Common commands
 
