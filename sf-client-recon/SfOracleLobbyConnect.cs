@@ -377,6 +377,13 @@ namespace SFClientRecon
                 if (RefOk(bi)) { bi._bannerText = "Can't switch lobbies mid-match — leave to the menu first."; bi._bannerUntilUtc = DateTime.UtcNow.AddSeconds(4); }
                 return;
             }
+            JoinLobbyNow(code);
+        }
+
+        // RequestJoinLobby minus the mid-match refusal: also used to rejoin a
+        // lobby that restarted under us (that match is gone anyway).
+        private static void JoinLobbyNow(string code)
+        {
             SelectedLobbyCode = code;
             Log.LogInfo($"[oracle-lobby] RequestJoinLobby({code}) — SELECT + connect via router.");
             var inst = Instance;
@@ -414,6 +421,7 @@ namespace SFClientRecon
 
         private static void LeaveCurrentLobbyForSwitch()
         {
+            _sessionToken = 0;   // the next lobby issues its own
             try
             {
                 if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
@@ -607,6 +615,149 @@ namespace SFClientRecon
             catch (Exception e) { Log.LogWarning($"[oracle-lobby] game socket BIND: {e.Message}"); }
         }
 
+        // Session token (server msgType 50, after ClientInit). Every player
+        // reaches the server through the router, so the server can't tell
+        // players apart by address: the token is how it knows us. Repeated from
+        // the game socket every 2 s (msgType 51): if our address changes mid-
+        // match (the router restarted, or a home router changed our port), the
+        // server moves our session to the new address instead of losing us.
+        // Also sent with msgType 48 from the snapshot socket, which binds that
+        // socket to our slot so no one else can claim it.
+        private const byte PktSessionToken = 50;
+        private const byte PktGameHello = 51;
+        internal static uint _sessionToken;
+        private static float _nextGameHelloAt;
+        internal static void SendGameHello(object pktHandler)
+        {
+            try
+            {
+                if (_sessionToken == 0 || Time.realtimeSinceStartup < _nextGameHelloAt || !RefOk(pktHandler)) return;
+                _nextGameHelloAt = Time.realtimeSinceStartup + 2f;
+                // Left the lobby (pause-menu leave, kick, lobby switch): the
+                // token is spent, and must not trigger a rejoin.
+                if (!RefOk(_mmType)) _mmType = CachedType("MultiplayerManager");
+                var mm = RefOk(_mmType) ? UnityEngine.Object.FindObjectOfType(_mmType) : null;
+                var accF = RefOk(_mmType) ? AccessTools.Field(_mmType, "mHasBeenAcceptedFromServer") : null;
+                if (!RefOk(mm) || !RefOk(accF) || !(bool)accF.GetValue(mm)) { _sessionToken = 0; return; }
+                ulong sid = OwnSteamId();
+                if (sid == 0) return;
+                if (!RefOk(_gameSocketF)) _gameSocketF = AccessTools.Field(pktHandler.GetType(), "_socket");
+                var sock = RefOk(_gameSocketF) ? _gameSocketF.GetValue(pktHandler) as System.Net.Sockets.Socket : null;
+                if (sock == null || !sock.Connected) return;
+                // v25 framing: [u32 ts][type][body][u64 steamId][channel]
+                byte[] pkt = new byte[5 + 12 + 9];
+                uint ts = (uint)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds;
+                for (int i = 0; i < 4; i++) pkt[i] = (byte)(ts >> (8 * i));
+                pkt[4] = PktGameHello;
+                for (int i = 0; i < 8; i++) { pkt[5 + i] = (byte)(sid >> (8 * i)); pkt[17 + i] = pkt[5 + i]; }
+                for (int i = 0; i < 4; i++) pkt[13 + i] = (byte)(_sessionToken >> (8 * i));
+                pkt[25] = 0;
+                sock.Send(pkt);
+            }
+            catch { }
+        }
+
+        // msgType 52: the lobby doesn't know our token: it restarted under us
+        // (a server update, the watchdog, RST) or dropped us.
+        //  - In the lobby room: join the same lobby again in place, the way a
+        //    lobby switch does (leave, then the normal join, whose ClientInit
+        //    respawns our players).
+        //  - On a map: the game can only join from its lobby, and every way
+        //    back there reloads the scene and loses the local players
+        //    (GameManager.RestartGame drops to "press every button to join";
+        //    joining with the old map still loaded made the next MapChange
+        //    unload the game's own scene). A fresh start joins fine, so the
+        //    launcher restarts the game into this lobby: we leave a note
+        //    (sf-online/rejoin.txt) and quit, and the launcher (launch.ps1 /
+        //    sf-wrap.sh, which set SF_RELAUNCH=1) starts it again with
+        //    SF_LOBBY=<code>. Started some other way: just say so.
+        private static void OnSessionUnknown()
+        {
+            if (_sessionToken == 0 || string.IsNullOrEmpty(SelectedLobbyCode)) return;
+            _sessionToken = 0;
+            string code = SelectedLobbyCode;
+            var bi = Instance;
+            if (ClientInLobbyMap())
+            {
+                _rejoinCode = code;
+                _rejoinAt = Time.realtimeSinceStartup + 0.5f;
+                _rejoinTries = 0;
+                Log.LogInfo($"[oracle-lobby] lobby {code} lost our session (it restarted?): rejoining.");
+                if (RefOk(bi)) { bi._bannerText = "The lobby restarted. Rejoining..."; bi._bannerUntilUtc = DateTime.UtcNow.AddSeconds(5); }
+                return;
+            }
+            bool relauncher = Environment.GetEnvironmentVariable("SF_RELAUNCH") == "1";
+            if (relauncher)
+            {
+                try
+                {
+                    File.WriteAllText(Path.Combine(Path.Combine(BepInEx.Paths.GameRootPath, "sf-online"), "rejoin.txt"), code + "\n");
+                    _quitAt = Time.realtimeSinceStartup + 2.5f;
+                    Log.LogInfo($"[oracle-lobby] lobby {code} lost our session mid-match: restarting the game into it.");
+                    if (RefOk(bi)) { bi._bannerText = "The lobby restarted. Restarting Stick Fight to rejoin..."; bi._bannerUntilUtc = DateTime.UtcNow.AddSeconds(5); }
+                    return;
+                }
+                catch (Exception e) { Log.LogWarning($"[oracle-lobby] rejoin note: {e.Message}"); }
+            }
+            Log.LogInfo($"[oracle-lobby] lobby {code} lost our session mid-match (no launcher to restart us).");
+            if (RefOk(bi)) { bi._bannerText = "The lobby restarted. Restart Stick Fight Online to rejoin."; bi._bannerUntilUtc = DateTime.UtcNow.AddSeconds(30); }
+        }
+
+        private const byte PktSessionUnknown = 52;
+        private static string _rejoinCode;
+        private static float _rejoinAt = -1f;
+        private static int _rejoinTries;
+        private static float _quitAt = -1f;
+
+        private static object GameManagerInstance()
+        {
+            if (!RefOk(_gmType)) _gmType = CachedType("GameManager");
+            if (!RefOk(_gmType)) return null;
+            return AccessTools.Property(_gmType, "Instance")?.GetValue(null, null) ?? UnityEngine.Object.FindObjectOfType(_gmType);
+        }
+
+        // The lobby map is loaded and nothing is loading.
+        private static bool ClientInLobbyMap()
+        {
+            try
+            {
+                var gm = GameManagerInstance();
+                if (!RefOk(gm)) return true;
+                var loadingF = AccessTools.Field(_gmType, "isLoading");
+                if (RefOk(loadingF) && (bool)loadingF.GetValue(gm)) return false;
+                var inLobby = AccessTools.Method(_gmType, "IsInLobby");
+                return !RefOk(inLobby) || (bool)inLobby.Invoke(gm, null);
+            }
+            catch { return true; }
+        }
+
+        // Every frame: rejoin once the lobby is back up (its session tokens are
+        // new, so a 52 only comes from a lobby that is answering again).
+        internal static void TickRejoin()
+        {
+            if (_quitAt > 0f && Time.realtimeSinceStartup >= _quitAt)
+            {
+                _quitAt = -1f;
+                // Application.Quit() hung here (stuck in Unity's shutdown, mid-
+                // match); the launcher only needs the process gone.
+                try { PlayerPrefs.Save(); } catch { }
+                Log.LogInfo("[oracle-lobby] closing the game for the restart.");
+                try { System.Diagnostics.Process.GetCurrentProcess().Kill(); } catch { Application.Quit(); }
+                return;
+            }
+            if (_rejoinCode == null || Time.realtimeSinceStartup < _rejoinAt) return;
+            if (!RefOk(GetPktHandler()) || !RefOk(UnityEngine.Object.FindObjectOfType(RefOk(_mmType) ? _mmType : CachedType("MultiplayerManager"))))
+            {
+                _rejoinAt = Time.realtimeSinceStartup + 0.5f;
+                if (++_rejoinTries > 40) { Log.LogWarning("[oracle-lobby] rejoin gave up (no network manager)."); _rejoinCode = null; }
+                return;
+            }
+            string code = _rejoinCode;
+            _rejoinCode = null;
+            Log.LogInfo($"[oracle-lobby] rejoining {code}.");
+            JoinLobbyNow(code);
+        }
+
         internal static void MultiplayerManager_RequestClientInit_OraclePostfix(object __instance)
         {
             if (!_oracleConnectMode) return;
@@ -625,6 +776,7 @@ namespace SFClientRecon
                 // be false while UDP replies (ClientAccepted) are already queued.
                 bool sentOrRx = t.Field<bool>("mHasSentOrReceived").Value;
                 SendGameSocketBind(__instance, false);
+                SendGameHello(__instance);
                 if (_oracleConnectStarted || sentOrRx)
                     ForceInitializedFromServer(null);
                 t.Method("CheckForPackagesOnChannel", new object[] { 1, false }).GetValue();
@@ -650,6 +802,19 @@ namespace SFClientRecon
             byte t = 255;
             if (type is byte b) t = b;
             else if (type != null && byte.TryParse(type.ToString(), out var parsed)) t = parsed;
+            if (t == PktSessionToken)
+            {
+                if (data != null && data.Length >= 4)
+                {
+                    uint tok = BitConverter.ToUInt32(data, 0);
+                    if (tok != _sessionToken) Log.LogInfo("[oracle-lobby] session token received.");
+                    _sessionToken = tok;
+                    _nextGameHelloAt = 0f;
+                }
+                return false;   // ours, not the game's
+            }
+            if (t == PktSessionUnknown) { OnSessionUnknown(); return false; }
+            if (t == 38) _sessionToken = 0;   // KickPlayer: never auto-rejoin after a kick
             // DIAG: surface map/start traffic + the init-flag state at receive time
             // so we can tell whether MapChange(18)/StartMatch(35) actually reach
             // the game socket and whether the guard would drop them.

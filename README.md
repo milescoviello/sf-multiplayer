@@ -32,7 +32,7 @@ Everything below ships in the **1-click installer** above — drop it on any Ste
 
 | Feature | What it does |
 |---|---|
-| **Dedicated-server client** (`SFClientRecon`) | Connects to the oracle instead of a P2P host; runs client prediction + server reconciliation; uncaps FPS. |
+| **Dedicated-server client** (`SFClientRecon`) | Connects to the dedicated server instead of a P2P host; the game keeps its stock settings (frame rate, physics). |
 | **In-game lobby & server browser** | Press **F2** for the native in-game lobby (BROWSE / JOIN by code / CREATE / SETTINGS), or use the "PLAY ONLINE" menu button. Auto-finds the server from your `-address`. |
 | **English + Spanish UI** | English by default; switch to Spanish in the lobby's **SETTINGS** tab (your choice is saved). |
 | **Server-authoritative crates** | Crates push, tip, tumble and fall off edges like vanilla — but driven so both clients agree, without the old rubber-banding. |
@@ -54,13 +54,13 @@ Launch the game once, quit, then open your Stick Fight folder (right-click the g
 BepInEx's loader (`winhttp.dll`) is a common antivirus false positive, and SmartScreen warns on any unknown `.bat`. If files keep disappearing after you install, add an exclusion for the Stick Fight folder and re-run the installer. Also: run the `.bat` from an extracted folder, not from inside the zip — Explorer's zip preview breaks the relative paths.
 
 **Linux / Steam Deck (Proton)**
-Proton won't load BepInEx unless you add this to the game's Steam launch options (right-click → Properties → Launch Options):
+Run `./install-linux.sh` from the extracted zip (close Steam first, or let it close Steam for you). It sets Stick Fight's Steam launch option to
 
 ```
-WINEDLLOVERRIDES="winhttp=n,b" %command%
+"<game>/sf-online/sf-wrap.sh" %command%
 ```
 
-Without it the game runs completely stock and `LogOutput.log` never updates.
+and adds a **Stick Fight Online** app entry (on the Deck: Desktop Mode → Steam → Add a Non-Steam Game → Stick Fight Online, then it works from Game Mode). Start the game from that entry to play online; a normal Steam launch stays the plain game. If Steam was running during the install, paste the line above into Steam → Stick Fight → Properties → Launch Options yourself. `<game>/sf-online/launch.log` says what the launcher did; `./uninstall-linux.sh` undoes everything.
 
 **Stuck on "Connecting to the server…"** or a "Can't find the server" message
 The mod loaded but can't reach the server: check your connection and that nothing blocks outbound UDP. Backing out to the menu and opening the lobby list again (F2) clears most one-off hangs.

@@ -21,7 +21,7 @@ cp "$root/dist/Assembly-CSharp.srv.v25.dll"                  "$files/Assembly-CS
 [ -n "${SF_INSTALLER_SERVER:-}" ] && echo "$SF_INSTALLER_SERVER" > "$here/server.txt"
 echo "https://raw.githubusercontent.com/$repo/$branch/1-click-install/manifest.json" > "$here/manifest-url.txt"
 ver="$(date -u +%Y%m%d-%H%M)-$(git -C "$root" rev-parse --short HEAD)"
-entry() { printf '    {"path": "%s", "url": "%s/%s", "sha256": "%s"}' "$1" "$raw" "$2" "$(sha256sum "$files/$2" | cut -d' ' -f1 | tr a-f A-F)"; }
+entry() { printf '    {"path": "%s", "url": "%s/%s", "sha256": "%s"%s}' "$1" "$raw" "$2" "$(sha256sum "$files/$2" | cut -d' ' -f1 | tr a-f A-F)" "${3:+, \"os\": \"$3\"}"; }
 {
   echo '{'
   echo "  \"version\": \"$ver\","
@@ -31,8 +31,11 @@ entry() { printf '    {"path": "%s", "url": "%s/%s", "sha256": "%s"}' "$1" "$raw
   entry "sf-online/Assembly-CSharp.dll" "Assembly-CSharp.srv.v25.dll"; echo ','
   entry "BepInEx/plugins/SFClientRecon.dll" "SFClientRecon.dll"; echo ','
   entry "BepInEx/plugins/SFServerBrowser.dll" "SFServerBrowser.dll"; echo ','
-  entry "sf-online/launch.ps1" "launch.ps1"; echo ','
-  entry "sf-online/launch.vbs" "launch.vbs"; echo
+  entry "sf-online/launch.ps1" "launch.ps1" windows; echo ','
+  entry "sf-online/launch.vbs" "launch.vbs" windows; echo ','
+  entry "sf-online/launch.py" "launch.py" linux; echo ','
+  entry "sf-online/sf-wrap.sh" "sf-wrap.sh" linux; echo ','
+  entry "sf-online/steam_options.py" "steam_options.py" linux; echo
   echo '  ]'
   echo '}'
 } > "$here/manifest.json"
@@ -40,8 +43,10 @@ stage="$(mktemp -d)"; pkg="$stage/StickFight-Online"
 mkdir -p "$pkg/files" "$pkg/bepinex"
 cp "$here"/INSTALL-sf-multiplayer.bat "$here"/UNINSTALL-sf-multiplayer.bat "$here"/common.ps1 \
    "$here"/install-sf-multiplayer.ps1 "$here"/uninstall-sf-multiplayer.ps1 "$here"/README-INSTALL.txt \
+   "$here"/install-linux.sh "$here"/uninstall-linux.sh \
    "$here"/server.txt "$here"/manifest-url.txt "$pkg/"
-cp "$files"/SFClientRecon.dll "$files"/SFServerBrowser.dll "$files"/Assembly-CSharp.srv.v25.dll "$files"/launch.ps1 "$files"/launch.vbs "$pkg/files/"
+cp "$files"/SFClientRecon.dll "$files"/SFServerBrowser.dll "$files"/Assembly-CSharp.srv.v25.dll "$files"/launch.ps1 "$files"/launch.vbs \
+   "$files"/launch.py "$files"/sf-wrap.sh "$files"/steam_options.py "$pkg/files/"
 cp "$here"/bepinex/BepInEx_win_x86_*.zip "$pkg/bepinex/"
 rm -f "$root/sf-multiplayer-StickFight-Installer.zip"
 (cd "$stage" && zip -qr "$root/sf-multiplayer-StickFight-Installer.zip" StickFight-Online)

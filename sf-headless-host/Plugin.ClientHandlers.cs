@@ -335,6 +335,7 @@ namespace SFHeadlessHost
                 SendSfPacket(cli.Addr, PktClientInit, body, cli.SteamID, 0);
                 cli.Initialized = true;
                 cli.InitializedAt = Time.realtimeSinceStartup;
+                if (!ReplayMode) IssueSessionToken(cli);
             }
 
             // Post-init bundle. Per sfdsrv comment: without these (specifically
@@ -509,7 +510,7 @@ namespace SFHeadlessHost
                 if (kv.Value.Slot == slot) { owner = kv.Value; break; }
             }
             if (owner == null || (object)owner.Addr == null || (object)from == null
-                || !owner.Addr.Address.Equals(from.Address))
+                || !owner.Addr.Address.Equals(from.Address) || !V26AddressOk(owner, from))
             {
                 _inputPacketsDropped++;
                 if (_inputPacketsDropped == 1 || _inputPacketsDropped % 200 == 0)

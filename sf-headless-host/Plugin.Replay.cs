@@ -459,6 +459,7 @@ namespace SFHeadlessHost
             foreach (var kv in _sfClients)
                 if (kv.Value.Initialized && kv.Value.IsSpectator && kv.Value.SteamID == sid && kv.Value.Slot >= 0) { cli = kv.Value; break; }
             if (cli == null) return;   // players learn their v26 address from PlayerInput
+            if (!V26AddressOk(cli, from)) return;
             IPEndPoint prev;
             if (!_slotV26Endpoint.TryGetValue(cli.Slot, out prev) || !prev.Equals(from))
             {

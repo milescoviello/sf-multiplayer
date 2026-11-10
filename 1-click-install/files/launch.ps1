@@ -45,6 +45,7 @@ if ($cfg -and $cfg.manifestUrl) {
         }
         $changed = 0
         foreach ($f in $m.files) {
+            if ($f.os -eq 'linux') { continue }
             $rel = ($f.path -replace '/', '\')
             if ($rel.Contains('..') -or [IO.Path]::IsPathRooted($rel)) { Log "skipped unsafe path $($f.path)"; continue }
             $dest = Join-Path $Game $rel
@@ -53,7 +54,8 @@ if ($cfg -and $cfg.manifestUrl) {
             if ($have -ieq $f.sha256) { continue }
             $tmp = "$dest.download"
             New-Item -ItemType Directory -Force -Path (Split-Path -Parent $dest) | Out-Null
-            Invoke-WebRequest -Uri $f.url -OutFile $tmp -UseBasicParsing -TimeoutSec 90
+            try { Invoke-WebRequest -Uri $f.url -OutFile $tmp -UseBasicParsing -TimeoutSec 90 }
+            catch { Remove-Item $tmp -Force -ErrorAction SilentlyContinue; Log "download failed for $($f.path) (kept the old file): $($_.Exception.Message)"; continue }
             $got = (Get-FileHash $tmp -Algorithm SHA256).Hash
             if ($got -ine $f.sha256) { Remove-Item $tmp -Force; Log "checksum mismatch for $($f.path), kept the old file"; continue }
             Move-Item -Force $tmp $dest
@@ -78,5 +80,22 @@ if (-not $ip) {
 $server = $ip
 $override = Join-Path $Game 'sf-online'
 $gameArgs = "-address $server -port $port --doorstop-enabled true --doorstop-mono-dll-search-path-override `"$override`""
-Log "starting StickFight.exe $gameArgs"
-Start-Process -FilePath (Join-Path $Game 'StickFight.exe') -ArgumentList $gameArgs -WorkingDirectory $Game
+# Stay (hidden) until the game exits: if the lobby restarted under a match,
+# the game leaves sf-online\rejoin.txt and quits, and is started again
+# straight into that lobby (the game can't rejoin mid-match by itself).
+$note = Join-Path $Dir 'rejoin.txt'
+Remove-Item $note -Force -ErrorAction SilentlyContinue
+$env:SF_RELAUNCH = '1'
+for ($run = 0; $run -lt 4; $run++) {
+    Log "starting StickFight.exe $gameArgs"
+    $p = Start-Process -FilePath (Join-Path $Game 'StickFight.exe') -ArgumentList $gameArgs -WorkingDirectory $Game -PassThru
+    $p.WaitForExit()
+    if (-not (Test-Path $note)) { break }
+    $lobby = ''
+    try { $lobby = (Get-Content $note -TotalCount 1).Trim().ToUpper() } catch { }
+    Remove-Item $note -Force -ErrorAction SilentlyContinue
+    if ($lobby -notmatch '^[A-Z0-9_-]{1,16}$') { break }
+    $env:SF_LOBBY = $lobby
+    Log "the lobby restarted mid-match: starting the game again into $lobby"
+    Start-Sleep -Milliseconds 500
+}

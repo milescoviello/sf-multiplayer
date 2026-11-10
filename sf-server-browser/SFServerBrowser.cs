@@ -133,9 +133,11 @@ namespace SFServerBrowser
                 return;
             }
             // Started for the server: open the lobby list on the first menu
-            // (now if the menu is already loaded, else when it loads).
-            _openListOnMenu = true;
-            try
+            // (now if the menu is already loaded, else when it loads). Not when
+            // the launcher restarted the game straight into a lobby (SF_LOBBY,
+            // after that lobby restarted mid-match): it rejoins by itself.
+            _openListOnMenu = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("SF_LOBBY"));
+            if (_openListOnMenu) try
             {
                 _currentSceneName = SceneManager.GetActiveScene().name;
                 if (_currentSceneName == "MainScene") { _openListOnMenu = false; _openListAt = Time.unscaledTime + 3f; }

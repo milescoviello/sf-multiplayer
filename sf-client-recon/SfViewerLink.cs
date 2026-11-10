@@ -28,12 +28,14 @@ namespace SFClientRecon
         private void TickClientVersion()
         {
             if (_socket == null || _serverEp == null || Time.unscaledTime < _nextVersionAt) return;
-            _nextVersionAt = Time.unscaledTime + 5f;
+            uint tok = _sessionToken;
+            _nextVersionAt = Time.unscaledTime + (tok != 0 ? 2f : 5f);
             if (!InitializedFromServer()) return;
             ulong sid = OwnSteamId();
             if (sid == 0) return;
             byte[] v = System.Text.Encoding.ASCII.GetBytes(PluginVersion);
-            byte[] pkt = new byte[5 + 9 + v.Length + 9];
+            byte[] pkt = new byte[5 + 9 + v.Length + (tok != 0 ? 4 : 0) + 9];
+            if (tok != 0) for (int i = 0; i < 4; i++) pkt[14 + v.Length + i] = (byte)(tok >> (8 * i));   // binds this socket to our slot
             WriteU32LE(pkt, 0, (uint)(DateTime.UtcNow - new DateTime(1970, 1, 1)).TotalSeconds);
             pkt[4] = PktClientVersion;
             for (int i = 0; i < 8; i++) pkt[5 + i] = (byte)(sid >> (8 * i));

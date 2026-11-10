@@ -44,6 +44,11 @@ namespace SFHeadlessHost
             public float InitializedAt;
             public bool VersionHandled;
             public float KickAt = -1f;
+            // Session token (Plugin.Session.cs).
+            public uint Token;
+            public bool TokenConfirmed;
+            public float TokenSentAt;
+            public bool V26Bound;
         }
 
         // A joined player (not a spectator, not a half-open connection).
@@ -288,6 +293,13 @@ namespace SFHeadlessHost
             {
                 try { HandleClientFireWeapon(data, bodyOffset, bodyLen, from); }
                 catch (Exception ex) { Log.LogWarning($"[SF] HandleClientFireWeapon threw: {ex.Message}"); }
+                return;
+            }
+
+            if (msgType == PktGameHello)
+            {
+                try { HandleGameHello(data, bodyOffset, bodyLen, from); }
+                catch (Exception ex) { Log.LogWarning($"[SF] HandleGameHello threw: {ex.Message}"); }
                 return;
             }
 

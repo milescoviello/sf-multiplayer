@@ -39,6 +39,7 @@ namespace SFHeadlessHost
             int n = data[off + 8];
             if (n <= 0 || n > 32 || len < 9 + n) return;
             string v = System.Text.Encoding.ASCII.GetString(data, off + 9, n);
+            if (len >= 9 + n + 4) BindV26ByToken(sid, BitConverter.ToUInt32(data, off + 9 + n), from);   // 0.7.2+: session token
             foreach (var kv in _sfClients)
             {
                 var c = kv.Value;

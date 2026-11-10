@@ -67,7 +67,7 @@ namespace SFHeadlessHost
                 if (kv.Value.Slot == ownerSlot) { fireOwner = kv.Value; break; }
             }
             if (fireOwner == null || (object)fireOwner.Addr == null || (object)from == null
-                || !fireOwner.Addr.Address.Equals(from.Address))
+                || !fireOwner.Addr.Address.Equals(from.Address) || !V26AddressOk(fireOwner, from))
             {
                 Log.LogWarning($"[P6.17] Fire reject — slot {ownerSlot} from non-owner {from}");
                 return;

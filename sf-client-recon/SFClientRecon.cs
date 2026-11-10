@@ -63,7 +63,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.1";
+        public const string PluginVersion = "0.7.2";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -309,7 +309,7 @@ namespace SFClientRecon
                 Log.LogError($"{PluginName} {PluginVersion}: no server endpoint resolved — RX listener NOT started. Fix -address/-port and relaunch.");
                 return;
             }
-            Log.LogInfo($"{PluginName} {PluginVersion}: starting v26 snapshot listener on UDP :{_listenPort}. vSync off, FPS uncapped.");
+            Log.LogInfo($"{PluginName} {PluginVersion}: starting v26 snapshot listener on UDP :{_listenPort}.");
             try
             {
                 _socket = new UdpClient(_listenPort);
@@ -395,6 +395,7 @@ namespace SFClientRecon
             try { ApplyPlayersLeft(); } catch { }
             try { TickViewerLink(); } catch { }
             try { TickOracleAutoConnect(); } catch { }
+            try { TickRejoin(); } catch { }
             try { TickDebugConsole(); } catch { }
             try { TickChannelNullFill(); } catch { }
             List<SnapshotEntry> snap;

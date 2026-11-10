@@ -22,6 +22,7 @@
 package router
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -545,7 +546,14 @@ func (r *Router) pumpUpstream(fl *flow) {
 	for {
 		n, err := fl.upSock.Read(buf)
 		if err != nil {
-			return // socket closed by reaper/Close, or backend gone
+			if errors.Is(err, net.ErrClosed) {
+				return // socket closed by the reaper or Close
+			}
+			// Anything else (ECONNREFUSED: ICMP port-unreachable while the
+			// lobby restarts) is transient: keep reading, or the restarted
+			// lobby's replies would never reach this client again.
+			time.Sleep(10 * time.Millisecond)
+			continue
 		}
 		r.mu.Lock()
 		fl.lastSeen = time.Now()

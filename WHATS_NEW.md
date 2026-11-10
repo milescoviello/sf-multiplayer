@@ -1,3 +1,48 @@
+# What's new — 2026-11-09 (late): sessions, lobby restarts, Linux / Steam Deck
+
+**Lobby restarts no longer strand players.** Every server update, watchdog
+restart or RST restarts a lobby. While it was down, each connected player's
+router flow got an ICMP "port unreachable", and the router's reply loop took
+that as fatal and stopped: the restarted lobby's replies never reached those
+players again (one-way until they went quiet for the flow timeout; rejoining
+used the same socket, so it didn't help). The reply loop now only stops when
+its socket is closed (`sf-router/lobby_restart_test.go` reproduces it).
+
+**Session tokens.** Every player reaches the server through the router, so the
+server saw all of them at 127.0.0.1 and an address told it nothing. Each player
+now gets a random token at join (msgType 50); client 0.7.2 repeats it:
+- from the game socket every 2 s (msgType 51): a player whose address changes
+  mid-match (the router restarted, or a home router changed their port) is
+  moved to the new address instead of being dropped 30 s later. Tested with a
+  router restart mid-round: both players moved, rounds continued;
+- with msgType 48 from the snapshot socket: binds it to the player's slot. Before,
+  any client could send input or shots for any slot and take over its
+  snapshots (an old client did exactly that after a lobby restart).
+
+**Rejoin after a lobby restart.** A token the lobby never issued gets msgType 52
+("rejoin"). In the lobby room the client rejoins in place ("The lobby restarted.
+Rejoining..."). Mid-match it can't (the game only joins from its lobby, and every
+way back there reloads the scene and loses the local players), so it leaves
+`sf-online/rejoin.txt` and closes, and the launcher starts it again straight into
+that lobby. Tested on the win11 VM: restart mid-match, game closes, comes back in
+the same lobby, spawns. Started some other way, it says to restart.
+
+**Linux / Steam Deck installer.** `install-linux.sh` finds the game (any Steam
+library, SD card, Flatpak Steam), installs BepInEx and the mod, sets the game's
+Steam launch option to `sf-wrap.sh` (keeping options you already had; Steam
+must be closed, it offers to close it) and adds a "Stick Fight Online" app entry
+(Steam Deck Game Mode: add it as a Non-Steam Game). A normal Steam launch is the
+plain game (BepInEx not even loaded); the app entry updates the mod, then starts
+the game through Steam for the server. Tested on the VM with a fake Steam home
+and a stand-in for Steam: install (library path with a space, existing launch
+option kept), repeat install, update with a corrupted file, a 404 and an unsafe
+path in the manifest, online launch (joined CASUAL through Proton), plain
+launch. Not yet tried on a real Steam Deck.
+
+**Launchers.** One failed download no longer stops the rest of the update. The
+manifest marks per-OS files; each launcher skips the other OS's. The installer
+README described the old behavior (patching the game file); rewritten.
+
 # What's new — 2026-11-09 (release): installer, auto-update, lobby list, fairness
 
 **Install once, updates are automatic.** One installer (one admin prompt): it
