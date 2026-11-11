@@ -27,5 +27,18 @@ Internet-like paths: netem on `lo` for port 1338 only, without reordering
     sudo tc filter add dev lo parent 1:0 protocol ip prio 1 u32 match ip sport 1338 0xffff flowid 1:4
     sudo tc qdisc del dev lo root     # when done
 
+Send times (client 0.7.8): `SF_REMOTE_STAMPS=0` makes the receiving bot ignore
+them, `SF_REMOTE_STAMP_GAIN` (0-1.5, default 1) scales how much of an update's
+lateness is projected. Results at 40±10 ms, 3 pairs: error 0.52 -> 0.28 u,
+accel 1.49 -> 1.34, shake 1.05 -> 1.2, lag the same; gain 0.5 kept the shake
+and lost half the error gain.
+
+Both scripts wait until the bots' router flows are gone and refuse to restart
+CASUAL if anyone else is in it.
+
+`predcrate.sh stock|predicted`: Desert8 (crate-built), two bots, bot 1 driven
+for 30 s, then each bot lists its crates: how many fell out of the world and
+how far each is from the server's pose (`SF_CRATES_PREDICTED=1` = predicted).
+
 A real client can be compared too: create `BepInEx/smooth-trace.on` in its
 game folder, and run `trace_an.py <bot1 trace> <its smooth-trace.csv> <slot> [seconds]`.

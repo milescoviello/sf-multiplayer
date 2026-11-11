@@ -1,5 +1,5 @@
 {
-  "version": "20261110-2259-b7bf0fb",
+  "version": "20261111-0216-d06b1c0",
   "server": "sf.milescoviello.com", "port": 1338,
   "files": [
     {"path": "BepInEx/patchers/SFOnline/SFOnlinePatcher.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFOnlinePatcher.dll", "sha256": "83C176A7B573ECCE483FB875C1ABAB9A098BEC7162F10E7208C95D1357565A67"},
@@ -7,7 +7,7 @@
     {"path": "sf-online/bepinex-x86/winhttp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/winhttp-x86.dll", "sha256": "CC643B54484F694A8E0E6641CAC79D74141009AFC9E24D826F6FD7FD48FD182A"},
     {"path": "sf-online/bepinex-x64/winhttp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/winhttp-x64.dll", "sha256": "8C6CDBC38836DEE87E3368F5DE1994D7C0CCEBF29E4CE7ABA3C0981F9375412C"},
     {"path": "winhttp.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/winhttp-x64.dll", "sha256": "8C6CDBC38836DEE87E3368F5DE1994D7C0CCEBF29E4CE7ABA3C0981F9375412C"},
-    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "4F02947881FA095844B7DAE94774E675E31F917983B715EA5A008D7CFB4E5488"},
+    {"path": "BepInEx/plugins/SFClientRecon.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFClientRecon.dll", "sha256": "93CD17871ACDCC66852A145CA9CD464ECEA54E0C1A948BFA1BD7D54E7B846DFF"},
     {"path": "BepInEx/plugins/SFServerBrowser.dll", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/SFServerBrowser.dll", "sha256": "ED6046AF8AFBBC747A3AB12758C43D3C5A0BABF374434ED5039F816BD4485A51"},
     {"path": "sf-online/launch.ps1", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.ps1", "sha256": "2BB4B76B36EB036442A8C200D0A1E87221245DB28B4759849C690D81DB2896DF", "os": "windows"},
     {"path": "sf-online/launch.vbs", "url": "https://raw.githubusercontent.com/milescoviello/sf-multiplayer/main/1-click-install/files/launch.vbs", "sha256": "71EE6F8C861E7FB8E7CD8ABA88BC0FD7A7F63C0F85756521878BDBF3FE055E42", "os": "windows"},

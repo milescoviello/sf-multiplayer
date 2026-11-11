@@ -80,6 +80,7 @@ The game opens with the lobby list on screen. Pick a lobby and press **JOIN**. T
 | The installer can't find Stick Fight | It asks for the folder. Steam libraries on another drive are at `<drive>:\SteamLibrary\steamapps\common\StickFightTheGame`. |
 | Stuck on "Connecting to the server…" | Check your internet, and that nothing blocks outgoing UDP. Press F2 and join again. |
 | "Your client is out of date" | You started the game some other way. Use the shortcut: it updates first. |
+| The game runs slowly on an old PC | If Stick Fight stays under 40 fps, the mod turns its post-processing (bloom, colour grading, antialiasing) off for that session by itself: on a 2009 MacBook Pro that took the game from 10 to 27 fps. A lower resolution in the game's settings helps too. To keep the full look anyway, create an empty file `BepInEx/sf-full-graphics.on`. |
 | Linux: Stick Fight starts as the normal game | The launch option didn't get set (Steam was open). Run `./install-linux.sh` again, or set it by hand in Steam → Stick Fight → Properties → Launch Options: `"<game>/sf-online/sf-wrap.sh" %command%` |
 
 ### Report a bug

@@ -5,6 +5,10 @@
 MODE="$1"   # stock | interp
 L=/tmp/sf-oracle-plugin-11342.log
 ~/sf-test/bots.sh stop >/dev/null 2>&1
+# Never restart CASUAL under a real player: after the bots stop, their router
+# flows expire (45 s idle); anything left is someone else.
+for i in $(seq 1 30); do n=$(curl -s 127.0.0.1:8081/router/stats | python3 -c 'import json,sys; print(json.load(sys.stdin).get("byCode",{}).get("CASUAL",0))' 2>/dev/null); [ "$n" = 0 ] && break; sleep 3; done
+[ "$n" = 0 ] || { echo "someone else is in CASUAL ($n router flows): not restarting it"; exit 1; }
 sudo systemctl restart sf-lobby@CASUAL; sleep 3
 until grep -q "receive thread started" $L 2>/dev/null; do sleep 2; done
 if [ "$MODE" = stock ]; then export SF_REMOTE_INTERP=0; else unset SF_REMOTE_INTERP; fi

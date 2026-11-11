@@ -28,6 +28,17 @@ namespace SFClientRecon
     // per leg, 9x at 60±25 ms, 1.8x on a LAN; this 1.3x, 2.0x, 1.2x, with half
     // the position error and less lag.
     //
+    // Send times (client 0.7.8): every PlayerUpdate we send carries our clock
+    // (3 bytes after the game's data, which the game's reader never looks at).
+    // With it, velocity is measured over the sender's real spacing instead of
+    // the uneven arrival times, and the newest position is carried forward by
+    // the time since it was SENT (minus the path's lowest delay): an update
+    // that arrived 20 ms late is projected 20 ms further, so arrival jitter
+    // mostly cancels, with no added delay. It also helps players on slow PCs,
+    // whose fewer updates per second are spaced by their frame times. Updates
+    // without it (older clients) are handled as before. SF_REMOTE_STAMPS=0
+    // ignores the send times (for comparing).
+    //
     // "[smooth]" logs every 10 s how evenly each player moves on our screen
     // (jerk: mean change of the per-step movement; lower = smoother) and how
     // many updates arrived.
@@ -37,6 +48,12 @@ namespace SFClientRecon
         private const float CorrectionPerStep = 1f / 6f;   // stock: Lerp(…, Time.deltaTime * 10) once per update, at 60 steps/s
         private const float StaleAfter = 0.15f;            // no update for this long: stop correcting
         private const float MaxProjection = 0.05f;         // carry the last position forward at most this long
+        private const float MaxProjectionStamped = 0.07f;  // with send times: jitter + time since arrival
+        private static readonly bool UseStamps = Environment.GetEnvironmentVariable("SF_REMOTE_STAMPS") != "0";
+        private const byte StampMarker = 0x5F;
+        private static readonly float StampGain = ParseGain(Environment.GetEnvironmentVariable("SF_REMOTE_STAMP_GAIN"));
+        private static float ParseGain(string v) { float g; return float.TryParse(v, out g) && g >= 0f && g <= 1.5f ? g : 1f; }
+        private static readonly System.Diagnostics.Stopwatch _stampClock = System.Diagnostics.Stopwatch.StartNew();
 
         private class RemoteTrack
         {
@@ -49,6 +66,10 @@ namespace SFClientRecon
             public readonly Vector2[] HP = new Vector2[6];
             public int HN, HHead;
             public int Updates;                // this log window
+            // Send times: the newest one (sender clock, s, counted from this
+            // track's start), its 16-bit raw value, and the lowest arrival -
+            // send seen (the path's own delay plus the clock difference).
+            public bool Stamped, SaidStamped; public int LastMs = -1; public float SenderT, Offset;
             // smoothness stats
             public Vector3 PrevPos; public float PrevStep = -1f; public bool HavePrev;
             public double JerkSum, SpeedSum; public int Steps, Stalls;
@@ -90,6 +111,10 @@ namespace SFClientRecon
                 h.Patch(sync, postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(SyncClientState_SmoothPostfix))));
                 if (RemoteInterp)
                     h.Patch(lerp, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(LerpLocalDummy_SmoothPrefix))));
+                var moved = AccessTools.Method(CachedType("MultiplayerManager"), "OnPlayerMoved");
+                if ((object)moved != null)
+                    h.Patch(moved, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(OnPlayerMoved_StampPrefix))));
+                else Log.LogWarning("[smooth] MultiplayerManager.OnPlayerMoved not found: our updates go without send times.");
                 if ((object)fixedUpd != null)
                     h.Patch(fixedUpd, postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(NetworkPlayerFixedUpdate_StatsPostfix))));
                 if (Environment.GetEnvironmentVariable("SF_SMOOTH_TRACE") == "1"
@@ -123,11 +148,31 @@ namespace SFClientRecon
                 if (t == null) return;
                 var p = new Vector2((short)(data[0] | (data[1] << 8)) / 100f, (short)(data[2] | (data[3] << 8)) / 100f);
                 float now = Time.realtimeSinceStartup;
-                // A respawn, a teleport (> 6 u in one update) or a long gap:
-                // start over, no velocity across it.
-                if (!t.Have || now - t.LastArrival > 0.25f || (p - t.LastP).sqrMagnitude > 36f) t.HN = 0;
+                int ms = UseStamps ? ReadStamp(data) : -1;
+                // A respawn, a teleport (> 6 u in one update), a long gap or a
+                // switch between stamped and unstamped updates: start over.
+                bool restart = !t.Have || now - t.LastArrival > 0.25f || (p - t.LastP).sqrMagnitude > 36f || (ms >= 0) != t.Stamped;
+                float at = now;    // this update's time on the track's clock: send time if stamped, else arrival
+                if (ms >= 0)
+                {
+                    if (!restart && t.LastMs >= 0)
+                    {
+                        int d = (ms - t.LastMs) & 0xFFFF;
+                        if (d >= 32768) return;       // older than the newest one (arrived out of order): skip it
+                        at = t.SenderT + d / 1000f;
+                    }
+                    else { restart = true; at = 0f; }
+                    float o = now - at;
+                    if (restart || o < t.Offset) t.Offset = o;
+                    else t.Offset += (o - t.Offset) * 0.005f;   // a path that got slower for good: follow it, slowly
+                    t.LastMs = ms; t.SenderT = at;
+                }
+                else t.LastMs = -1;
+                if (ms >= 0 && !t.Stamped && !t.SaidStamped) { t.SaidStamped = true; Log.LogInfo("[smooth] slot " + SpawnIdOf(__instance) + " sends send times: projecting by them."); }
+                t.Stamped = ms >= 0;
+                if (restart) t.HN = 0;
                 t.HHead = (t.HHead + 1) % t.HT.Length;
-                t.HT[t.HHead] = now; t.HP[t.HHead] = p;
+                t.HT[t.HHead] = at; t.HP[t.HHead] = p;
                 if (t.HN < t.HT.Length) t.HN++;
                 // Velocity from the oldest kept update to this one (needs at least
                 // 30 ms between them, else keep the previous estimate).
@@ -135,7 +180,7 @@ namespace SFClientRecon
                 if (t.HN >= 2)
                 {
                     int oldest = (t.HHead - (t.HN - 1) + t.HT.Length) % t.HT.Length;
-                    float span = now - t.HT[oldest];
+                    float span = at - t.HT[oldest];
                     if (span >= 0.03f)
                     {
                         Vector2 v = (p - t.HP[oldest]) / span;
@@ -147,6 +192,52 @@ namespace SFClientRecon
             }
             catch { }
         }
+
+        // The online PlayerUpdate: i16 y, i16 z, 3 x sbyte, 2 x byte, u16 shots,
+        // 8 bytes per shot, 1 byte weapon = 12 + 8n written. The game allocates
+        // 18 + 2n (its Size properties are off), so an update without shots
+        // ends in 6 zero bytes: the send time goes there (u16 ms + marker),
+        // else 3 bytes are added. Either way it starts right after the weapon byte.
+        private static int PlayerUpdateLength(byte[] data)
+        {
+            if (data == null || data.Length < 12) return -1;
+            int n = data[9] | (data[10] << 8);
+            int len = 12 + 8 * n;
+            return n > 64 || data.Length < len ? -1 : len;
+        }
+
+        private static int ReadStamp(byte[] data)
+        {
+            int end = PlayerUpdateLength(data);
+            if (end < 0 || data.Length < end + 3 || data[end + 2] != StampMarker) return -1;
+            return data[end] | (data[end + 1] << 8);
+        }
+
+        // MultiplayerManager.OnPlayerMoved: our own PlayerUpdate on its way out.
+        internal static void OnPlayerMoved_StampPrefix(ref byte[] data)
+        {
+            try
+            {
+                int len = PlayerUpdateLength(data);
+                if (len < 0) return;                                  // not the format we know: leave it alone
+                int ms = (int)(_stampClock.ElapsedMilliseconds & 0xFFFF);
+                byte[] b = data;
+                if (data.Length >= len + 3)
+                {
+                    for (int i = len; i < data.Length; i++) if (data[i] != 0) return;   // not padding: leave it alone
+                }
+                else
+                {
+                    b = new byte[len + 3];
+                    Buffer.BlockCopy(data, 0, b, 0, len);
+                }
+                b[len] = (byte)ms; b[len + 1] = (byte)(ms >> 8); b[len + 2] = StampMarker;
+                data = b;
+                if (!_saidStamping) { _saidStamping = true; Log.LogInfo("[smooth] our updates carry send times (" + data.Length + " bytes)."); }
+            }
+            catch { }
+        }
+        private static bool _saidStamping;
 
         // Replaces the stock one-step lerp for other players (see the top).
         internal static bool LerpLocalDummy_SmoothPrefix(object __instance)
@@ -164,7 +255,11 @@ namespace SFClientRecon
                 }
                 float age = Time.realtimeSinceStartup - t.LastArrival;
                 if (age > StaleAfter) return false;
-                Vector2 target = t.LastP + t.Velocity * Mathf.Min(age, MaxProjection);
+                // Stamped: time since it was sent, less the path's lowest delay.
+                // (= time since arrival + how late it arrived; StampGain scales the second part)
+                float proj = t.Stamped ? Mathf.Clamp(age + StampGain * Mathf.Max(0f, t.LastArrival - t.Offset - t.SenderT), 0f, MaxProjectionStamped)
+                                       : Mathf.Min(age, MaxProjection);
+                Vector2 target = t.LastP + t.Velocity * proj;
                 var rigs = _npRigsF.GetValue(__instance) as Rigidbody[];
                 if (rigs == null || rigs.Length == 0) return false;
                 Vector3 avg = Vector3.zero;

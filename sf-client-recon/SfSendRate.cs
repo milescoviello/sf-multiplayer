@@ -16,14 +16,19 @@ namespace SFClientRecon
     {
         private const float SendIntervalSec = 0.015f;
         private static readonly bool StockSendRate = Environment.GetEnvironmentVariable("SF_SEND_RATE") == "stock";
-        private float _sendRateTickAt;
+        private float _sendRateTickAt, _sendRateScanAt;
         private System.Reflection.FieldInfo _npSendRateF, _npLocalCtlSendF;
         private Type _npTypeSend;
+        // Our own players' NetworkPlayers (more than one with local co-op). The
+        // scene scan behind this costs ~12 ms on an old PC, so it runs every 5 s
+        // (2 s while there are none), and the found ones are checked each second.
+        private readonly System.Collections.Generic.List<UnityEngine.Object> _sendRateNps = new System.Collections.Generic.List<UnityEngine.Object>();
 
         private void TickSendRate()
         {
-            if (StockSendRate || Time.unscaledTime < _sendRateTickAt) return;
-            _sendRateTickAt = Time.unscaledTime + 1f;
+            float now = Time.unscaledTime;
+            if (StockSendRate || now < _sendRateTickAt) return;
+            _sendRateTickAt = now + 1f;
             if ((object)_npTypeSend == null)
             {
                 _npTypeSend = CachedType("NetworkPlayer");
@@ -32,8 +37,18 @@ namespace SFClientRecon
                 _npLocalCtlSendF = AccessTools.Field(_npTypeSend, "mHasLocalControl");
             }
             if ((object)_npSendRateF == null || (object)_npLocalCtlSendF == null) return;
-            foreach (var o in UnityEngine.Object.FindObjectsOfType(_npTypeSend))
+            bool gone = false;
+            for (int i = 0; i < _sendRateNps.Count; i++) if (_sendRateNps[i] == null) { gone = true; break; }   // Unity's ==: destroyed
+            if (gone || now >= _sendRateScanAt)
             {
+                _sendRateNps.Clear();
+                foreach (var o in UnityEngine.Object.FindObjectsOfType(_npTypeSend))
+                    if ((bool)_npLocalCtlSendF.GetValue(o)) _sendRateNps.Add(o);
+                _sendRateScanAt = now + (_sendRateNps.Count > 0 ? 5f : 2f);
+            }
+            for (int i = 0; i < _sendRateNps.Count; i++)
+            {
+                var o = _sendRateNps[i];
                 if (!(bool)_npLocalCtlSendF.GetValue(o)) continue;
                 if ((float)_npSendRateF.GetValue(o) > SendIntervalSec) _npSendRateF.SetValue(o, SendIntervalSec);
             }

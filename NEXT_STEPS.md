@@ -8,7 +8,7 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 
 | Part | Version | Where it ships |
 |---|---|---|
-| SFClientRecon (player plugin) | 0.7.7 | `1-click-install/files/`, auto-update |
+| SFClientRecon (player plugin) | 0.7.8 | `1-click-install/files/`, auto-update |
 | SFServerBrowser (player plugin) | 0.6.1 | `1-click-install/files/`, auto-update |
 | SFOnlinePatcher + SFOnline.donor (player) | 1.1 | `1-click-install/files/`, auto-update; builds the online game code in memory from the player's own game file (the current 64-bit Steam build and the older 32-bit one) |
 | SFHeadlessHost (server plugin) | 0.5.1 | `dist/`, live on the server |
@@ -33,7 +33,8 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 
 - Stock round flow, weapon bag, drop timers and map list. No weapons drop from the sky on boss maps.
 - Crates: clients follow the server's crates the way stock non-host players do, bullets and explosions push them, and stacks hold.
-- Remote players: corrected every physics step. Jitter is 1.2-2x the real movement under simulated ping, instead of 2-9x.
+- Remote players: corrected every physics step, carried forward by each update's send time (client 0.7.8). Jitter is 1.2-2x the real movement under simulated ping, instead of 2-9x; position error about half of 0.7.7's.
+- Old PCs: post-processing goes off by itself under 40 fps (a 2009 MacBook Pro: 10 -> 27 fps).
 - Snakes pick targets and bite for 5 damage, like stock.
 - Session tokens: players survive a router restart or a NAT port change, and clients rejoin a restarted lobby by themselves.
 - Install and auto-update on Windows, end to end, through GitHub and the public address.
