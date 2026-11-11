@@ -393,6 +393,7 @@ class LobbyHandler(BaseHTTPRequestHandler):
                         _last_create.pop(ip, None)
                     else:
                         _last_create[ip] = prev_last
+            print(f"[control] create FAILED for {ip}: {err}")
             self._send_json(500, {"error": err})
             return
         print(f"[control] created lobby {code} on port {port} "

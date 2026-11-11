@@ -117,9 +117,11 @@ curl -X POST -H "X-SF-Token: $TOK" localhost:8080/lobbies
 - **DUO and created lobbies are ephemeral** (launch-lobby.sh, no auto-restart);
   recreate with the CREATE button in-game or `launch-lobby.sh`. `/tmp/sf-lobbies`
   is cleared on reboot, so only MAIN returns automatically after a reboot.
-- The empty-lobby reaper TTL is set to **24h** (`SF_LOBBY_EMPTY_TTL=86400` in
-  `sf-lobbies.service`) so idle lobbies survive a player-less window; dead-pid
-  cleanup still runs every pass. Lower it for a busy public server.
+- The empty-lobby reaper TTL is **30 min** (`SF_LOBBY_EMPTY_TTL=1800` in
+  `sf-lobbies.service`; it was 24h until 2026-11-11, when idle leftovers used up
+  the ports and in-game CREATE failed). Static lobbies are never reaped;
+  dead-pid cleanup still runs every pass. Created lobbies get ports from
+  1337-1360 (`SF_PORT_SPAN`, separate from the `SF_MAX_LOBBIES` count cap).
 
 ## Revert to the plain single oracle
 ```bash

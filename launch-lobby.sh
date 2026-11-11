@@ -17,6 +17,12 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REGISTRY="${SF_LOBBIES_DIR:-/tmp/sf-lobbies}"
 BASE_PORT="${SF_BASE_PORT:-1337}"
 MAX_LOBBIES="${SF_MAX_LOBBIES:-10}"
+# Port search span (BASE_PORT..BASE_PORT+SPAN-1). Separate from MAX_LOBBIES:
+# the router (1338), reserved ports and the static lobbies (MAIN/COMP/CASUAL/
+# REPLAY) all sit in this range too, so a span equal to the lobby cap left a
+# single free port and in-game CREATE failed with "No free port". The lobby
+# COUNT is still capped by serve-lobbies.py (SF_MAX_LOBBIES).
+PORT_SPAN="${SF_PORT_SPAN:-24}"
 
 mkdir -p "$REGISTRY"
 
@@ -73,7 +79,7 @@ exec 9>"$REGISTRY/.launch.lock"
 flock 9
 PORT="${2:-}"
 if [ -z "$PORT" ]; then
-  for try in $(seq 0 $((MAX_LOBBIES - 1))); do
+  for try in $(seq 0 $((PORT_SPAN - 1))); do
     cand=$((BASE_PORT + try))
     # Skip if reserved for local v26 client listeners / the router port
     skip=0
@@ -102,7 +108,7 @@ if [ -z "$PORT" ]; then
 fi
 if [ -z "$PORT" ]; then
   flock -u 9; exec 9>&-
-  echo "No free port in range ${BASE_PORT}-$((BASE_PORT + MAX_LOBBIES - 1))." >&2
+  echo "No free port in range ${BASE_PORT}-$((BASE_PORT + PORT_SPAN - 1))." >&2
   exit 1
 fi
 
