@@ -52,7 +52,13 @@ namespace SFClientRecon
                 // same motion → no divergence). Non-deterministic ones (random
                 // object enabling, player-triggered levers) must stay server-fed.
                 patched += PatchMapTypeMethod(harmony, "MoveAlongPathUsingForce", "Update");
-                patched += PatchMapTypeMethod(harmony, "PillarHandler", "Update");
+                // Not PillarHandler (Lava maps' sinking pillars): it sinks under
+                // whoever stands on it, so each client sank its copy from its own
+                // view of the players and the screens disagreed (seen on Lava9).
+                // Its Update has no server gate anyway; what self-driving did was
+                // drop the server's sink value. Like stock, it now follows the
+                // server's value (its ghost players stand on the same pillars)
+                // and still sinks locally between updates.
                 patched += PatchMapTypeMethod(harmony, "GhostPlatform", "Update");
 
                 // EXTENSIBLE: add more frozen gimmick types WITHOUT a recompile via

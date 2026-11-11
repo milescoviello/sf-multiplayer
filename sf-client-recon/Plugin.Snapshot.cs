@@ -154,6 +154,11 @@ namespace SFClientRecon
                         }
 
                         bool localSpin = entry.LocalSpin;
+                        // A spinning holder (laser maps) that stays put: writing its
+                        // position every frame reset the rigidbody's interpolation
+                        // under the local Spin and the lasers stuttered. Leave it
+                        // alone unless the server has it somewhere else.
+                        if (localSpin && (comp.transform.position - pose.RenderPos).sqrMagnitude < 0.0004f) continue;
                         if ((object)rb != null)
                         {
                             if (!rb.isKinematic) rb.isKinematic = true;   // P0-5 / ice regression guard

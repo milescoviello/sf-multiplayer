@@ -48,6 +48,18 @@ namespace SFHeadlessHost
         // prefix; total length comes from the v25 wrapper). Channel encodes
         // the talker's slot as (slot*2)+3; we use the recipient's owner
         // channel so it shows up over their own player.
+        // The top-of-screen banner (msgType 42, drawn by SFClientRecon), for one player.
+        private void SendBannerToPlayer(SfClient target, string text)
+        {
+            if (target == null || target.Slot < 0) return;
+            byte[] body = System.Text.Encoding.UTF8.GetBytes(text.Length > 200 ? text.Substring(0, 200) : text);
+            IPEndPoint v26Ep;
+            if (!_slotV26Endpoint.TryGetValue(target.Slot, out v26Ep))
+                v26Ep = new IPEndPoint(target.Addr.Address, V26_CLIENT_PORT);
+            _recSuppress = true;
+            try { SendSfPacket(v26Ep, PktV26Announce, body, 0, 0); } finally { _recSuppress = false; }
+        }
+
         private void SendChatToPlayer(SfClient target, string text)
         {
             if (target == null || target.Slot < 0) return;
@@ -363,7 +375,12 @@ namespace SFHeadlessHost
                         break;
                     }
                     case "/help":
-                        SendChatToPlayer(sender, "Commands: /score /ping /discount /code /start /restart /next /map /listmaps /players /lobbies /weapons /tickrate /version /help — admin (/admin <pass>): /kick /anticheat");
+                        // Too long for a chat bubble: the top-of-screen banner, and
+                        // only the commands that work in this lobby.
+                        SendBannerToPlayer(sender, CompMode
+                            ? "COMP commands: /score /ping /discount /code /version (match commands are off in COMP)"
+                            : "Commands: /start /next /map <name> /listmaps /restart /score /ping /players /lobbies /discount /code /weapons /tickrate /version");
+                        SendChatToPlayer(sender, "Commands: top of your screen.");
                         break;
                     default:
                         SendChatToPlayer(sender, "Unknown command. Type /help");

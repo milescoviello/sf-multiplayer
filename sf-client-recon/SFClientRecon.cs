@@ -49,7 +49,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.9";
+        public const string PluginVersion = "0.7.10";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -261,6 +261,7 @@ namespace SFClientRecon
             InstallSnakeDiag();
             InstallPlayerOrderFix();
             InstallRemoteSmoothing();
+            InstallBlackHoleDiag();
             InstallNsoClientPushPatches();
             // Defensive NetworkSyncableObject burst/NaN guard (credit: z7572/NaNFixer).
             // Runs regardless of connect mode; SF_NANGUARD=0 disables it.

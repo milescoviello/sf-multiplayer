@@ -1,3 +1,14 @@
+# What's new — 2026-11-10 (night 2): pillars, lasers, COMP spawns (client 0.7.10, server 0.5.3)
+
+From playing on the server:
+
+- **Lava maps' sinking pillars agree between players again.** They were on the list of map gimmicks each client runs on its own, which also dropped the server's sink value; a pillar sinks under whoever stands on it, so each client sank its copy from its own view of the players and the screens disagreed (Lava9). They now follow the server's value, as in stock (the server's copies of the players stand on the same pillars), and still sink locally between updates.
+- **Laser maps:** a spinning laser holder that stays put is no longer rewritten from the server every frame (that reset its rigidbody's interpolation under the local spin: stutter).
+- **COMP spawns alternate** each round (random first side); a coin flip per round gave runs of five rounds on the same side. `SF_COMP_SPAWNS=random` for the old behaviour.
+- **COMP: one countdown when the opponent joins.** A player joining while a map was up started that map (one 3-2-1), then got restarted for having no spawn (a second 3-2-1). The restart now happens before the countdown.
+- **`/help`** goes to the top-of-screen banner (it was too long for a chat bubble) and lists only the commands that work in that lobby.
+- **Black holes** (reported as pulling nothing): the client logs each black hole's size and distance to your player (`[blackhole]`) to find out why.
+
 # What's new — 2026-11-10 (late): picking up map weapons, COMP alone (client 0.7.9, browser 0.6.2, server 0.5.2)
 
 Found while playing on the live server:

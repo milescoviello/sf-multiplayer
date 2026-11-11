@@ -169,10 +169,12 @@ namespace SFHeadlessHost
         // ---------------- COMP random spawns ----------------
         // Stock: every client moves player #k to spawnPoints[k] each round, so the
         // same player always gets the same side, which favours one player on
-        // lopsided maps. COMP shuffles which stock spawn point each player gets,
-        // per round; clients apply it in GameManager.MovePlayer (SFClientRecon).
+        // lopsided maps. COMP alternates which stock spawn point each player gets
+        // (SF_COMP_SPAWNS=random: a shuffle per round); clients apply it in
+        // GameManager.MovePlayer (SFClientRecon).
         private static readonly System.Random _spawnRng = new System.Random();
         private readonly HashSet<int> _roundSpawnSlots = new HashSet<int>();   // slots given a spawn this round
+        private int _spawnTurn = -1;
         private void SendRoundSpawns()
         {
             if (!CompMode) return;
@@ -182,8 +184,20 @@ namespace SFHeadlessHost
             if (slots.Count == 0) return;
             slots.Sort();
             var spawn = new List<int>();
-            for (int i = 0; i < slots.Count; i++) spawn.Add(i);
-            for (int i = spawn.Count - 1; i > 0; i--) { int j = _spawnRng.Next(i + 1); int t = spawn[i]; spawn[i] = spawn[j]; spawn[j] = t; }
+            if (Environment.GetEnvironmentVariable("SF_COMP_SPAWNS") == "random")
+            {
+                for (int i = 0; i < slots.Count; i++) spawn.Add(i);
+                for (int i = spawn.Count - 1; i > 0; i--) { int j = _spawnRng.Next(i + 1); int t = spawn[i]; spawn[i] = spawn[j]; spawn[j] = t; }
+            }
+            else
+            {
+                // Alternate: everyone moves one spawn over each round (a random
+                // first side). A coin flip per round gave 1v1 streaks of five
+                // rounds on the same side.
+                if (_spawnTurn < 0) _spawnTurn = _spawnRng.Next(slots.Count);
+                for (int i = 0; i < slots.Count; i++) spawn.Add((i + _spawnTurn) % slots.Count);
+                _spawnTurn++;
+            }
             _roundSpawnSlots.Clear();
             foreach (var sl in slots) _roundSpawnSlots.Add(sl);
             byte[] body = new byte[1 + slots.Count * 2];

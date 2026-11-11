@@ -106,6 +106,24 @@ namespace SFHeadlessHost
             if (!allReady && now < _startMatchDeadline) return;
             _startMatchEarliestAt = -1f;
             _startMatchDeadline = -1f;
+            // COMP: someone joined while this map was up and got no spawn for it.
+            // Starting it anyway counted down once, then CheckCompLateJoiner
+            // restarted the map and counted down again: restart it now instead.
+            if (CompMode && _matchStarted && _pendingRoundAdvanceAt < 0f)
+            {
+                int late = -1;
+                foreach (var kv in _sfClients)
+                    if (IsParticipant(kv.Value) && !_roundSpawnSlots.Contains(kv.Value.Slot)) { late = kv.Value.Slot; break; }
+                if (late >= 0)
+                {
+                    _roundVoid = true;
+                    _replaySameMap = true;
+                    Announce("Both players are here: restarting the round.");
+                    _pendingRoundAdvanceAt = now;
+                    Log.LogInfo($"[comp] slot {late} has no spawn on this map → restarting it before the countdown.");
+                    return;
+                }
+            }
             Log.LogInfo($"[SF] StartMatch gate open ({(allReady ? "all players loaded" : "ready-up deadline")}; ready={_readySlots.Count}/{CountInitializedSfClients()}) {now - _mapChangeAt:0.0}s after the map change.");
             BroadcastStartMatch();
         }
