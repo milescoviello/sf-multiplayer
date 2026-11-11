@@ -55,6 +55,7 @@ namespace SFClientRecon
             }
         }
 
+        private static int _snapSectionLogs;
         private void HandlePacket(byte[] pkt)
         {
             // v25 wrapper: 5 bytes prefix + body + 9 bytes suffix
@@ -211,6 +212,8 @@ namespace SFClientRecon
 
             List<MapStateSnapEntry> mapStateList = null;
             ParseMapStateSection(pkt, ref o, bodyOff + bodyLen, out mapStateList);
+            if (_snapSectionLogs++ % 9000 == 0)   // ~5 min at 30 Hz
+                Log.LogInfo($"[snap] #{_snapSectionLogs}: {bodyLen} bytes, players {list.Count}, objects {(nsoList != null ? nsoList.Count : -1)}, gimmick poses {(mapSyncList != null ? mapSyncList.Count : -1)}, gimmick states {(mapStateList != null ? mapStateList.Count : -1)}");
 
             // v26.7 — NSO up-vector appendix: [u16 count][u16 id, f32 upY,
             // f32 upZ]×count. Stock SF syncs NSO rotation as the up-vector's

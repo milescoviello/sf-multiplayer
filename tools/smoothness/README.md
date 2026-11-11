@@ -42,3 +42,25 @@ how far each is from the server's pose (`SF_CRATES_PREDICTED=1` = predicted).
 
 A real client can be compared too: create `BepInEx/smooth-trace.on` in its
 game folder, and run `trace_an.py <bot1 trace> <its smooth-trace.csv> <slot> [seconds]`.
+
+## Map objects, weapons, kills (2026-11-11)
+
+Each script runs on the server VM against CASUAL with two docile bots (copy
+the client build under test to `/tmp/SFClientRecon.dll` first). They compare
+the server's copies with the bots' through the client debug console `mapobjs`
+and the server bridge `mapobjs` (map gimmicks with their GetData, and ground
+weapons by spawn index).
+
+- `ghosttest.sh [scene] [dumps]`: scene 99 (Halloween10, 11 ghost platforms)
+  by default; every 4 s, server and bots dump at once; prints state
+  mismatches and the disagreeing platforms.
+- `maptest.sh`: Halloween10, Halloween10 again, Desert8; after each change the
+  "same key already exists" count on the server and gimmick/weapon counts on
+  the server and both bots.
+- `weapontest.sh [scene]`: ground weapon positions on the server and the bots,
+  then again after the bridge `pushWeapons` shoves the server's copies (only
+  meaningful with `SF_SERVER_WEAPONS=1` on the lobby).
+- `killcycle.sh [seconds]` + `killtest.py`: a Desert8 round where bot 1 walks
+  to bot 2 (positions from the bridge `rigdiag`) and punches until it lands a
+  kill; prints the `[kill]` lines (early death, server relay and victim report
+  times).

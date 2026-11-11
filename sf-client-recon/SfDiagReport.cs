@@ -67,12 +67,14 @@ namespace SFClientRecon
             if (!DiagEnabled || string.IsNullOrEmpty(text)) return;
             text = CleanDiag(text);
             string key = text.Length > 80 ? text.Substring(0, 80) : text;
-            lock (_diagLock)
+            System.Threading.Monitor.Enter(_diagLock);   // not lock(): Mono 2.0 (see tools/check-mono2-landmines.sh)
+            try
             {
                 if (_diagSent + _diagQueue.Count >= DiagMaxPerSession) return;
                 if (!_diagSeen.Add(key)) return;
                 _diagQueue.Enqueue(text);
             }
+            finally { System.Threading.Monitor.Exit(_diagLock); }
         }
 
         // One line, printable ASCII, user folders removed, at most DiagMaxText.
@@ -137,10 +139,9 @@ namespace SFClientRecon
             }
 
             string next = null;
-            lock (_diagLock)
-            {
-                if (_diagQueue.Count > 0) { next = _diagQueue.Dequeue(); _diagSent++; }
-            }
+            System.Threading.Monitor.Enter(_diagLock);
+            try { if (_diagQueue.Count > 0) { next = _diagQueue.Dequeue(); _diagSent++; } }
+            finally { System.Threading.Monitor.Exit(_diagLock); }
             if (next != null) SendDiagPacket(next);
         }
 

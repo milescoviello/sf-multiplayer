@@ -577,6 +577,9 @@ namespace SFHeadlessHost
                         }
                     }
                     if (!skip) Instance.ForwardBroadcastToV25Clients(msgType, data, ignoreUID, channel);
+                    // Stock: the host receives its own WeaponSpawned and makes the weapon too.
+                    if (!skip && msgType == 19) Instance.KeepServerWeaponCopy(false, data);
+                    if (!skip && msgType == 26) NoteHostObjectUpdate(data);
                 }
             }
             catch (Exception e)
@@ -651,7 +654,7 @@ namespace SFHeadlessHost
         // postfix side. Instead, intercept by writing the quantized key
         // back into the MapInfoSyncableBase's m_StartPos AND replacing
         // the pos arg via the __args array (Harmony allows this).
-        internal static bool AddMapDataObjectPrefix(object[] __args)
+        internal static bool AddMapDataObjectPrefix(object __instance, object[] __args)
         {
             try
             {
@@ -667,10 +670,25 @@ namespace SFHeadlessHost
                     var f = AccessTools.Field(t, "m_StartPos");
                     if ((object)f != null) f.SetValue(__args[1], quantized);
                 }
+                // A key that's already there (the same map loaded again, while a
+                // retry pass had re-registered the old scene's copy): the newest
+                // object replaces it. Stock Add threw "same key already exists"
+                // in every gimmick's Awake, which cut the rest of its Awake short.
+                if ((object)_mmMapDataDictF == null && __instance != null) _mmMapDataDictF = AccessTools.Field(__instance.GetType(), "mMapDataObjectToSync");
+                var dict = (object)_mmMapDataDictF != null ? _mmMapDataDictF.GetValue(__instance) as System.Collections.IDictionary : null;
+                if (dict != null && dict.Contains(quantized))
+                {
+                    dict[quantized] = __args[1];
+                    if (_mapDataReplaced++ < 3 || _mapDataReplaced % 100 == 0)
+                        Log.LogInfo($"[map-sync] gimmick at {quantized} registered again: the new object replaces the old one (#{_mapDataReplaced}).");
+                    return false;
+                }
             }
             catch { }
             return true;
         }
+        private static System.Reflection.FieldInfo _mmMapDataDictF;
+        private static int _mapDataReplaced;
 
         // Prefix on MultiplayerManager.OnMapDataRecieved(byte[]).
         // The body's first 8 bytes are the Vector2 key the server sent.

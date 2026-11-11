@@ -81,6 +81,7 @@ namespace SFHeadlessHost
                 if (!kv.Value.Initialized) continue;
                 SendSfPacket(kv.Value.Addr, PktWeaponWasPickedUp, body, 0uL, 1); // channel 1 (weapon-events)
             }
+            RemoveServerWeaponCopy(weaponNetId);
         }
         private void HandleDropRequest(SfClient sender, byte[] data, int off, int len)
         {
@@ -102,6 +103,7 @@ namespace SFHeadlessHost
                 if (!kv.Value.Initialized) continue;
                 SendSfPacket(kv.Value.Addr, PktWeaponDropped, body, 0uL, 0);
             }
+            KeepServerWeaponCopy(true, body);   // stock host drops its own copy too (Plugin.ServerWeapons.cs)
         }
 
         // Throw: client sends RequestingWeaponThrow (21) — same shape as drop

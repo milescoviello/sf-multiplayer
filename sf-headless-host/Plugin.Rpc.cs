@@ -230,6 +230,30 @@ namespace SFHeadlessHost
             {
                 SendBridgeJson(from, $"{{\"reply\":\"nso\",\"info\":\"{NsoInfo(ExtractIntField(body, "id", -1))}\"}}");
             }
+            else if (cmd == "pushWeapons")
+            {
+                // Test aid: shove the server's weapon copies sideways (fz) and up;
+                // clients that follow the server's weapons move with them.
+                float fz = ExtractFloatField(body, "fz");
+                int n = 0;
+                var wpT = CachedType("WeaponPickUp");
+                if ((object)wpT != null)
+                    foreach (var o in UnityEngine.Object.FindObjectsOfType(wpT))
+                    {
+                        var c = o as Component;
+                        var rb = c != null ? c.GetComponent<Rigidbody>() : null;
+                        if (rb == null || rb.isKinematic) continue;
+                        rb.AddForce(new Vector3(0f, 6f, fz), ForceMode.VelocityChange);
+                        n++;
+                    }
+                SendBridgeJson(from, $"{{\"reply\":\"pushWeapons\",\"pushed\":{n}}}");
+            }
+            else if (cmd == "mapobjs")
+            {
+                // Test aid: map gimmicks + ground weapons, to compare with a client's "mapobjs".
+                string info = SFShared.MapObjectsDump.Text().Replace("\\", "/").Replace("\"", "'").Replace("\n", " | ");
+                SendBridgeJson(from, "{\"reply\":\"mapobjs\",\"info\":\"" + info + "\"}");
+            }
             else if (cmd == "nsolist")
             {
                 SendBridgeJson(from, $"{{\"reply\":\"nsolist\",\"info\":\"{NsoList()}\"}}");

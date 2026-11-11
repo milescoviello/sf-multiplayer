@@ -616,19 +616,24 @@ namespace SFClientRecon
             }
         }
 
+        private static int _mapStateMissLogs;
+        private static readonly HashSet<Vector2> _mapStateMissSeen = new HashSet<Vector2>();
         private void ApplyMapStateSnapshot(List<MapStateSnapEntry> snap)
         {
             if (snap == null || snap.Count == 0) return;
             try
             {
-                if ((object)_mapSyncBaseType == null)
-                {
-                    _mapSyncBaseType = CachedType("MapInfoSyncableBase");
-                    if ((object)_mapSyncBaseType == null) return;
-                    _mapSyncStartPosField = AccessTools.Field(_mapSyncBaseType, "m_StartPos");
-                    _mapSetDataMethod = AccessTools.Method(_mapSyncBaseType, "SetData");
-                }
-                if ((object)_mapSetDataMethod == null) return;
+                // Each piece on its own: the stock-message cache (above) also sets
+                // _mapSyncBaseType, and when it ran first this block was skipped,
+                // SetData stayed null and every server gimmick state was dropped
+                // here for the whole session (platforms then only followed the
+                // stock messages, whose exact-float keys miss some platforms:
+                // 3 of Halloween10's 11 ghost platforms froze).
+                if ((object)_mapSyncBaseType == null) _mapSyncBaseType = CachedType("MapInfoSyncableBase");
+                if ((object)_mapSyncBaseType == null) return;
+                if ((object)_mapSyncStartPosField == null) _mapSyncStartPosField = AccessTools.Field(_mapSyncBaseType, "m_StartPos");
+                if ((object)_mapSetDataMethod == null) _mapSetDataMethod = AccessTools.Method(_mapSyncBaseType, "SetData");
+                if ((object)_mapSetDataMethod == null || (object)_mapSyncStartPosField == null) return;
                 if (_mapSyncCache.Count == 0 || _mapSyncCacheRebuildAt <= 0)
                 {
                     _mapSyncCache.Clear();
@@ -657,7 +662,21 @@ namespace SFClientRecon
                 foreach (var e in snap)
                 {
                     Vector2 key = QuantizeMapSyncKeyClient(new Vector2(e.StartX, e.StartY));
-                    if (!_mapSyncCache.TryGetValue(key, out var comp) || comp == null) continue;
+                    if (!_mapSyncCache.TryGetValue(key, out var comp) || comp == null)
+                    {
+                        // Diagnostic: a server gimmick with no local match stays frozen here.
+                        if (_mapStateMissLogs < 12 && _mapSyncCache.Count > 0)
+                        {
+                            float best = float.MaxValue; Vector2 bk = Vector2.zero;
+                            foreach (var kv in _mapSyncCache) { float d = (kv.Key - key).magnitude; if (d < best) { best = d; bk = kv.Key; } }
+                            if (!_mapStateMissSeen.Contains(key))
+                            {
+                                _mapStateMissSeen.Add(key); _mapStateMissLogs++;
+                                Log.LogWarning($"[v26.6 MapState] server gimmick {key} has no local match{(comp == null && _mapSyncCache.ContainsKey(key) ? " (local one destroyed)" : "")}; nearest local key {bk} ({best:0.00} away), cache={_mapSyncCache.Count}.");
+                            }
+                        }
+                        continue;
+                    }
                     // Self-driven gimmicks (moving platforms / ghost blocks) now run
                     // their own local script — applying the server's SetData would
                     // fight it (rewind target / double-toggle). Skip them.

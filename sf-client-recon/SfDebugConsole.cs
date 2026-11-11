@@ -64,7 +64,8 @@ namespace SFClientRecon
                     return;
                 }
                 if (cmd == "nsoinit") { NsoInitReport(); return; }
-                Debug.Log("[dbg] commands: boxes | box <id> | rigs | nsoinit | help");
+                if (cmd == "mapobjs") { Debug.Log("[dbg] MAPOBJS\n" + SFShared.MapObjectsDump.Text() + "\n[dbg] end mapobjs"); return; }
+                Debug.Log("[dbg] commands: boxes | box <id> | rigs | nsoinit | mapobjs | help");
             }
             catch (Exception e) { var ie = e.InnerException ?? e; Debug.Log("[dbg] '" + cmd + "' failed: " + ie.GetType().Name + ": " + ie.Message + "\n" + ie.StackTrace); }
         }

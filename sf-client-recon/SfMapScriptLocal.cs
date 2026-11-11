@@ -59,7 +59,13 @@ namespace SFClientRecon
                 // drop the server's sink value. Like stock, it now follows the
                 // server's value (its ghost players stand on the same pillars)
                 // and still sinks locally between updates.
-                patched += PatchMapTypeMethod(harmony, "GhostPlatform", "Update");
+                // Not GhostPlatform either (Halloween maps' fading platforms): run
+                // locally, each client's on/off timer started at its own map load,
+                // so the server and every player switched them at different
+                // moments (measured on Halloween10: 4-16 of 22 client readings
+                // disagreed with the server per dump). Like stock, the server's
+                // GetData (on/off) drives them: SetData starts the same fade on
+                // each client. The server's own fades work since server 0.5.x.
 
                 // EXTENSIBLE: add more frozen gimmick types WITHOUT a recompile via
                 // SF_MAP_LOCAL_TYPES="TypeA,TypeB:Start,TypeC". Each entry is a type

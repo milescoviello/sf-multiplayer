@@ -276,6 +276,35 @@ namespace SFHeadlessHost
         }
 
         // Phase 6.9 — manual invoke of MultiplayerManager.InitMapDataObjects +
+        private static int _initSyncedStackLogs, _nsoInitSkips;
+        // Stock InitSyncedObjects, one object at a time: Init on every synced
+        // object except weapons and the default one. Stock stops at the first
+        // object that throws (seen on Ice3: an object whose Awake never set its
+        // network manager), which left every object after it unregistered.
+        private static bool InitSyncedObjectsEach(object mm)
+        {
+            var nsoT = CachedType("NetworkSyncableObject");
+            var wpT = CachedType("WeaponPickUp");
+            var init = (object)nsoT != null ? AccessTools.Method(nsoT, "Init", Type.EmptyTypes) : null;
+            if ((object)init == null || mm == null) return false;
+            var defF = AccessTools.Field(mm.GetType(), "mDefaultSyncableObject");
+            object def = (object)defF != null ? defF.GetValue(mm) : null;
+            int ok = 0, bad = 0;
+            foreach (var o in UnityEngine.Object.FindObjectsOfType(nsoT))
+            {
+                var c = o as Component;
+                if (c == null || ReferenceEquals(o, def)) continue;
+                if ((object)wpT != null && c.GetComponent(wpT) != null) continue;
+                try { init.Invoke(o, null); ok++; }
+                catch (Exception e)
+                {
+                    bad++;
+                    if (_nsoInitSkips++ < 5) Log.LogWarning($"[P6.9] synced object '{c.name}' failed Init ({(e.InnerException ?? e).Message}); skipped, the rest still initialize.");
+                }
+            }
+            Log.LogInfo($"[P6.9] InitSyncedObjects (per object): {ok} initialized{(bad > 0 ? ", " + bad + " skipped" : "")}.");
+            return true;
+        }
         // ReadyUp + InitSyncedObjects. Mirrors GameManager.PrepareMapForTravel
         // lines 1023-1029. The full PrepareMapForTravel coroutine ALSO does
         // a kinematic-settle phase before this (set all rigidbodies kinematic,
@@ -321,8 +350,11 @@ namespace SFHeadlessHost
                 var initSynced = AccessTools.Method(mmType, "InitSyncedObjects");
                 if ((object)initSynced != null)
                 {
-                    try { initSynced.Invoke(mmInst, null); Log.LogInfo("[P6.9] InitSyncedObjects invoked manually — NSOs should now be fully networked."); }
-                    catch (Exception e) { Log.LogError($"[P6.9] InitSyncedObjects threw: {e.InnerException?.Message ?? e.Message}"); }
+                    if (!InitSyncedObjectsEach(mmInst))   // stock call only if Init can't be found
+                    {
+                        try { initSynced.Invoke(mmInst, null); Log.LogInfo("[P6.9] InitSyncedObjects invoked manually — NSOs should now be fully networked."); }
+                        catch (Exception e) { var ie = e.InnerException ?? e; Log.LogError($"[P6.9] InitSyncedObjects threw: {ie.Message}" + (_initSyncedStackLogs++ < 2 ? "\n" + ie.StackTrace : "")); }
+                    }
                 }
 
                 // Phase 6.8 — CheckForGroundWeapons broadcasts the map's

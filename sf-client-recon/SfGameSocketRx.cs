@@ -159,6 +159,7 @@ namespace SFClientRecon
                 finally { Monitor.Exit(_gameRxLock); }
             }
             if (RefOk(_p2pSentRecvF)) _p2pSentRecvF.SetValue(__instance, true);
+            if (__result != null && _killPredicted.Count > 0) KillTiming_NotePacket(channel, __result);
             return false;
         }
 

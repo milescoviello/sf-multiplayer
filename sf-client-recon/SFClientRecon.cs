@@ -49,7 +49,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.14";
+        public const string PluginVersion = "0.7.15";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -387,6 +387,7 @@ namespace SFClientRecon
             finally { _perfSw.Stop(); _perfUpdateMs += _perfSw.Elapsed.TotalMilliseconds; }
             TickPerfLog();
             try { TickDiagReport(); } catch { }
+            try { TickKillPredict(); } catch { }
             try { TickLowGraphics(); } catch (Exception e) { if (_lowGfx >= 0) { _lowGfx = -1; Log.LogWarning("[gfx] " + e.Message); } }
         }
 

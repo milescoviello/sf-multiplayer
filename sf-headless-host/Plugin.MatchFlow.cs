@@ -492,7 +492,36 @@ namespace SFHeadlessHost
             WriteU32LE(body, 2, (uint)sceneIndex);
             BroadcastSfPacket(PktMapChange, body, 0, 0);
             Log.LogInfo($"[SF] Broadcast MapChange → scene {sceneIndex}");
+            ResetStockMapStateOnOracle();
         }
+
+        // What stock MultiplayerManager.OnMapChanged does on every machine before
+        // the next map loads: forget the old map's weapons, breakable pieces,
+        // synced objects and map gimmicks (dictionary clears only; the old scene's
+        // objects go when it unloads). The headless server never ran it, so every
+        // map's entries piled up: loading a map a second time threw "same key
+        // already exists" in each gimmick's Awake, and ids from an old map could
+        // resolve to a dead object. Every map change goes through BroadcastMapChange.
+        private static readonly string[] StockMapClears = { "ClearWeapons", "ClearDestructiblePieces", "ClearSyncableObjects", "ClearMapDataObjects" };
+        private void ResetStockMapStateOnOracle()
+        {
+            var mm = GetMultiplayerManagerInstance();
+            if ((object)mm == null) return;
+            DestroyServerWeaponCopies();
+            int done = 0;
+            foreach (var name in StockMapClears)
+            {
+                try
+                {
+                    var m = AccessTools.Method(mm.GetType(), name);
+                    if ((object)m != null) { m.Invoke(mm, null); done++; }
+                }
+                catch (Exception e) { Log.LogWarning($"[map-reset] {name}: {(e.InnerException ?? e).Message}"); }
+            }
+            if (_mapResetLogs++ < 3 || _mapResetLogs % 50 == 0)
+                Log.LogInfo($"[map-reset] cleared the old map's stock tables ({done}/{StockMapClears.Length}), as stock does on a map change.");
+        }
+        private static int _mapResetLogs;
 
         private void BroadcastStartMatch()
         {

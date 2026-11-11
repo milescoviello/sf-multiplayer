@@ -8,10 +8,10 @@ Where the project is and what's next. What changed and when: [`WHATS_NEW.md`](WH
 
 | Part | Version | Where it ships |
 |---|---|---|
-| SFClientRecon (player plugin) | 0.7.14 | `1-click-install/files/`, auto-update |
+| SFClientRecon (player plugin) | 0.7.15 | `1-click-install/files/`, auto-update |
 | SFServerBrowser (player plugin) | 0.6.2 | `1-click-install/files/`, auto-update |
 | SFOnlinePatcher + SFOnline.donor (player) | 1.1 | `1-click-install/files/`, auto-update; builds the online game code in memory from the player's own game file (the current 64-bit Steam build and the older 32-bit one) |
-| SFHeadlessHost (server plugin) | 0.5.5 | `dist/`, live on the server |
+| SFHeadlessHost (server plugin) | 0.5.6 | `dist/`, live on the server |
 | SFBoxFix (server plugin) | 0.3.3 | `dist/`, live on the server |
 | sf-router | no version | built from `sf-router/` |
 
