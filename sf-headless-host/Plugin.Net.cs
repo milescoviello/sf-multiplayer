@@ -354,6 +354,9 @@ namespace SFHeadlessHost
                 case PktPlayerUpdate:
                     HandlePlayerUpdate(cli, data, bodyOffset, bodyLen, channel);
                     break;
+                case PktObjectSpawned:
+                    HandleClientObjectSpawned(cli, data, bodyOffset, bodyLen, channel);
+                    break;
                 case PktClientReadyUp:
                     HandleClientReadyUp(cli, data, bodyOffset, bodyLen);
                     break;

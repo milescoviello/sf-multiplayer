@@ -424,5 +424,42 @@ namespace SFHeadlessHost
             foreach (var s in _tickHistory) if (s.Tick == tick) return s;
             return null;
         }
+
+        // ObjectSpawned (msgType 27) from a client: in an online match the game
+        // doesn't create a black hole where the orb lands; the shooter's client
+        // sends ObjectSpawned and every client (the shooter too) creates it on
+        // receipt (stock: SendMessageToAllClients, the host included). This
+        // server dropped the message, so black holes never appeared anywhere.
+        // Relayed to every client and created in the server's own game too (its
+        // black hole pulls the server's crates). Only plain spawns: weapon and
+        // position-synced spawns are the server's to make.
+        private int _objectSpawnsRelayed, _objectSpawnsRefused;
+        private static System.Reflection.MethodInfo _onObjectSpawnedM;
+        private void HandleClientObjectSpawned(SfClient cli, byte[] data, int off, int len, byte channel)
+        {
+            if (!IsParticipant(cli) || len < 23) return;
+            byte type = data[off + 22];
+            if (type != 0)
+            {
+                if (_objectSpawnsRefused++ < 5) Log.LogWarning($"[spawn] refused ObjectSpawned type {type} from slot {cli.Slot} (weapon / synced spawns are the server's).");
+                return;
+            }
+            byte[] body = new byte[len];
+            Buffer.BlockCopy(data, off, body, 0, len);
+            foreach (var kv in _sfClients)
+                if (kv.Value.Initialized) SendSfPacket(kv.Value.Addr, PktObjectSpawned, body, cli.SteamID, channel);
+            try
+            {
+                var mm = GetMultiplayerManagerInstance();
+                if (mm != null)
+                {
+                    if ((object)_onObjectSpawnedM == null) _onObjectSpawnedM = HarmonyLib.AccessTools.Method(mm.GetType(), "OnObjectSpawned", new[] { typeof(byte[]) });
+                    if ((object)_onObjectSpawnedM != null) _onObjectSpawnedM.Invoke(mm, new object[] { body });
+                }
+            }
+            catch (Exception e) { Log.LogWarning($"[spawn] server copy: {(e.InnerException ?? e).Message}"); }
+            if (_objectSpawnsRelayed++ < 20 || _objectSpawnsRelayed % 50 == 0)
+                Log.LogInfo($"[spawn] slot {cli.Slot} spawned object #{data[off] | (data[off + 1] << 8)} at ({BitConverter.ToSingle(data, off + 2):0.0},{BitConverter.ToSingle(data, off + 6):0.0}): relayed to everyone.");
+        }
     }
 }

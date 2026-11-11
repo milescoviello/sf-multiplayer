@@ -25,6 +25,11 @@ namespace SFClientRecon
                 if ((object)start != null) h.Patch(start, postfix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(BlackHoleStart_Postfix))));
                 if ((object)fixedUpd != null) h.Patch(fixedUpd, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(BlackHoleFixed_Prefix))));
                 if ((object)ended != null) h.Patch(ended, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(BlackHoleEnded_Prefix))));
+                var mmT = CachedType("MultiplayerManager");
+                var onSpawned = (object)mmT != null ? AccessTools.Method(mmT, "OnObjectSpawned") : null;
+                var spawnObj = (object)mmT != null ? AccessTools.Method(mmT, "SpawnObject", new[] { typeof(GameObject), typeof(Vector3), typeof(Vector3), typeof(bool) }) : null;
+                if ((object)onSpawned != null) h.Patch(onSpawned, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(OnObjectSpawned_DiagPrefix))));
+                if ((object)spawnObj != null) h.Patch(spawnObj, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(SpawnObject_DiagPrefix))));
             }
             catch (Exception e) { Log.LogWarning("[blackhole] diag: " + e.Message); }
         }
@@ -53,6 +58,18 @@ namespace SFClientRecon
                     + " at " + (c.transform.parent != null ? c.transform.parent.position : c.transform.position) + ", local player " + LocalPlayerDistance(c) + " away");
             }
             catch { }
+        }
+
+        private static int _spawnDiagN;
+        internal static void OnObjectSpawned_DiagPrefix(byte[] data)
+        {
+            if (_spawnDiagN++ > 30 || data == null || data.Length < 2) return;
+            Log.LogInfo("[spawn] ObjectSpawned received: object #" + (data[0] | (data[1] << 8)) + " (" + data.Length + " bytes).");
+        }
+        internal static void SpawnObject_DiagPrefix(GameObject objectToSpawn, Vector3 position)
+        {
+            if (_spawnDiagN++ > 30) return;
+            Log.LogInfo("[spawn] we spawn '" + (objectToSpawn != null ? objectToSpawn.name : "null") + "' at " + position + " (sent to the server).");
         }
 
         internal static void BlackHoleEnded_Prefix() { Log.LogInfo("[blackhole] OnMatchEnded: the black hole removes itself now."); }
