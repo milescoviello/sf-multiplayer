@@ -228,6 +228,7 @@ namespace SFClientRecon
         private class NsoCacheEntry { public Component Comp; public Rigidbody Rb; public Rigidbody[] Rbs; public bool SkipSmooth; public bool Pushable; public bool Floating; public bool LocalSpin; }
         private static Type _spinType; private static bool _spinTypeLooked;
 
+        private static int _nsoApplyErrN;
         private static bool HasLocalSpin(Component c)
         {
             if (!_spinTypeLooked) { _spinTypeLooked = true; _spinType = CachedType("Spin"); }
@@ -324,9 +325,16 @@ namespace SFClientRecon
                 float nowTs = Time.realtimeSinceStartup;
                 foreach (var e in snap)
                 {
-                    if (!_nsoCache.TryGetValue(e.Id, out var nsoEntry) || nsoEntry == null || (object)nsoEntry.Comp == null) continue;
+                    // Unity's == (a destroyed object is "null"): `(object)comp == null`
+                    // let destroyed objects through and the first member access
+                    // threw, which ended this whole snapshot for every NSO after
+                    // it. Since 0.7.12 ice pieces come through here and broken ones
+                    // get destroyed (103 of these in one match). One bad entry
+                    // now skips only itself.
+                    if (!_nsoCache.TryGetValue(e.Id, out var nsoEntry) || nsoEntry == null || nsoEntry.Comp == null) continue;
                     var nsoComp = nsoEntry.Comp;
-                    if (nsoEntry.SkipSmooth) continue;   // weapon / ice / chain — handled elsewhere
+                    if (nsoEntry.SkipSmooth) continue;   // weapon / chain (ice too with SF_ICE_LOCAL=1)
+                    try {
                     Vector3 newTarget = new Vector3(e.X, e.Y, e.Z);
                     // P0-15 — only flag for destruction-suppression when the
                     // snapshot delivered a LARGE position jump. The
@@ -338,7 +346,7 @@ namespace SFClientRecon
                     // enough to catch the "teleport across map after a
                     // missed snapshot or scene reload" case that produces
                     // spurious destructions.
-                    Vector3 currentPos = ((object)nsoEntry.Rb != null)
+                    Vector3 currentPos = (nsoEntry.Rb != null)
                         ? nsoEntry.Rb.position : nsoComp.transform.position;
                     if (Vector3.Distance(currentPos, newTarget) > NsoLargeLerpThreshold)
                     {
@@ -383,6 +391,7 @@ namespace SFClientRecon
                         _nsoTargets[e.Id] = pt;
                     }
                     applied++;
+                    } catch (Exception exOne) { if (_nsoApplyErrN++ < 5) Log.LogWarning($"[P6.14 NSO apply] #{e.Id}: {exOne.GetType().Name}: {exOne.Message}"); }
                 }
                 if (VerboseDiag && (_snapsApplied == 1 || _snapsApplied % 90 == 0))
                     Log.LogInfo($"[P6.14] NSO snap tick={tick} targeted {applied}/{snap.Count}");

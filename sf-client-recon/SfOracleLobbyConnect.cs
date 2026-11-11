@@ -177,6 +177,7 @@ namespace SFClientRecon
                 if (RefOk(checkReady))
                     harmony.Patch(checkReady, prefix: new HarmonyMethod(typeof(Plugin), nameof(CheckReadyPlayers_OraclePrefix)));
 
+                PatchAutoStartCountdown(harmony);
                 var onMatchStart = AccessTools.Method(_mmType, "OnMatchStart");
                 if (RefOk(onMatchStart))
                     harmony.Patch(onMatchStart, postfix: new HarmonyMethod(typeof(Plugin), nameof(OnMatchStart_OraclePostfix)));
@@ -879,6 +880,51 @@ namespace SFClientRecon
         }
 
         internal static bool CheckReadyPlayers_OraclePrefix() => !_oracleConnectMode;
+
+        // Each client's map load ends with StartCountdownAfterSeconds(3): if the
+        // round hasn't started 3 s after it got ready, it starts the countdown
+        // itself. The server sends StartMatch once BOTH players are ready, so when
+        // one loads slower the other counted down on its own and then again on
+        // StartMatch: two countdowns, and the two players started at different
+        // times. Online, that wait is 30 s: the server's StartMatch starts every
+        // round (the coroutine stops itself once the fight is on) and the local
+        // countdown is only a fallback. Patched on the coroutine's MoveNext (the
+        // tiny wrapper methods can be inlined; GameManager itself must not be
+        // patched on this runtime, see above).
+        private const float OnlineAutoStartSec = 30f;
+        private static System.Reflection.FieldInfo _acdStateF, _acdSecondsF;
+        private static void PatchAutoStartCountdown(Harmony harmony)
+        {
+            try
+            {
+                if (!RefOk(_gmType)) _gmType = CachedType("GameManager");
+                if (!RefOk(_gmType)) return;
+                Type it = null;
+                foreach (var nt in _gmType.GetNestedTypes(System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public))
+                    if (nt.Name.Contains("StartCountdownAfterSeconds")) { it = nt; break; }
+                if ((object)it == null) { Log.LogWarning("[oracle-lobby] auto-start countdown coroutine not found."); return; }
+                foreach (var f in it.GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public))
+                {
+                    if (f.Name.Contains("state")) _acdStateF = f;
+                    else if (f.FieldType == typeof(float) && f.Name.Contains("seconds")) _acdSecondsF = f;
+                }
+                var mn = AccessTools.Method(it, "MoveNext");
+                if (!RefOk(mn) || !RefOk(_acdStateF) || !RefOk(_acdSecondsF)) { Log.LogWarning("[oracle-lobby] auto-start countdown: fields not found."); return; }
+                harmony.Patch(mn, prefix: new HarmonyMethod(typeof(Plugin), nameof(AutoStartCountdown_MoveNextPrefix)));
+                Log.LogInfo("[oracle-lobby] The game's own 3 s auto-start waits " + OnlineAutoStartSec + " s online: the server's StartMatch starts the round.");
+            }
+            catch (Exception e) { Log.LogWarning("[oracle-lobby] auto-start countdown patch: " + e.Message); }
+        }
+
+        internal static void AutoStartCountdown_MoveNextPrefix(object __instance)
+        {
+            try
+            {
+                if (!_oracleConnectMode || (int)_acdStateF.GetValue(__instance) != 0) return;
+                if ((float)_acdSecondsF.GetValue(__instance) < OnlineAutoStartSec) _acdSecondsF.SetValue(__instance, OnlineAutoStartSec);
+            }
+            catch { }
+        }
 
         internal static void OnMatchStart_OraclePostfix()
         {

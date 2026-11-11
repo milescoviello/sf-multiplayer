@@ -1,3 +1,13 @@
+# What's new — 2026-11-11 (morning): one countdown, cleaner hits (client 0.7.13, server 0.5.5)
+
+After the first real COMP match on the server (two players, a set to 25 and part of a second):
+
+- **One countdown, started together.** Each client's map load ends with the game's own 3 s auto-start: if the round hasn't begun 3 s after it got ready, it counts down by itself. The server starts the round once BOTH players are ready, so when one loaded slower the other counted down on its own and again on the server's start: two countdowns, and the players started at different times. Online that local wait is now 30 s (patched on the coroutine), so the server's StartMatch starts every round; the local countdown is only a fallback.
+- **Crates and ice kept in sync after ice breaks.** Since 0.7.12 ice pieces go through the snapshot apply; a broken, destroyed piece passed the old null check and its first access threw, which ended that snapshot for every object after it (103 times in one match). Unity's null check now, and one bad entry only skips itself.
+- **Server: bullets hitting a body** ran into a stock win check on a client list that's null on this server: ArgumentNullException on every body hit, which also skipped the rest of the hit. An empty list stands in for the duration of that call.
+- **Anti-cheat "low-damage kill"** no longer flags a kill that had one damage hit before the killing blow: stock sends at most one damage message per 0.2 s, so one punch into lava looks like that. Only a killing blow with no damage at all before it is flagged (still log-only).
+- **Kill timing diagnostic:** the client logs `[kill] our kill: their death played N ms after our killing blow went out`, to find where the reported ~0.3 s goes.
+
 # What's new — 2026-11-10 (late night 2): ice chunks follow the server (client 0.7.12)
 
 - **Ice chunks land in the same place for everyone.** Each ice chunk is a NetworkSyncableObject; in stock, a non-host player sees them follow the host's simulation. This mod had ice out of that sync, so every client simulated its own chunks after a break and they ended up in different places. They now follow the server's simulation like crates. A break is still started by the player who hits the ice: the client sends it, and every client and the server break it when the server's broadcast comes back. `SF_ICE_LOCAL=1` puts the per-client simulation back.

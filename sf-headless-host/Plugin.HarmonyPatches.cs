@@ -725,6 +725,36 @@ namespace SFHeadlessHost
             catch { return true; }
         }
 
+        // ProjectileCollision.HitObject (a bullet hitting a body) ends with a stock
+        // win check that does list.AddRange(MultiplayerManager.ConnectedClients),
+        // and on this server that array is null: ArgumentNullException on every
+        // body hit, which also skipped the rest of the hit (the force on the body,
+        // the bullet's own handling), so the server's copy of a bullet kept hitting
+        // every physics step. For the duration of the call an empty array stands
+        // in; nothing else sees it.
+        private static System.Reflection.FieldInfo _mmClientsF;
+        private static object _hitObjMm;
+        internal static void HitObject_ClientsPrefix()
+        {
+            _hitObjMm = null;
+            try
+            {
+                var mm = UnityEngine.Object.FindObjectOfType(CachedType("MultiplayerManager"));
+                if (mm == null) return;
+                if ((object)_mmClientsF == null) _mmClientsF = AccessTools.Field(mm.GetType(), "mConnectedClients");
+                if ((object)_mmClientsF == null || _mmClientsF.GetValue(mm) != null) return;
+                _mmClientsF.SetValue(mm, Array.CreateInstance(_mmClientsF.FieldType.GetElementType(), 0));
+                _hitObjMm = mm;
+            }
+            catch { }
+        }
+        internal static Exception HitObject_ClientsFinalizer(Exception __exception)
+        {
+            try { if (_hitObjMm != null && (object)_mmClientsF != null) _mmClientsF.SetValue(_hitObjMm, null); } catch { }
+            _hitObjMm = null;
+            return __exception;
+        }
+
         private static void InstallMapInfoSyncQuantize()
         {
             if (_mapSyncQuantizeInstalled) return;
@@ -741,6 +771,14 @@ namespace SFHeadlessHost
                     Log.LogInfo("[P0-12] Patched MultiplayerManager.AddMapDataObject (quantize Vector2 key to 0.01).");
                 }
                 else Log.LogWarning("[P0-12] AddMapDataObject not found.");
+                var pcT = CachedType("ProjectileCollision");
+                var hitObj = (object)pcT != null ? AccessTools.Method(pcT, "HitObject") : null;
+                if ((object)hitObj != null)
+                {
+                    harmony.Patch(hitObj, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(HitObject_ClientsPrefix))),
+                        finalizer: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(HitObject_ClientsFinalizer))));
+                    Log.LogInfo("[v26.6] Patched ProjectileCollision.HitObject (empty client list while it runs on the server).");
+                }
                 var addPre = AccessTools.Method(mgrType, "AddPreSpawnedWeapon");
                 if ((object)addPre != null)
                 {

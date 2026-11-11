@@ -51,7 +51,11 @@ namespace SFHeadlessHost
 
             float accum = _acRoundDmgToVictim[victimSlot];
             int hits = _acRoundHitsToVictim[victimSlot];
-            if (accum >= AcSuspectMaxAccum || hits > 1) return;  // plenty of real damage → legit kill
+            // Stock sends at most one damage message per 0.2 s (the shooter's copy
+            // keeps the rest and sends the killing blow), so one punch into lava,
+            // or a combo inside 0.2 s, reaches us as a single hit + the killing
+            // blow: that's normal. A spoofed instant kill has no damage before it.
+            if (accum >= AcSuspectMaxAccum || hits > 0) return;
 
             // Range gate — confirm the kill happened at melee distance so we
             // don't false-positive on a legit long-range one-shot weapon.
@@ -72,7 +76,7 @@ namespace SFHeadlessHost
             }
             rounds.Add(_acRoundIndex);
             Log.LogWarning($"[anticheat behavior] Low-damage kill by slot={attackerIdx} on slot={victimSlot} " +
-                           $"(victim took only {accum:0.#} dmg over {hits} hit(s) at melee range). " +
+                           $"(no damage reached the server before the killing blow, at melee range; a push into a hazard looks the same). " +
                            $"Flagged rounds: {rounds.Count}/{AcFlaggedRoundsToKick}. " +
                            $"{(AcKickEnabled ? "" : "[LOG-ONLY — set SF_AC_KICK=1 to auto-kick]")}");
 
