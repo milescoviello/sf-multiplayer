@@ -246,11 +246,14 @@ Framing (little-endian), distinct from `[u32 ts][u8 msgType][...]`:
                 0x04 CREATE   create a lobby (empty code = pick one)
                 0x05 RESTART  restart lobby <code> (only while it's empty)
                 0x06 BIND     pin this address to <code>, silently (no reply)
+                0x07 DIAG     one diagnostic text line (no reply; the router
+                              logs it, 20 per IP per 10 min, never forwarded)
             router → client:
                 0x81 ACK        reply to SELECT / LEAVE
                 0x83 LIST reply
                 0x84 CTL ACK    reply to CREATE / RESTART
 Requests:  [1] codeLen, [codeLen] code (ASCII A-Z0-9), [4] nonce LE
+DIAG:      the request layout, then the text (printable ASCII, up to 400 bytes)
 ACK:       [1] status (0 ok / 1 no-such-lobby), [4] nonce LE
 CTL ACK:   [1] status (0 accepted / 1 rejected), [4] nonce LE
 LIST:      [4] nonce LE, [1] count, count x {[1] codeLen, [codeLen] code, [1] players, [1] capacity}

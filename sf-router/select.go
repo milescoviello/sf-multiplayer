@@ -11,7 +11,8 @@ import (
 // Wire (little-endian):
 //
 //	[8] magic   = selectMagic
-//	[1] op      = opSelect | opLeave | opBind (silent, see router.go)
+//	[1] op      = opSelect | opLeave | opBind (silent, see router.go) | opDiag
+//	              (opDiag carries a text tail after the nonce, see diagText)
 //	[1] codeLen (0..maxCodeLen)
 //	[N] code    (ASCII A-Z0-9, uppercased by client)
 //	[4] nonce   (echoed in the ACK so the client can correlate)
@@ -36,6 +37,7 @@ const (
 	opCreate   byte = 0x04 // client → router: "create a lobby" (code empty → auto-gen)
 	opRestart  byte = 0x05 // client → router: "restart lobby <code>"
 	opBind     byte = 0x06 // client → router: pin THIS endpoint to <code>, silently (no ACK, IP fallback untouched)
+	opDiag     byte = 0x07 // client → router: one diagnostic text line after the nonce (logged, never forwarded, no reply)
 	opAck      byte = 0x81
 	opListResp byte = 0x83 // router → client: the lobby list (see buildListResp)
 	opCtlAck   byte = 0x84 // router → client: create/restart accepted|rejected (status byte)
@@ -150,3 +152,30 @@ func buildCtlAck(nonce uint32, status byte) []byte {
 	out = append(out, n[:]...)
 	return out
 }
+
+// diagText returns the printable-ASCII text tail of an opDiag datagram (after
+// magic, op, codeLen, code and nonce), cut to maxDiagText. Anything else is
+// replaced with '?', so a client can't put control characters in the log.
+func diagText(data []byte) string {
+	if len(data) < minControlLen {
+		return ""
+	}
+	off := 10 + int(data[9]) + 4
+	if off >= len(data) {
+		return ""
+	}
+	tail := data[off:]
+	if len(tail) > maxDiagText {
+		tail = tail[:maxDiagText]
+	}
+	out := make([]byte, len(tail))
+	for i, c := range tail {
+		if c < 0x20 || c > 0x7e {
+			c = '?'
+		}
+		out[i] = c
+	}
+	return string(out)
+}
+
+const maxDiagText = 400

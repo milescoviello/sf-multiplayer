@@ -282,6 +282,7 @@ namespace SFClientRecon
             {
                 _oracleConnectStarted = true;
                 if (Instance != null) Instance.ResetLocalSlot();   // look for our slot right away
+                ArmJoinWatch(SelectedLobbyCode);
                 Log.LogInfo($"[oracle-lobby] {source} → connecting to {OracleServerHost}:{OracleServerPort} (no Steam).");
                 var pkt = GetPktHandler();
                 if (!RefOk(pkt))

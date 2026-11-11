@@ -49,7 +49,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.13";
+        public const string PluginVersion = "0.7.14";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -130,6 +130,7 @@ namespace SFClientRecon
         {
             Log = Logger;
             Instance = this;
+            InstallDiagReport();   // first, so errors during install are reported too
             if (StartedForServer()) InstallUnityConsoleTee();
             // v0.6.0 — track the current map scene (mirrors the oracle's
             // _currentMapSceneName). NSO ids are PER-MAP and collide while
@@ -385,6 +386,7 @@ namespace SFClientRecon
             try { UpdateBody(); }
             finally { _perfSw.Stop(); _perfUpdateMs += _perfSw.Elapsed.TotalMilliseconds; }
             TickPerfLog();
+            try { TickDiagReport(); } catch { }
             try { TickLowGraphics(); } catch (Exception e) { if (_lowGfx >= 0) { _lowGfx = -1; Log.LogWarning("[gfx] " + e.Message); } }
         }
 

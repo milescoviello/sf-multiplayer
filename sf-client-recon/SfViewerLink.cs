@@ -19,7 +19,7 @@ namespace SFClientRecon
         private const byte PktViewerHello = 46;
         private float _nextViewerHelloAt;
         private static ulong _ownSteamId;
-        private static bool _steamIdTried;
+        private static float _steamIdNextTry;   // retry while 0: Steam may not be up on the first call
 
         // msgType 48: tell the server our version every 5 s, so it can ask an
         // outdated client to update (COMP requires the current one).
@@ -121,8 +121,8 @@ namespace SFClientRecon
 
         private static ulong OwnSteamId()
         {
-            if (_ownSteamId != 0 || _steamIdTried) return _ownSteamId;
-            _steamIdTried = true;
+            if (_ownSteamId != 0 || Time.realtimeSinceStartup < _steamIdNextTry) return _ownSteamId;
+            _steamIdNextTry = Time.realtimeSinceStartup + 5f;
             try
             {
                 var su = CachedType("Steamworks.SteamUser");

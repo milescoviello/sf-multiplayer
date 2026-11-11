@@ -110,6 +110,9 @@ type Router struct {
 	// LIST control datagram can answer the in-game browser over the same UDP port
 	// — no HTTP/website needed. Set once before Run; read on the (cold) LIST path.
 	lister func() []string
+
+	// diag counts DIAG lines per client IP (rate limit; guarded by mu).
+	diag map[string]*diagCount
 	// capacityOf, when set, returns a lobby's max players for LIST (else 4).
 	capacityOf func(code string) byte
 	// playersOf, when set, returns the player count a lobby reports itself
@@ -391,6 +394,16 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 			log.Printf("[router] BIND %q from %s → %s", code, cliAddr, backend)
 		}
 		return
+	case opDiag:
+		// A client's own report of why its join failed (it never reached a
+		// lobby, so the lobby logs have nothing). Logged, rate-limited per IP.
+		if !r.allowDiag(cliAddr.IP.String()) {
+			return
+		}
+		if text := diagText(data); text != "" {
+			log.Printf("[router] DIAG %q from %s: %s", code, cliAddr, text)
+		}
+		return
 	case opCreate, opRestart:
 		// In-game lobby management. The router can't spawn/restart Proton itself,
 		// so it proxies to the local control plane on a goroutine (the work is
@@ -425,6 +438,33 @@ func (r *Router) handleControl(cliAddr *net.UDPAddr, data []byte) {
 		return
 	}
 }
+
+// allowDiag rate-limits DIAG lines: diagPerWindow per IP per diagWindow.
+func (r *Router) allowDiag(ip string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	now := time.Now()
+	if r.diag == nil || len(r.diag) > 4096 {
+		r.diag = make(map[string]*diagCount)
+	}
+	d := r.diag[ip]
+	if d == nil || now.Sub(d.start) > diagWindow {
+		d = &diagCount{start: now}
+		r.diag[ip] = d
+	}
+	d.n++
+	return d.n <= diagPerWindow
+}
+
+type diagCount struct {
+	start time.Time
+	n     int
+}
+
+const (
+	diagWindow    = 10 * time.Minute
+	diagPerWindow = 20
+)
 
 // sendCtlAck writes a create/restart ACK back to the client via the public socket.
 func (r *Router) sendCtlAck(cliAddr *net.UDPAddr, nonce uint32, status byte) {

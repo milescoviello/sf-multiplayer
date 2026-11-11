@@ -1,3 +1,9 @@
+# What's new — 2026-11-11 (afternoon): creating a lobby works again, join reports (client 0.7.14)
+
+- **CREATE failed with a server error.** Lobby ports were searched in 1337-1344, a range as wide as the lobby cap, but the router, reserved ports and the four always-on lobbies use most of it. A lobby created in the morning held the last free port all day (idle lobbies were kept 24 h), so every later CREATE returned "No free port". Created lobbies now get ports from 1337-1360, an empty created lobby closes after 30 min, and a failed create is logged.
+- **Join reports.** When a join fails on the player's side, no packet reaches a lobby and the server has nothing to look at (an outside player picked MAIN and COMP twice today; their game reached the router and then sent nothing). The client now sends the router a few short lines: a hello (mod version, 32/64-bit, game, Unity and OS versions, Steam state), error lines from the log, and "join stalled" with the connect state if the server hasn't accepted it 15 s after a connect. At most 15 lines a session, user folders cut out of paths; `SF_DIAG=0` turns it off. The router logs them as `[router] DIAG`.
+- The Steam id lookup retries while Steam isn't up yet (it gave up after the first try, which left the rejoin hello unable to send for the whole session).
+
 # What's new — 2026-11-11 (morning): one countdown, cleaner hits (client 0.7.13, server 0.5.5)
 
 After the first real COMP match on the server (two players, a set to 25 and part of a second):

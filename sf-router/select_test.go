@@ -67,3 +67,36 @@ func TestAckRoundtrip(t *testing.T) {
 		t.Fatalf("parseAck = (status=%#x, nonce=%#x, ok=%v), want (ackNoSuchCode, 0x01020304, true)", status, nonce, ok)
 	}
 }
+
+func TestDiagText(t *testing.T) {
+	pkt := append(buildSelect(opDiag, "MAIN", 7), []byte("join stalled\n\x01ok")...)
+	op, code, _, ok := parseControl(pkt)
+	if !ok || op != opDiag || code != "MAIN" {
+		t.Fatalf("parseControl = (%#x,%q,%v), want (opDiag,MAIN,true)", op, code, ok)
+	}
+	if got := diagText(pkt); got != "join stalled??ok" {
+		t.Errorf("diagText = %q, want %q", got, "join stalled??ok")
+	}
+	if got := diagText(buildSelect(opDiag, "", 1)); got != "" {
+		t.Errorf("diagText of an empty tail = %q, want empty", got)
+	}
+	long := append(buildSelect(opDiag, "", 1), make([]byte, maxDiagText+50)...)
+	if got := diagText(long); len(got) != maxDiagText {
+		t.Errorf("diagText length = %d, want %d", len(got), maxDiagText)
+	}
+}
+
+func TestAllowDiagRateLimit(t *testing.T) {
+	r := &Router{}
+	for i := 0; i < diagPerWindow; i++ {
+		if !r.allowDiag("1.2.3.4") {
+			t.Fatalf("line %d refused, want allowed", i+1)
+		}
+	}
+	if r.allowDiag("1.2.3.4") {
+		t.Error("line past the per-IP limit allowed")
+	}
+	if !r.allowDiag("5.6.7.8") {
+		t.Error("another IP refused")
+	}
+}
