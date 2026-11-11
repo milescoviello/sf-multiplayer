@@ -559,7 +559,10 @@ namespace SFHeadlessHost
                 if (!RefOk(add)) return;
                 int n = 0;
                 Scene scene;
-                if (TryFindLoadedSceneForCurrentMapIndex(out scene) && scene.isLoaded)
+                bool haveScene = TryFindLoadedSceneForCurrentMapIndex(out scene) && scene.isLoaded;
+                PruneStalePreSpawnedWeapons(mm, haveScene ? scene.name : null);
+                _inEnsurePreSpawned = true;
+                if (haveScene)
                 {
                     foreach (var root in scene.GetRootGameObjects())
                     {
@@ -591,7 +594,55 @@ namespace SFHeadlessHost
                 }
                 if (n > 0) Log.LogInfo($"[v26.6] EnsurePreSpawnedWeaponsRegistered: {n} WeaponPickUp");
             }
-            catch (Exception e) { Log.LogWarning($"[v26.6] EnsurePreSpawned: {e.Message}"); }
+            catch (Exception e) { Log.LogWarning($"[v26.6] EnsurePreSpawned: {e.InnerException?.Message ?? e.Message}"); }
+            finally { _inEnsurePreSpawned = false; }
+        }
+
+        // The game clears its pre-placed weapon list in ClearWeapons() on a map
+        // change, which the headless server never runs: every map's weapons
+        // stayed in it (100+ after a few hours), and each GroundWeaponsInit sent
+        // them all to the players, whose position matching could hand a current
+        // weapon a dead one's id. Keep only live weapons of the current map.
+        private static System.Reflection.FieldInfo _tempPreSpawnedField;
+        private void PruneStalePreSpawnedWeapons(object mm, string sceneName)
+        {
+            try
+            {
+                if ((object)_tempPreSpawnedField == null) _tempPreSpawnedField = AccessTools.Field(mm.GetType(), "mTempPreSpawnedWeapons");
+                var dict = (object)_tempPreSpawnedField != null ? _tempPreSpawnedField.GetValue(mm) as System.Collections.IDictionary : null;
+                if (dict == null || dict.Count == 0) return;
+                var stale = new List<object>();
+                foreach (System.Collections.DictionaryEntry e in dict)
+                {
+                    var w = e.Value as Component;
+                    if (w == null || (sceneName != null && w.gameObject.scene.name != sceneName)) stale.Add(e.Key);
+                }
+                foreach (var k in stale) dict.Remove(k);
+                if (stale.Count > 0) Log.LogInfo($"[v26.6] map weapons: dropped {stale.Count} from earlier maps, {dict.Count} left.");
+            }
+            catch (Exception e) { Log.LogWarning($"[v26.6] prune map weapons: {e.Message}"); }
+        }
+
+        // A map weapon that switches on mid-round (Western maps' guns) registers
+        // itself after the round's GroundWeaponsInit went out, so nobody had a
+        // network id for it until the next map: it couldn't be picked up. The
+        // list is sent again shortly after such a weapon appears.
+        private static bool _inEnsurePreSpawned;
+        private static string _gwSentForScene;
+        private static float _lateGwCheckAt = -1f;
+        internal static void NoteMapWeaponRegistered()
+        {
+            if (_inEnsurePreSpawned || _gwSentForScene == null) return;
+            if (_lateGwCheckAt < 0f) _lateGwCheckAt = Time.realtimeSinceStartup + 0.3f;
+        }
+
+        private void TickLateGroundWeapons()
+        {
+            if (_lateGwCheckAt < 0f || Time.realtimeSinceStartup < _lateGwCheckAt) return;
+            _lateGwCheckAt = -1f;
+            Scene sc;
+            if (!TryFindLoadedSceneForCurrentMapIndex(out sc) || sc.name != _gwSentForScene) return;   // that map is gone
+            InvokeCheckForGroundWeapons("a map weapon appeared mid-round");
         }
 
         internal void InvokeCheckForGroundWeapons(string reason)
@@ -604,6 +655,8 @@ namespace SFHeadlessHost
                 var check = AccessTools.Method(mm.GetType(), "CheckForGroundWeapons");
                 if ((object)check == null) return;
                 check.Invoke(mm, null);
+                Scene sc;
+                _gwSentForScene = TryFindLoadedSceneForCurrentMapIndex(out sc) ? sc.name : null;
                 Log.LogInfo($"[P6.8/v26.6] CheckForGroundWeapons ({reason})");
             }
             catch (Exception e) { Log.LogError($"[P6.8] CheckForGroundWeapons ({reason}): {e.InnerException?.Message ?? e.Message}"); }

@@ -368,6 +368,15 @@ namespace SFClientRecon
         {
             code = (code ?? "").Trim().ToUpper();
             if (code.Length == 0) { Log.LogWarning("[oracle-lobby] RequestJoinLobby: empty code ignored."); return; }
+            // JOIN on the lobby we're already in: nothing to do (it used to leave
+            // and rejoin it, which drops you out of the round).
+            if (IsInLobby(code))
+            {
+                Log.LogInfo($"[oracle-lobby] RequestJoinLobby({code}): already in it.");
+                var bi0 = Instance;
+                if (RefOk(bi0)) { bi0._bannerText = "You're already in " + code + "."; bi0._bannerUntilUtc = DateTime.UtcNow.AddSeconds(3); }
+                return;
+            }
             if (IsMatchInProgress())
             {
                 Log.LogWarning($"[oracle-lobby] RequestJoinLobby({code}) ignored — a match is in progress. Leave to the menu first; switching lobbies mid-match re-inits the netstack under the live game and desyncs it. (issue #5)");
@@ -379,6 +388,14 @@ namespace SFClientRecon
                 return;
             }
             JoinLobbyNow(code);
+        }
+
+        // In this lobby right now: it's the selected one and it gave us a session
+        // (cleared on a switch, a kick, or a lobby restart). Also read by
+        // SFServerBrowser by reflection.
+        internal static bool IsInLobby(string code)
+        {
+            return _sessionToken != 0 && string.Equals(SelectedLobbyCode ?? "", (code ?? "").Trim().ToUpper(), StringComparison.Ordinal);
         }
 
         // RequestJoinLobby minus the mid-match refusal: also used to rejoin a

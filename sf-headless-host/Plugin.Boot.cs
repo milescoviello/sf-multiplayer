@@ -612,6 +612,7 @@ namespace SFHeadlessHost
                     ProfBegin(); TickOracleMapLoadTimeout(); ProfEnd("TickOracleMapLoadTimeout");
                     ProfBegin(); TickPeriodicWeaponRearm(); ProfEnd("TickPeriodicWeaponRearm");
                     ProfBegin(); TickOracleSkyWeaponSpawner(); ProfEnd("TickOracleSkyWeaponSpawner");
+                    try { TickLateGroundWeapons(); } catch (Exception e) { Log.LogWarning($"[v26.6] late map weapons: {e.Message}"); }
                     // Push the latest per-slot inputs into each spawned rig's
                     // CharacterActions. Done every frame even if no new input
                     // arrived — analog sticks need their last value held so

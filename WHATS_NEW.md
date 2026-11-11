@@ -1,3 +1,11 @@
+# What's new — 2026-11-10 (late): picking up map weapons, COMP alone (client 0.7.9, browser 0.6.2, server 0.5.2)
+
+Found while playing on the live server:
+
+- **Map weapons you couldn't pick up.** The game keeps its pre-placed weapons in a dictionary keyed by position and threw on a position it already had. That happened when a map weapon was registered twice (the mod's own pass runs a few times per map, and a weapon the map switches on later registers itself again), so the rest of the pass, or the weapon's own setup, was cut short. Both client and server now skip a weapon or position that's already there. The server also never cleared that list between maps (the game does it in a code path the headless server doesn't run): after a few hours it held 100+ weapons from old maps, all sent to the players with every round, and each repeat re-numbered them. It now keeps only the current map's live weapons. And a weapon that appears mid-round (Western maps' guns) is sent to the players right away; before, it only got a network id on the next map, so nobody could pick it up.
+- **COMP alone:** a COMP round only starts with both players in, so `/start` alone loaded a map where nothing counted (no deaths, no rounds). It now says COMP is 1 v 1 and points to CASUAL or MAIN. `/next` and the other match-changing commands stay off in COMP.
+- **JOIN on the lobby you're in** (browser 0.6.2 + client 0.7.9): closes the list and says so; it used to leave and rejoin, which drops you out of the round.
+
 # What's new — 2026-11-10 (night): faster on old PCs, smoother remote players (client 0.7.8)
 
 - **Old PCs: post-processing off when the game can't keep up.** On an old GPU, Stick Fight's post-processing (bloom, colour grading, antialiasing: several full-screen passes) is most of the frame. A 2009 MacBook Pro (GeForce 9400M) ran it at 10 fps at 1280x800 and 19 fps at 640x400, so it's fill rate, not the CPU. When the game stays under 40 fps for 20 s (loading hitches left out, and not when the player set a frame cap that low), the mod turns post-processing off for that session: the same MacBook went to 27 fps, 24-30 in a match. Nothing is saved, the next start measures again, and `[gfx]` in the log says when it happened. An empty file `BepInEx/sf-full-graphics.on` keeps the full look; `SF_LOW_GFX=1` / `0` force it on / off.

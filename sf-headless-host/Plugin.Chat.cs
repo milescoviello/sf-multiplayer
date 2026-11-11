@@ -163,6 +163,13 @@ namespace SFHeadlessHost
                         {
                             SendChatToPlayer(sender, "Match already in progress.");
                         }
+                        else if (CompMode && CountInitializedSfClients() < MaxPlayers)
+                        {
+                            // A COMP round only starts with the lobby full; a solo
+                            // /start used to load a map where nothing counted (no
+                            // deaths, no rounds) with no word why.
+                            SendChatToPlayer(sender, "COMP is 1 v 1: the match starts when your opponent is in. To play alone, use CASUAL or MAIN.");
+                        }
                         else
                         {
                             SendChatToPlayer(sender, "Starting match...");

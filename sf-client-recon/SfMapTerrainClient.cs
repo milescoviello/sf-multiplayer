@@ -109,6 +109,10 @@ namespace SFClientRecon
                             AccessTools.Method(typeof(Plugin), nameof(OnGroundWeaponsInit_FuzzyPrefix))));
                         Log.LogInfo("[v26.6] Patched OnGroundWeaponsInit (fuzzy map weapons, replace vanilla).");
                     }
+                    var addPre = AccessTools.Method(mmType, "AddPreSpawnedWeapon");
+                    if ((object)addPre != null)
+                        harmony.Patch(addPre, prefix: new HarmonyMethod(
+                            AccessTools.Method(typeof(Plugin), nameof(AddPreSpawnedWeapon_DedupPrefix))));
                     var onMapInfo = AccessTools.Method(mmType, "OnMapInfoRecieved");
                     if ((object)onMapInfo != null)
                     {
@@ -366,6 +370,36 @@ namespace SFClientRecon
             catch (Exception ex) { Log.LogWarning($"[v26.6] RegisterClientPreSpawnedWeapons: {ex.Message}"); }
         }
         private int _groundWeaponRegisterLog;
+
+        // MultiplayerManager.AddPreSpawnedWeapon adds to a Dictionary keyed by the
+        // weapon's position and throws on a position it already has. That
+        // happened every time a map weapon was registered twice (ours runs a few
+        // times per map; a weapon the map switches on later registers itself again
+        // in its Awake) and two weapons sharing a spot: the throw stopped our
+        // loop (the weapons after it never got a network id: can't be picked up)
+        // or the weapon's own Awake. A position already registered is skipped.
+        private static System.Reflection.FieldInfo _tempPreSpawnedF;
+        // The same weapon again under a slightly different position (it moved a
+        // little between registrations): skip it too, or the list grows by the
+        // map's weapons on every pass.
+        private static bool HoldsWeapon(System.Collections.IDictionary d, object weapon)
+        {
+            if (weapon == null) return false;
+            foreach (var v in d.Values) if (ReferenceEquals(v, weapon)) return true;
+            return false;
+        }
+        internal static bool AddPreSpawnedWeapon_DedupPrefix(object __instance, Vector2 pos, object weapon)
+        {
+            try
+            {
+                if ((object)_tempPreSpawnedF == null) _tempPreSpawnedF = AccessTools.Field(__instance.GetType(), "mTempPreSpawnedWeapons");
+                var d = (object)_tempPreSpawnedF != null ? _tempPreSpawnedF.GetValue(__instance) as System.Collections.IDictionary : null;
+                if (d == null) return true;
+                if (d.Contains(pos) || HoldsWeapon(d, weapon)) return false;
+                return true;
+            }
+            catch { return true; }
+        }
 
         /// <summary>Server keys often miss by ULP — match nearest WeaponPickUp in YZ plane.</summary>
         // Returns false → skip vanilla OnGroundWeaponsInit (which NREs on

@@ -37,7 +37,7 @@ namespace SFServerBrowser
     {
         public const string PluginGuid = "com.stickfightdev.server-browser";
         public const string PluginName = "SFServerBrowser";
-        public const string PluginVersion = "0.6.1";
+        public const string PluginVersion = "0.6.2";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -456,6 +456,7 @@ namespace SFServerBrowser
         {
             code = SanitizeCode(code);
             if (code.Length == 0) { PushToast("Enter a lobby code first.", 2); return; }
+            if (IsInLobby(code)) { _overlayOpen = false; PushToast("You're already in " + code + ".", 1); return; }
             if (TryInvokeJoin(code))
             {
                 _joiningCode = code;
@@ -666,6 +667,17 @@ namespace SFServerBrowser
             if (t == null) return;
             _joinMethod = AccessTools.Method(t, "RequestJoinLobby", new[] { typeof(string) });
             _hostMethod = AccessTools.Method(t, "RequestHostLobby", new[] { typeof(string) });
+            _inLobbyMethod = AccessTools.Method(t, "IsInLobby", new[] { typeof(string) });
+        }
+
+        // SFClientRecon 0.7.9+: are we in this lobby right now? (Older: never.)
+        private static System.Reflection.MethodInfo _inLobbyMethod;
+        private static bool IsInLobby(string code)
+        {
+            ResolveBridges();
+            if ((object)_inLobbyMethod == null) return false;
+            try { return (bool)_inLobbyMethod.Invoke(null, new object[] { code }); }
+            catch { return false; }
         }
 
         private static bool TryInvokeJoin(string code)

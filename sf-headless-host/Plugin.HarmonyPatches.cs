@@ -697,6 +697,34 @@ namespace SFHeadlessHost
             catch { }
             return true;
         }
+        // AddPreSpawnedWeapon adds to a Dictionary keyed by position and threw on
+        // one it already had: every repeat of EnsurePreSpawnedWeaponsRegistered,
+        // a map weapon that switches on later (its Awake registers it again), or
+        // two weapons on one spot. The throw cut the loop or the weapon's Awake
+        // short. A position already registered is skipped.
+        private static System.Reflection.FieldInfo _tempPreSpawnedF;
+        // The same weapon again under a slightly different position (it moved a
+        // little between registrations): skip it too, or the list grows by the
+        // map's weapons on every pass.
+        private static bool HoldsWeapon(System.Collections.IDictionary d, object weapon)
+        {
+            if (weapon == null) return false;
+            foreach (var v in d.Values) if (ReferenceEquals(v, weapon)) return true;
+            return false;
+        }
+        internal static bool AddPreSpawnedWeapon_DedupPrefix(object __instance, Vector2 pos, object weapon)
+        {
+            try
+            {
+                if ((object)_tempPreSpawnedF == null) _tempPreSpawnedF = AccessTools.Field(__instance.GetType(), "mTempPreSpawnedWeapons");
+                var d = (object)_tempPreSpawnedF != null ? _tempPreSpawnedF.GetValue(__instance) as System.Collections.IDictionary : null;
+                if (d != null && (d.Contains(pos) || HoldsWeapon(d, weapon))) return false;
+                NoteMapWeaponRegistered();
+                return true;
+            }
+            catch { return true; }
+        }
+
         private static void InstallMapInfoSyncQuantize()
         {
             if (_mapSyncQuantizeInstalled) return;
@@ -713,6 +741,12 @@ namespace SFHeadlessHost
                     Log.LogInfo("[P0-12] Patched MultiplayerManager.AddMapDataObject (quantize Vector2 key to 0.01).");
                 }
                 else Log.LogWarning("[P0-12] AddMapDataObject not found.");
+                var addPre = AccessTools.Method(mgrType, "AddPreSpawnedWeapon");
+                if ((object)addPre != null)
+                {
+                    harmony.Patch(addPre, prefix: new HarmonyMethod(AccessTools.Method(typeof(Plugin), nameof(AddPreSpawnedWeapon_DedupPrefix))));
+                    Log.LogInfo("[v26.6] Patched MultiplayerManager.AddPreSpawnedWeapon (a position already registered is skipped, not thrown on).");
+                }
                 var recvM = AccessTools.Method(mgrType, "OnMapDataRecieved");
                 if ((object)recvM != null)
                 {
