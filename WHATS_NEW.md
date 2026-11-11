@@ -1,3 +1,7 @@
+# What's new — 2026-11-10 (late night 2): ice chunks follow the server (client 0.7.12)
+
+- **Ice chunks land in the same place for everyone.** Each ice chunk is a NetworkSyncableObject; in stock, a non-host player sees them follow the host's simulation. This mod had ice out of that sync, so every client simulated its own chunks after a break and they ended up in different places. They now follow the server's simulation like crates. A break is still started by the player who hits the ice: the client sends it, and every client and the server break it when the server's broadcast comes back. `SF_ICE_LOCAL=1` puts the per-client simulation back.
+
 # What's new — 2026-11-10 (late night): black holes work (server 0.5.4, client 0.7.11)
 
 - **Black holes.** In an online match the game doesn't create a black hole where the orb lands: the shooter's client sends ObjectSpawned and every client, the shooter included, creates it when that comes back through the host. This server dropped that message, so black holes never appeared (what showed was the orb's own impact). The server now relays it to every client and creates the black hole in its own game too, so it pulls the server's crates. Only plain spawns are relayed; weapon and position-synced spawns stay the server's. Tested on the 2009 MacBook: the black hole forms where the orb hits and pulls the player in. The client logs `[spawn]` / `[blackhole]` lines for now.

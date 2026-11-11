@@ -224,6 +224,7 @@ namespace SFClientRecon
         // locally every frame (deterministic speed) and only nudge toward the
         // host; we take POSITION from snapshots and leave rotation to Spin.
         // Applying sparse snapshot rotations on top made lasers spin in jerks.
+        private static readonly bool IceLocal = Environment.GetEnvironmentVariable("SF_ICE_LOCAL") == "1";
         private class NsoCacheEntry { public Component Comp; public Rigidbody Rb; public Rigidbody[] Rbs; public bool SkipSmooth; public bool Pushable; public bool Floating; public bool LocalSpin; }
         private static Type _spinType; private static bool _spinTypeLooked;
 
@@ -271,8 +272,15 @@ namespace SFClientRecon
                             else if ((object)_nsoIndexField != null)
                                 id = (ushort)_nsoIndexField.GetValue(nso);
                             var go = c.gameObject;
+                            // Ice chunks follow the server's simulation (client
+                            // 0.7.12), as a non-host player sees them in stock (each
+                            // chunk is a NetworkSyncableObject): simulated per client
+                            // they landed in different places on every screen. A
+                            // break is still decided by the player who hits the ice
+                            // and relayed; only where the chunks go comes from the
+                            // server. SF_ICE_LOCAL=1: each client simulates them.
                             bool skip = IsWeaponNsoRootClient(go)
-                                     || IsIceOnlyDestructibleRoot(go)
+                                     || (IceLocal && IsIceOnlyDestructibleRoot(go))
                                      || IsChainStyleDestructibleRoot(go);
                             bool pushable = !skip && IsPushableCrateNsoClient(go);
                             var rbc = c.GetComponent<Rigidbody>();
