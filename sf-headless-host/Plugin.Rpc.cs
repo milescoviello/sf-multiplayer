@@ -230,6 +230,49 @@ namespace SFHeadlessHost
             {
                 SendBridgeJson(from, $"{{\"reply\":\"nso\",\"info\":\"{NsoInfo(ExtractIntField(body, "id", -1))}\"}}");
             }
+            else if (cmd == "audio")
+            {
+                // Test aid (leak hunt): audio sources that are playing, and the output setup.
+                var sb = new System.Text.StringBuilder();
+                int playing = 0, total = 0;
+                foreach (var o in Resources.FindObjectsOfTypeAll(typeof(AudioSource)))
+                {
+                    var a = o as AudioSource;
+                    if (a == null || !a.gameObject.scene.IsValid()) continue;
+                    total++;
+                    if (!a.isPlaying) continue;
+                    playing++;
+                    if (playing <= 8) sb.Append(a.gameObject.name).Append(':').Append(a.clip != null ? a.clip.name : "-").Append(" t=").Append(a.time.ToString("0")).Append(a.loop ? " loop" : "").Append("; ");
+                }
+                var cfg = AudioSettings.GetConfiguration();
+                SendBridgeJson(from, $"{{\"reply\":\"audio\",\"playing\":{playing},\"sources\":{total},\"rate\":{cfg.sampleRate},\"dsp\":{cfg.dspBufferSize},\"info\":\"{sb.ToString().Replace("\"", "'")}\"}}");
+            }
+            else if (cmd == "mem")
+            {
+                // Test aid (leak hunt): managed and Mono heap sizes, live Unity objects.
+                long gcTotal = GC.GetTotalMemory(false);
+                long monoHeap = 0, monoUsed = 0;
+                try { monoHeap = UnityEngine.Profiling.Profiler.GetMonoHeapSize(); monoUsed = UnityEngine.Profiling.Profiler.GetMonoUsedSize(); } catch { }
+                int objs = 0, gos = 0;
+                try { objs = Resources.FindObjectsOfTypeAll(typeof(UnityEngine.Object)).Length; gos = Resources.FindObjectsOfTypeAll(typeof(GameObject)).Length; } catch { }
+                SendBridgeJson(from, $"{{\"reply\":\"mem\",\"gcTotal\":{gcTotal},\"monoHeap\":{monoHeap},\"monoUsed\":{monoUsed},\"objects\":{objs},\"gameObjects\":{gos},\"uptime\":{Time.realtimeSinceStartup:0}}}");
+            }
+            else if (cmd == "objtypes")
+            {
+                // Test aid (leak hunt): live Unity objects counted by type, top 40.
+                var counts = new Dictionary<string, int>();
+                foreach (var o in Resources.FindObjectsOfTypeAll(typeof(UnityEngine.Object)))
+                {
+                    if ((object)o == null) continue;
+                    string n = o.GetType().Name;
+                    int c; counts.TryGetValue(n, out c); counts[n] = c + 1;
+                }
+                var list = new List<KeyValuePair<string, int>>(counts);
+                list.Sort((a, b) => b.Value.CompareTo(a.Value));
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < list.Count && i < 40; i++) sb.Append(list[i].Key).Append('=').Append(list[i].Value).Append(' ');
+                SendBridgeJson(from, "{\"reply\":\"objtypes\",\"info\":\"" + sb.ToString() + "\"}");
+            }
             else if (cmd == "pushWeapons")
             {
                 // Test aid: shove the server's weapon copies sideways (fz) and up;

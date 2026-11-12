@@ -25,6 +25,7 @@ namespace SFHeadlessHost
             public float LastSeen;
             public bool Accepted;
             public bool Initialized;
+            public bool SentNonPing;   // anything but Ping/PingResponse (a health check only pings)
             public bool Spawned;
             // Phase 6.12 — last PktPlayerInput sequence number consumed for
             // this slot. Phase 6.12.2 will stamp this into outgoing snapshots
@@ -312,6 +313,7 @@ namespace SFHeadlessHost
                 Log.LogInfo($"[SF] new client appeared: {from}");
             }
             cli.LastSeen = Time.realtimeSinceStartup;
+            if (msgType != PktPing && msgType != PktPingResponse) cli.SentNonPing = true;
             // CRITICAL: do NOT overwrite cli.SteamID from the envelope here.
             // SF's SendP2PPacketToUser puts the DESTINATION's SteamID in the
             // envelope, not the sender's. When P1's OnClientJoined fires it

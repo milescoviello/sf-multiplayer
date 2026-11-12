@@ -49,7 +49,7 @@ namespace SFClientRecon
     {
         public const string PluginGuid = "com.stickfightdev.client-recon";
         public const string PluginName = "SFClientRecon";
-        public const string PluginVersion = "0.7.15";
+        public const string PluginVersion = "0.7.16";
 
         internal static ManualLogSource Log;
         // Verbose per-tick diagnostics OFF by default — they spammed the log and
@@ -131,6 +131,7 @@ namespace SFClientRecon
             Log = Logger;
             Instance = this;
             InstallDiagReport();   // first, so errors during install are reported too
+            Log.LogInfo("[xinput] " + SFShared.XInputLeakFix.Install(new Harmony(PluginGuid + ".xinput-leak")));
             if (StartedForServer()) InstallUnityConsoleTee();
             // v0.6.0 — track the current map scene (mirrors the oracle's
             // _currentMapSceneName). NSO ids are PER-MAP and collide while

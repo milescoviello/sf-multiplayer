@@ -57,9 +57,14 @@ namespace SFHeadlessHost
         private const int IdleFps = 15;
         private int _activeFpsCap = 100;
         private bool _idleCapped;
+        // A client that has only pinged doesn't count: the watchdog and monitor
+        // ping every lobby, and each ping kept it at the full cap until the
+        // client timed out (about a quarter of the time, measured 11-12). A real
+        // join's first other packet brings the cap back within 1/IdleFps s.
         private void TickIdleFrameCap()
         {
-            bool idle = _sfClients.Count == 0;
+            bool idle = true;
+            foreach (var kv in _sfClients) if (kv.Value.SentNonPing) { idle = false; break; }
             if (idle == _idleCapped) return;
             _idleCapped = idle;
             Application.targetFrameRate = idle ? IdleFps : _activeFpsCap;

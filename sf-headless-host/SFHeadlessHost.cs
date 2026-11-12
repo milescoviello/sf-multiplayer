@@ -66,7 +66,7 @@ namespace SFHeadlessHost
     {
         public const string PluginGuid = "com.stickfightdev.headless-host";
         public const string PluginName = "SFHeadlessHost";
-        public const string PluginVersion = "0.5.6";
+        public const string PluginVersion = "0.5.7";
 
         internal static ManualLogSource Log;
         internal static Plugin Instance;
@@ -258,8 +258,20 @@ namespace SFHeadlessHost
                     TryPatch(harmony, $"MusicHandler.{m} (prefix → skip: no music on the server)",
                         (object)musicType != null ? AccessTools.Method(musicType, m) : null,
                         prefix: nameof(SkipOnServerPrefix));
+                // The online build's Awake also starts TryStartMusic (and, with no
+                // built-in tracks, TryLoadMusic), which loads the first track and
+                // calls AudioSource.Play: the same call as the crash above, for music
+                // nobody hears. (Not the memory leak: a lobby with music on leaked at
+                // the same rate as one without, see shared/XInputLeakFix.cs.)
+                // SF_SERVER_MUSIC=1 lets it play.
+                if (Environment.GetEnvironmentVariable("SF_SERVER_MUSIC") != "1")
+                    foreach (var m in new[] { "TryStartMusic", "TryLoadMusic" })
+                        TryPatch(harmony, $"MusicHandler.{m} (prefix → empty coroutine: no music on the server)",
+                            (object)musicType != null ? AccessTools.Method(musicType, m) : null,
+                            prefix: nameof(EmptyCoroutinePrefix));
 
                 InstallGhostPlatformFixes(harmony);
+                Log.LogInfo("[xinput] " + SFShared.XInputLeakFix.Install(harmony));
 
                 var wsType = CachedType("WeaponSelectionHandler");
                 TryPatch(harmony, "WeaponSelectionHandler.GetRandomWeaponIndex (prefix → valid index)",

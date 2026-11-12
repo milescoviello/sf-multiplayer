@@ -241,6 +241,14 @@ namespace SFHeadlessHost
         private static System.Reflection.FieldInfo _nsoLastSnakeSendF;
         private static int _snakeTargetsSent;
         internal static bool SkipOnServerPrefix() => false;
+        // For coroutine methods (they return the IEnumerator StartCoroutine runs).
+        internal static bool EmptyCoroutinePrefix(ref System.Collections.IEnumerator __result) { __result = new EmptyCoroutine(); return false; }
+        private sealed class EmptyCoroutine : System.Collections.IEnumerator
+        {
+            public object Current { get { return null; } }
+            public bool MoveNext() { return false; }
+            public void Reset() { }
+        }
 
         internal static void SnakeAIUpdatePrefix(object __instance)
         {

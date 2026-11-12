@@ -14,6 +14,7 @@
     <!-- Shared Mono 2.0 attribute polyfills (single canonical copy in ../shared) -->
     <Compile Include="..\shared\Mono2Polyfills.cs" Link="Mono2Polyfills.cs" />
     <Compile Include="..\shared\MapObjectsDump.cs" Link="MapObjectsDump.cs" />
+    <Compile Include="..\shared\XInputLeakFix.cs" Link="XInputLeakFix.cs" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,3 +1,12 @@
+# What's new — 2026-11-12 (afternoon): the memory leak is fixed (client 0.7.16, server 0.5.7)
+
+- **Found the leak, and it's in the stock game.** XInputDotNet's `GamePad.GetState` allocates a 16-byte buffer on every call and never frees it, and InControl's XInput thread calls it for all four pad slots every 16 ms: 250 leaked allocations a second, controller or not. Measured on the server: 249 leaked heap blocks a second in every lobby (the same at 15 and 39 fps), 2.95 million blocks (94 MB) in a lobby up 3 h 17 min; the unmodified game with no mods leaked at the same rate, and 0 with its XInput DLL removed. On Windows (current Steam build) the fix took about 25 MB/h off the game's private memory. Both plugins now free the buffer (`shared/XInputLeakFix.cs`, a transpiler that skips the method if it already frees), so players' games stop leaking too. The fix is also published on its own for anyone playing the game: [stick-fight-xinput-leak-fix](https://github.com/milescoviello/stick-fight-xinput-leak-fix).
+- **Not the cause, ruled out along the way:** frame rate, the Steam emulator's networking (it did leak a little separately: adapter names, about one a minute), Wine's audio, and the game's music.
+- **Idle lobbies stay at 15 fps.** The watchdog's and monitor's health pings counted as "someone connected" until they timed out, which kept each idle lobby at the full frame cap about a quarter of the time. A client that has only pinged no longer counts.
+- **Server: the online build's startup music isn't played** (`TryStartMusic`/`TryLoadMusic`), like the other music the server already skipped; `SF_SERVER_MUSIC=1` plays it.
+- Test aids on the server bridge: `mem`, `objtypes`, `audio`.
+- The 20 h idle restart from this morning stays as a safety net.
+
 # What's new — 2026-11-12: lobbies restart themselves while empty (server ops)
 
 - **Idle lobbies grew ~30 MB an hour** (measured: four lobbies with nobody in them, +15 MB each per 30 min; MAIN went from 466 MB fresh to 902 MB after 15.5 h). The server VM has 8 GB and no swap, so all four together would have run it out of memory about a day after a restart; the headless game also has a native crash at ~24 h of uptime (notes/CRASH_INVESTIGATION.md). Only MAIN had a restart (a blind 23 h one); COMP, CASUAL and REPLAY had none.
