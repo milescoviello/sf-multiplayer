@@ -1,0 +1,12 @@
+# Oneshot run by sf-lobby-idle-restart.timer: restarts a long-running lobby
+# while it's empty (see sf-lobby-idle-restart.sh).
+# Install at: /etc/systemd/system/sf-lobby-idle-restart.service
+[Unit]
+Description=Restart long-running Stick Fight lobbies while nobody is in them
+Documentation=https://github.com/milescoviello/sf-multiplayer
+After=sf-router.service
+
+[Service]
+Type=oneshot
+ExecStart=/home/miles/sf-multiplayer/deploy/sf-lobby-idle-restart.sh
+Nice=10

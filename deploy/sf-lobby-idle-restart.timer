@@ -1,0 +1,14 @@
+# Install at: /etc/systemd/system/sf-lobby-idle-restart.timer  then:
+#   systemctl daemon-reload && systemctl enable --now sf-lobby-idle-restart.timer
+[Unit]
+Description=Check every 15 minutes for long-running empty Stick Fight lobbies
+Documentation=https://github.com/milescoviello/sf-multiplayer
+
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=15min
+AccuracySec=1min
+Unit=sf-lobby-idle-restart.service
+
+[Install]
+WantedBy=timers.target

@@ -1,3 +1,8 @@
+# What's new — 2026-11-12: lobbies restart themselves while empty (server ops)
+
+- **Idle lobbies grew ~30 MB an hour** (measured: four lobbies with nobody in them, +15 MB each per 30 min; MAIN went from 466 MB fresh to 902 MB after 15.5 h). The server VM has 8 GB and no swap, so all four together would have run it out of memory about a day after a restart; the headless game also has a native crash at ~24 h of uptime (notes/CRASH_INVESTIGATION.md). Only MAIN had a restart (a blind 23 h one); COMP, CASUAL and REPLAY had none.
+- **`sf-lobby-idle-restart.timer`** (every 15 min) restarts an always-on lobby that has run 20 h, only while the router shows nobody in it, one lobby per run. A 23.5 h `RuntimeMaxSec` drop-in on `sf-lobby@` is the backstop. Tested on the server: MAIN, 15 h up and empty, restarted and came back serving.
+
 # What's new — 2026-11-11 (evening): kills show at once, Halloween platforms, map resets (client 0.7.15, server 0.5.6)
 
 From the morning COMP match and Cheese's list:

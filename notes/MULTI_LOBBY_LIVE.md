@@ -111,6 +111,10 @@ SF_LOBBIES_DIR=/tmp/sf-lobbies ./stop-lobby.sh CODE            # stop one
 curl -X POST -H "X-SF-Token: $TOK" localhost:8080/lobbies
 ```
 
+- **Long-running lobbies restart while empty:** `deploy/sf-lobby-idle-restart.{sh,service,timer}`
+  (every 15 min: a static lobby up 20 h with 0 router flows is restarted, one per run),
+  plus a 23.5 h `RuntimeMaxSec` backstop in `deploy/sf-lobby@.service.d/restart-daily.conf`
+  (MAIN keeps its own 23 h one). Idle lobbies grow ~30 MB/h; the VM has no swap.
 - **MAIN** auto-recovers on oracle restart/reboot (drop-in
   `deploy/sf-oracle.service.d/lobby-register.conf` re-writes `MAIN.conf` via
   `register-main-lobby.sh`).
